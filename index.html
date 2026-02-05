@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analyse IA Userneeds - Franceinfo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=12">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎯 Analyse IA des Userneeds</h1>
+            <div class="header-actions">
+                <label for="fileInput" class="header-btn upload-btn" title="Sélectionner un fichier Excel">
+                    📁 Fichier
+                </label>
+                <input type="file" id="fileInput" accept=".xlsx" style="display: none;" />
+                <button id="resetBtn" class="header-btn reset-btn" title="Réinitialiser" style="display: none;">🔄 Réinitialiser</button>
+                <button id="settingsBtn" class="header-btn prompts-btn" title="Gérer les prompts">PROMPTS</button>
+                <button id="analyzeBtn" class="header-btn analyze-btn" style="display: none;">Analyse IA</button>
+                <button id="stopBtn" class="header-btn stop-btn" style="display: none;">⏹ Stop</button>
+            </div>
+            <p>Classification automatique des articles Franceinfo avec Claude AI</p>
+        </header>
+
+        <div id="statsContainer" class="stats-container" style="display: none;">
+            <div class="confusion-matrix-wrapper">
+                <div class="matrix-section">
+                    <h3>Matrice de confusion</h3>
+                    <div class="matrix-container">
+                        <div class="matrix-with-y-labels">
+                            <div class="label-title-y">Catégorie source</div>
+                            <div class="matrix-y-with-grid">
+                                <div class="matrix-y-labels">
+                                    <div class="y-label">Update me</div>
+                                    <div class="y-label">Explain me</div>
+                                    <div class="y-label">Give me perspective</div>
+                                    <div class="y-label">Give me a break</div>
+                                    <div class="y-label">Concerning news</div>
+                                    <div class="y-label">Inspire me</div>
+                                    <div class="y-label">Make me feel</div>
+                                    <div class="y-label">Reveal news</div>
+                                </div>
+                                <div class="matrix-grid-wrapper">
+                                    <div id="confusionMatrix" class="matrix-grid"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="matrix-x-wrapper">
+                            <div class="matrix-x-labels">
+                                <div class="x-label">Update me</div>
+                                <div class="x-label">Explain me</div>
+                                <div class="x-label">Give me perspective</div>
+                                <div class="x-label">Give me a break</div>
+                                <div class="x-label">Concerning news</div>
+                                <div class="x-label">Inspire me</div>
+                                <div class="x-label">Make me feel</div>
+                                <div class="x-label">Reveal news</div>
+                            </div>
+                            <div class="label-title-x">Prédiction IA</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="stats-section">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
+                        <h3>Statistiques détaillées</h3>
+                        <button id="exportBtn" class="export-btn" style="margin-top: -5px;">📊 Exporter</button>
+                    </div>
+                    <div class="stats-box">
+                        <div class="stat-title">Total d'articles : <span id="totalArticles">0</span></div>
+                        <div class="stat-item">Articles concordants : <span id="concordantCount">0</span> (<span id="concordantPercent">0%</span>)</div>
+                        <div class="stat-item">Articles reclassifiés : <span id="reclassifiedCount">0</span> (<span id="reclassifiedPercent">0%</span>)</div>
+                    </div>
+                    <div class="stats-box">
+                        <div class="stat-subtitle">Distribution par catégorie source</div>
+                        <div id="sourceDistribution"></div>
+                    </div>
+                    <div class="stats-box">
+                        <div class="stat-subtitle">Distribution par prédiction IA</div>
+                        <div id="predictionDistribution"></div>
+                    </div>
+                    <div class="stats-box">
+                        <div class="stat-subtitle">Top 5 reclassifications</div>
+                        <div id="topReclassifications"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="fileName" class="file-name" style="text-align: center; margin: 20px 0; display: none;"></div>
+
+        <div id="progress" class="progress-container" style="display: none;">
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill"></div>
+            </div>
+            <p id="progressText" class="progress-text">Analyse en cours...</p>
+        </div>
+
+        <div id="tableContainer" class="table-container" style="display: none;">
+            <div class="table-header">
+                <h2 id="tableTitle">Contenu du fichier</h2>
+                <button id="clearBtn" class="clear-btn">Nouveau fichier</button>
+            </div>
+            <div class="table-wrapper">
+                <table id="dataTable">
+                    <thead id="tableHead"></thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="error" class="error" style="display: none;"></div>
+    </div>
+
+    <!-- Panneau de gestion des prompts -->
+    <div id="promptPanel" class="prompt-panel">
+        <div class="prompt-panel-backdrop"></div>
+        <div class="prompt-panel-content">
+            <div class="prompt-panel-header">
+                <h2>📝 Gestion des Prompts</h2>
+                <button id="closePanelBtn" class="close-panel-btn">✕</button>
+            </div>
+
+            <div class="prompt-panel-actions">
+                <button id="createPromptBtn" class="action-btn create-btn">
+                    <span>➕</span> Nouveau prompt
+                </button>
+                <button id="importPromptsBtn" class="action-btn import-btn">
+                    <span>📥</span> Importer
+                </button>
+                <button id="exportPromptsBtn" class="action-btn export-btn">
+                    <span>📤</span> Exporter
+                </button>
+            </div>
+
+            <div class="prompt-list-container">
+                <h3>Prompts disponibles (<span id="promptCount">0</span>)</h3>
+                <div id="promptList" class="prompt-list">
+                    <!-- Liste générée dynamiquement par JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal pour créer/éditer un prompt -->
+    <div id="promptModal" class="prompt-modal">
+        <div class="prompt-modal-backdrop"></div>
+        <div class="prompt-modal-content">
+            <div class="prompt-modal-header">
+                <h2 id="modalTitle">Nouveau prompt</h2>
+                <button id="closeModalBtn" class="close-modal-btn">✕</button>
+            </div>
+
+            <div class="prompt-modal-body">
+                <div class="form-group">
+                    <label for="promptName">Nom du prompt *</label>
+                    <input type="text" id="promptName" placeholder="Ex: Analyse éditoriale avancée" maxlength="100">
+                </div>
+
+                <div class="form-group">
+                    <label for="promptDescription">Description</label>
+                    <textarea id="promptDescription" placeholder="Description du prompt..." rows="2" maxlength="500"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="promptRole">#ROLE *</label>
+                    <textarea id="promptRole" placeholder="Tu es un expert..." rows="3"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="promptVision">#VISION (optionnel)</label>
+                    <textarea id="promptVision" placeholder="La vision éditoriale..." rows="3"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="promptDefinitions">#DÉFINITIONS DES USERNEEDS *</label>
+                    <textarea id="promptDefinitions" placeholder="1. UPDATE ME : ..." rows="6"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="promptTask">#TÂCHE *</label>
+                    <textarea id="promptTask" placeholder="Analyse cet article..." rows="3"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Champs requis : *</label>
+                    <p class="help-text">Les sections #ROLE, #DÉFINITIONS et #TÂCHE sont obligatoires</p>
+                </div>
+            </div>
+
+            <div class="prompt-modal-footer">
+                <button id="cancelModalBtn" class="btn-secondary">Annuler</button>
+                <button id="savePromptBtn" class="btn-primary">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Input caché pour import de fichier -->
+    <input type="file" id="importFileInput" accept=".json" style="display: none;">
+
+    <!-- Modal pour voir la justification IA -->
+    <div id="reasoningModal" class="reasoning-modal">
+        <div class="reasoning-modal-backdrop"></div>
+        <div class="reasoning-modal-content">
+            <div class="reasoning-modal-header">
+                <h2>🤖 Justification IA</h2>
+                <button id="closeReasoningBtn" class="close-modal-btn">✕</button>
+            </div>
+            <div class="reasoning-modal-body">
+                <div class="reasoning-result">
+                    <div class="reasoning-userneed-badge" id="reasoningUserneedBadge"></div>
+                    <div class="reasoning-justification">
+                        <h4>Justification:</h4>
+                        <p id="reasoningText"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast notification container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="script.js?v=10"></script>
+</body>
+</html>

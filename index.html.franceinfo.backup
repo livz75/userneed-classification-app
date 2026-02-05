@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analyse IA Userneeds - Franceinfo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=11">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>🎯 Analyse IA des Userneeds</h1>
+            <p>Classification automatique des articles Franceinfo avec Claude AI</p>
+        </div>
+        <button id="settingsBtn" class="settings-btn" title="Gérer les prompts">⚙️</button>
+    </header>
+
+    <div class="container">
+        <!-- Upload Section -->
+        <div class="upload-container">
+            <div class="upload-area">
+                <label for="fileInput" class="file-label">
+                    📁 Choisir un fichier Excel
+                </label>
+                <input type="file" id="fileInput" accept=".xlsx" />
+                <p>Formats acceptés : .xlsx</p>
+            </div>
+            <div id="fileName"></div>
+            <button id="clearBtn" style="display: none;">🔄 Nouveau fichier</button>
+        </div>
+
+        <!-- API Section -->
+        <div id="apiSection" class="api-container" style="display: none;">
+            <h2>🔑 Configuration API Claude</h2>
+            <div class="api-input-group">
+                <input type="password" id="apiKey" placeholder="Entrez votre clé API Anthropic" />
+                <button id="analyzeBtn">▶️ Analyser</button>
+            </div>
+            <button id="stopBtn" style="display: none;">⏹ Stop</button>
+            <div id="progress" style="display: none;">
+                <div class="progress-bar">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
+                <p id="progressText" class="progress-text">Analyse en cours...</p>
+            </div>
+        </div>
+
+        <!-- Table Container -->
+        <div id="tableContainer" style="display: none;">
+            <h2 id="tableTitle">Contenu du fichier</h2>
+            <div class="table-wrapper">
+                <table id="dataTable">
+                    <thead id="tableHead"></thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Statistics Container -->
+        <div id="statsContainer" style="display: none;">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total d'articles</h3>
+                    <div class="stat-value" id="totalArticles">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Concordants</h3>
+                    <div class="stat-value" id="concordantCount">0</div>
+                    <div class="stat-label"><span id="concordantPercent">0%</span></div>
+                </div>
+                <div class="stat-card">
+                    <h3>Reclassifiés</h3>
+                    <div class="stat-value" id="reclassifiedCount">0</div>
+                    <div class="stat-label"><span id="reclassifiedPercent">0%</span></div>
+                </div>
+            </div>
+
+            <div class="confusion-matrix-container">
+                <h2>📊 Matrice de confusion</h2>
+                <div id="confusionMatrix" class="matrix-grid"></div>
+            </div>
+
+            <button id="exportBtn">📥 Exporter les résultats</button>
+        </div>
+
+        <!-- Error Message -->
+        <div id="error" style="display: none;"></div>
+    </div>
+
+    <!-- Prompt Management Panel -->
+    <div id="promptPanel" class="prompt-panel">
+        <div class="prompt-panel-backdrop"></div>
+        <div class="prompt-panel-content">
+            <div class="prompt-panel-header">
+                <h2>📝 Gestion des Prompts</h2>
+                <button id="closePanelBtn" class="close-panel-btn">✕</button>
+            </div>
+
+            <div class="prompt-panel-actions">
+                <button id="createPromptBtn" class="action-btn create-btn">➕ Nouveau</button>
+                <button id="importPromptsBtn" class="action-btn import-btn">📥 Importer</button>
+                <button id="exportPromptsBtn" class="action-btn export-btn">📤 Exporter</button>
+            </div>
+
+            <div class="prompt-list-container">
+                <h3>Prompts disponibles (<span id="promptCount">0</span>)</h3>
+                <div id="promptList" class="prompt-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prompt Edit Modal -->
+    <div id="promptModal" class="prompt-modal">
+        <div class="prompt-modal-backdrop"></div>
+        <div class="prompt-modal-content">
+            <div class="prompt-modal-header">
+                <h2 id="modalTitle">Nouveau prompt</h2>
+                <button id="closeModalBtn" class="close-modal-btn">✕</button>
+            </div>
+
+            <div class="prompt-modal-body">
+                <div class="form-group">
+                    <label for="promptName">Nom du prompt *</label>
+                    <input type="text" id="promptName" placeholder="Ex: Analyse éditoriale avancée" maxlength="100">
+                </div>
+
+                <div class="form-group">
+                    <label for="promptDescription">Description</label>
+                    <textarea id="promptDescription" placeholder="Description du prompt..." rows="2"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="promptRole">#ROLE *</label>
+                    <textarea id="promptRole" placeholder="Tu es un expert..." rows="3"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="promptVision">#VISION (optionnel)</label>
+                    <textarea id="promptVision" placeholder="La vision éditoriale..." rows="3"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="promptDefinitions">#DÉFINITIONS DES USERNEEDS *</label>
+                    <textarea id="promptDefinitions" placeholder="1. UPDATE ME : ..." rows="6"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="promptTask">#TÂCHE *</label>
+                    <textarea id="promptTask" placeholder="Analyse cet article..." rows="3"></textarea>
+                </div>
+
+                <p class="help-text">* Champs obligatoires</p>
+            </div>
+
+            <div class="prompt-modal-footer">
+                <button id="cancelModalBtn" class="btn-secondary">Annuler</button>
+                <button id="savePromptBtn" class="btn-primary">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import File Input -->
+    <input type="file" id="importFileInput" accept=".json" style="display: none;">
+
+    <!-- Reasoning Modal -->
+    <div id="reasoningModal" class="reasoning-modal">
+        <div class="reasoning-modal-backdrop"></div>
+        <div class="reasoning-modal-content">
+            <div class="reasoning-modal-header">
+                <h2>🤖 Justification IA</h2>
+                <button id="closeReasoningBtn" class="close-modal-btn">✕</button>
+            </div>
+            <div class="reasoning-modal-body">
+                <div class="reasoning-article-info">
+                    <div class="reasoning-info-item">
+                        <span class="label">Article:</span>
+                        <span id="reasoningArticleNum"></span>
+                    </div>
+                    <div class="reasoning-info-item">
+                        <span class="label">Titre:</span>
+                        <span id="reasoningArticleTitle"></span>
+                    </div>
+                    <div class="reasoning-info-item">
+                        <span class="label">URL:</span>
+                        <a id="reasoningArticleUrl" href="#" target="_blank"></a>
+                    </div>
+                </div>
+                <div class="reasoning-divider"></div>
+                <div class="reasoning-result">
+                    <div class="reasoning-userneed-badge" id="reasoningUserneedBadge"></div>
+                    <div class="reasoning-justification">
+                        <h4>Justification:</h4>
+                        <p id="reasoningText"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="script.js?v=10"></script>
+</body>
+</html>

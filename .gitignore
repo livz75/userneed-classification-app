@@ -1,0 +1,9 @@
+# Clé API - Ne jamais commiter ce fichier
+config.json
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

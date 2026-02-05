@@ -1,0 +1,108 @@
+╔═══════════════════════════════════════════════════════════════════╗
+║          APP QUALIF USER NEEDS - FRANCE TÉLÉVISIONS              ║
+║                     VERSION STABLE 1.0                            ║
+╚═══════════════════════════════════════════════════════════════════╝
+
+📅 DATE DU BACKUP : 5 février 2026, 17:37
+🏷️  VERSION : v1.0-stable
+🔖 COMMIT GIT : e2654fa
+🌿 BRANCHE : main (backup: backup-before-openrouter)
+
+═══════════════════════════════════════════════════════════════════
+
+✅ FONCTIONNALITÉS INCLUSES
+
+• Upload de fichiers Excel (.xlsx)
+• Analyse IA avec Claude (API Anthropic via proxy)
+• Module PROMPTS complet
+  - Gestion de prompts personnalisés
+  - Duplication, édition, suppression
+  - Activation/désactivation
+  - Boutons stylisés avec feedback visuel
+• Header réorganisé
+  - Bouton "📁 Fichier" (upload)
+  - Bouton "🔄 Réinitialiser"
+  - Bouton "PROMPTS" (violet)
+  - Bouton "Analyse IA" (bleu)
+  - Bouton "⏹ Stop" (rouge, affiché pendant analyse)
+• Parsing amélioré des justifications IA
+  - Support multi-patterns (justification/explication/raisonnement)
+  - Extraction avant et après le userneed
+• Colonne "User Need attribué" renommée
+• Statistiques détaillées
+  - Distribution par catégorie source
+  - Distribution par prédiction IA
+  - Matrice de confusion
+  - Top 5 des reclassifications
+• Export Excel des résultats
+• Modals avec affichage immédiat (flexbox + z-index)
+
+═══════════════════════════════════════════════════════════════════
+
+📦 FICHIERS DE BACKUP
+
+1. Archive ZIP :
+   📁 /Users/livioricci/Documents/FRANCETV/
+      App_qualif_user_needs_BACKUP_20260205_173742.zip
+
+2. Repository Git :
+   🔖 Tag : v1.0-stable
+   🌿 Branche : backup-before-openrouter
+
+3. Documentation :
+   📄 /Users/livioricci/Documents/FRANCETV/BACKUP_README.md
+   📜 /Users/livioricci/Documents/FRANCETV/RESTORE_BACKUP.sh
+
+═══════════════════════════════════════════════════════════════════
+
+🔄 COMMENT RESTAURER CE BACKUP
+
+Méthode 1 - Via script automatique :
+  cd /Users/livioricci/Documents/FRANCETV
+  ./RESTORE_BACKUP.sh
+
+Méthode 2 - Via Git :
+  cd "/Users/livioricci/Documents/FRANCETV/App qualif user needs"
+  git checkout v1.0-stable
+
+Méthode 3 - Via ZIP manuel :
+  1. Décompresser : App_qualif_user_needs_BACKUP_20260205_173742.zip
+  2. Remplacer le dossier actuel par le contenu de l'archive
+
+═══════════════════════════════════════════════════════════════════
+
+🚀 PROCHAINES ÉTAPES
+
+Module LLM avec Open Router :
+  • Créer LLMManager (similaire à PromptManager)
+  • Ajouter bouton "🤖 LLM" dans le header
+  • Panel de sélection de modèles LLM
+  • Support multi-fournisseurs :
+    - Anthropic (Claude)
+    - OpenAI (GPT)
+    - Google (Gemini)
+    - Mistral AI
+    - Meta (Llama)
+  • Remplacer proxy direct Anthropic par Open Router
+  • Gestion clé API Open Router
+
+═══════════════════════════════════════════════════════════════════
+
+⚠️  IMPORTANT
+
+• Ce backup a été créé AVANT l'intégration d'Open Router
+• Cette version fonctionne avec l'API Claude directe
+• Tous les tests ont été validés et sont passants
+• Cette version est considérée comme STABLE et PRODUCTION READY
+
+═══════════════════════════════════════════════════════════════════
+
+📧 CONTACT
+
+Développeur : Livio RICCI
+Projet : Analyse IA des Userneeds - France Télévisions
+Organisation : Franceinfo
+
+═══════════════════════════════════════════════════════════════════
+
+🎯 Ce fichier prouve que vous avez une version stable sauvegardée !

@@ -19,6 +19,20 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_response(200)
         self.end_headers()
 
+    def do_GET(self):
+        if self.path == '/api/health':
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                'status': 'ok',
+                'timestamp': int(__import__('time').time() * 1000),
+                'model': 'claude-3-haiku-20240307'
+            }).encode('utf-8'))
+            return
+        else:
+            super().do_GET()
+
     def do_POST(self):
         if self.path == '/api/claude':
             content_length = int(self.headers['Content-Length'])
@@ -33,7 +47,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 api_url = 'https://api.anthropic.com/v1/messages'
                 api_data = json.dumps({
                     'model': 'claude-3-haiku-20240307',
-                    'max_tokens': 100,
+                    'max_tokens': 1024,
                     'messages': [{
                         'role': 'user',
                         'content': prompt

@@ -14,10 +14,72 @@ const progressText = document.getElementById('progressText');
 const stopBtn = document.getElementById('stopBtn');
 const statsContainer = document.getElementById('statsContainer');
 const exportBtn = document.getElementById('exportBtn');
+const themeToggle = document.getElementById('themeToggle');
 
 let currentData = null;
 let stopAnalysis = false;
 let articleResults = []; // Stockage global des résultats d'analyse
+
+// Variables pour le filtrage de la matrice
+let matrixFilter = {
+    active: false,
+    sourceUserneed: null,
+    predictionUserneed: null,
+    selectedCellIndex: null
+};
+
+// ===================================
+// HEALTH CHECK DU SERVEUR
+// ===================================
+
+/**
+ * Vérifie que le serveur proxy local est actif et fonctionnel
+ * Affiche une alerte si le serveur n'est pas accessible
+ */
+async function checkServerHealth() {
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+        const response = await fetch('/api/health', {
+            method: 'GET',
+            signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+            const data = await response.json();
+            console.log('✅ Serveur proxy détecté et fonctionnel');
+            console.log(`📦 Modèle configuré : ${data.model}`);
+            return true;
+        } else {
+            throw new Error(`Status ${response.status}`);
+        }
+    } catch (error) {
+        console.error('❌ Serveur proxy non accessible:', error.message);
+
+        // Afficher une alerte visuelle à l'utilisateur
+        const errorDiv = document.getElementById('error');
+        if (errorDiv) {
+            errorDiv.style.display = 'block';
+            errorDiv.innerHTML = `
+                <div style="background: rgba(239, 68, 68, 0.1); border: 2px solid var(--accent-red); border-radius: 12px; padding: 20px; margin: 20px 0;">
+                    <h3 style="color: var(--accent-red); margin-top: 0;">⚠️ SERVEUR NON DÉMARRÉ</h3>
+                    <p style="margin-bottom: 15px;">Le serveur local doit être lancé pour utiliser cette application.</p>
+                    <p style="font-weight: 600; margin-bottom: 10px;">Ouvrez un terminal et exécutez :</p>
+                    <pre style="background: var(--bg-darker); padding: 15px; border-radius: 8px; overflow-x: auto;">cd "/Users/livioricci/Documents/FRANCETV/App qualif user needs"
+python3 server.py</pre>
+                    <p style="margin-top: 15px; font-size: 0.9em; color: var(--text-secondary);">
+                        💡 Une fois le serveur démarré, rechargez cette page.
+                    </p>
+                </div>
+            `;
+        }
+
+        return false;
+    }
+}
 
 // Les 8 userneeds dans l'ordre
 const USERNEEDS = [
@@ -56,21 +118,67 @@ function normalizeUserneed(userneed) {
 function parseAIResponse(responseText) {
     const text = responseText.trim();
 
-    // Méthode 1: Chercher un userneed valide en premier
+    // Regex universelle pour capturer tous les formats possibles:
+    // Format 1: "Le userneed principal est GIVE ME CONCERNING NEWS, avec un score de 50."
+    // Format 2: "Userneed principal : UPDATE ME (80 points)"
+    // Format 3: "Userneed principal : GIVE CONCERNING NEWS (score : 60)"
+    // Format 4: "Userneed principal : REVEAL NEWS (score 70)"
+
+    let principalMatch = text.match(/userneed\s+principal\s*(?:est\s+|:\s*)([A-Z\s]+?)[\s,]*(?:avec\s+un\s+score\s+de\s+|\(score\s*:?\s*|\()(\d+)/i);
+    let secondaireMatch = text.match(/userneed\s+secondaire\s*(?:est\s+|:\s*)([A-Z\s]+?)[\s,]*(?:avec\s+un\s+score\s+de\s+|\(score\s*:?\s*|\()(\d+)/i);
+    let tertiaireMatch = text.match(/userneed\s+tertiaire\s*(?:est\s+|:\s*)([A-Z\s]+?)[\s,]*(?:avec\s+un\s+score\s+de\s+|\(score\s*:?\s*|\()(\d+)/i);
+
+    // Extraire les justifications (uniquement le texte après "JUSTIFICATION :")
+    const principalJustMatch = text.match(/USERNEED\s+PRINCIPAL[^\n]*\n\s*JUSTIFICATION\s*:\s*([^\n]+)/i);
+    const secondaireJustMatch = text.match(/USERNEED\s+SECONDAIRE[^\n]*\n\s*JUSTIFICATION\s*:\s*([^\n]+)/i);
+    const tertiaireJustMatch = text.match(/USERNEED\s+TERTIAIRE[^\n]*\n\s*JUSTIFICATION\s*:\s*([^\n]+)/i);
+
+    // Valider et normaliser les userneeds
     const validUserneeds = USERNEEDS.join('|').replace(/\s+/g, '\\s+');
+    const validateUserneed = (name) => {
+        if (!name) return null;
+        const regex = new RegExp(`(${validUserneeds})`, 'i');
+        const match = name.trim().match(regex);
+        return match ? match[1].toUpperCase().trim() : null;
+    };
+
+    // Si on a trouvé les 3 userneeds, retourner la nouvelle structure
+    if (principalMatch || secondaireMatch || tertiaireMatch) {
+        return {
+            predictions: [
+                {
+                    userneed: validateUserneed(principalMatch?.[1]) || 'N/A',
+                    score: parseInt(principalMatch?.[2] || 0),
+                    rank: 'principal',
+                    justification: principalJustMatch?.[1]?.trim() || ''
+                },
+                {
+                    userneed: validateUserneed(secondaireMatch?.[1]) || 'N/A',
+                    score: parseInt(secondaireMatch?.[2] || 0),
+                    rank: 'secondaire',
+                    justification: secondaireJustMatch?.[1]?.trim() || ''
+                },
+                {
+                    userneed: validateUserneed(tertiaireMatch?.[1]) || 'N/A',
+                    score: parseInt(tertiaireMatch?.[2] || 0),
+                    rank: 'tertiaire',
+                    justification: tertiaireJustMatch?.[1]?.trim() || ''
+                }
+            ],
+            justification: principalJustMatch?.[1]?.trim() || '',
+            hasJustification: !!principalJustMatch?.[1]
+        };
+    }
+
+    // FALLBACK: Ancien format (pour compatibilité avec anciens articles)
     const userneedRegex = new RegExp(`(${validUserneeds})`, 'i');
     const userneedMatch = text.match(userneedRegex);
 
     if (userneedMatch) {
         const userneed = userneedMatch[1].trim();
-
-        // Position du userneed dans le texte
         const userneedIndex = text.indexOf(userneedMatch[0]);
-
-        // Chercher une justification après le userneed avec plusieurs patterns possibles
         const afterUserneed = text.substring(userneedIndex + userneedMatch[0].length).trim();
 
-        // Pattern 1: Justification explicite avec "justification:", "raisonnement:", etc.
         const explicitJustifRegex = /(?:justification|raisonnement|explication|raison|analyse)\s*:?\s*(.+)/is;
         const explicitMatch = afterUserneed.match(explicitJustifRegex);
 
@@ -82,7 +190,6 @@ function parseAIResponse(responseText) {
             };
         }
 
-        // Pattern 2: Tout ce qui suit le userneed (si plus de 20 caractères, c'est probablement une justification)
         if (afterUserneed.length > 20) {
             return {
                 userneed: userneed,
@@ -91,7 +198,6 @@ function parseAIResponse(responseText) {
             };
         }
 
-        // Pattern 3: Chercher avant le userneed (au cas où la justification précède)
         const beforeUserneed = text.substring(0, userneedIndex).trim();
         if (beforeUserneed.length > 20) {
             return {
@@ -101,7 +207,6 @@ function parseAIResponse(responseText) {
             };
         }
 
-        // Userneed trouvé mais pas de justification substantielle
         return {
             userneed: userneed,
             justification: null,
@@ -109,7 +214,6 @@ function parseAIResponse(responseText) {
         };
     }
 
-    // Fallback: toute la réponse comme userneed
     return {
         userneed: text,
         justification: null,
@@ -428,6 +532,12 @@ document.addEventListener('DOMContentLoaded', () => {
             closeReasoningModal();
         }
     });
+
+    // Initialiser le thème
+    initTheme();
+
+    // Vérifier que le serveur proxy est actif
+    checkServerHealth();
 });
 
 function handleFileUpload(event) {
@@ -587,6 +697,10 @@ function initConfusionMatrix() {
         cell.className = 'matrix-cell';
         cell.textContent = '0';
         cell.dataset.index = i;
+
+        // Ajouter l'event listener pour le filtrage
+        cell.addEventListener('click', () => handleMatrixCellClick(i));
+
         matrixGrid.appendChild(cell);
     }
 }
@@ -655,6 +769,313 @@ function updateConfusionMatrixDisplay() {
     });
 }
 
+/**
+ * Gère le clic sur une cellule de la matrice de confusion
+ * Active ou désactive le filtrage du tableau
+ */
+function handleMatrixCellClick(cellIndex) {
+    const rowIndex = Math.floor(cellIndex / 8);
+    const colIndex = cellIndex % 8;
+
+    const sourceUserneed = USERNEEDS[rowIndex];
+    const predictionUserneed = USERNEEDS[colIndex];
+
+    // Si on clique sur la même cellule, désactiver le filtre
+    if (matrixFilter.active && matrixFilter.selectedCellIndex === cellIndex) {
+        clearMatrixFilter();
+        return;
+    }
+
+    // Activer le nouveau filtre
+    matrixFilter.active = true;
+    matrixFilter.sourceUserneed = sourceUserneed;
+    matrixFilter.predictionUserneed = predictionUserneed;
+    matrixFilter.selectedCellIndex = cellIndex;
+
+    // Mettre à jour l'affichage
+    updateMatrixFilterVisual();
+    filterTableByMatrix();
+
+    console.log(`🔍 Filtre activé: ${sourceUserneed} → ${predictionUserneed}`);
+}
+
+/**
+ * Désactive le filtre de la matrice
+ */
+function clearMatrixFilter() {
+    matrixFilter.active = false;
+    matrixFilter.sourceUserneed = null;
+    matrixFilter.predictionUserneed = null;
+    matrixFilter.selectedCellIndex = null;
+
+    updateMatrixFilterVisual();
+    filterTableByMatrix(); // Réaffiche tous les articles
+
+    console.log('🔄 Filtre désactivé - Affichage de tous les articles');
+}
+
+/**
+ * Met à jour l'apparence visuelle de la matrice (cellule sélectionnée)
+ */
+function updateMatrixFilterVisual() {
+    const cells = document.querySelectorAll('.matrix-cell');
+
+    cells.forEach((cell, index) => {
+        if (matrixFilter.active && index === matrixFilter.selectedCellIndex) {
+            cell.classList.add('matrix-cell-selected');
+        } else {
+            cell.classList.remove('matrix-cell-selected');
+        }
+    });
+
+    // Afficher/masquer l'indicateur de filtre
+    updateFilterIndicator();
+}
+
+/**
+ * Affiche ou masque l'indicateur de filtre actif
+ */
+function updateFilterIndicator() {
+    let indicator = document.getElementById('matrixFilterIndicator');
+
+    if (matrixFilter.active) {
+        if (!indicator) {
+            // Créer l'indicateur s'il n'existe pas
+            indicator = document.createElement('div');
+            indicator.id = 'matrixFilterIndicator';
+            indicator.className = 'filter-indicator';
+
+            // Insérer avant le tableau
+            const tableContainer = document.getElementById('tableContainer');
+            tableContainer.parentNode.insertBefore(indicator, tableContainer);
+        }
+
+        const sourceNormalized = normalizeUserneed(matrixFilter.sourceUserneed);
+        const predNormalized = normalizeUserneed(matrixFilter.predictionUserneed);
+        const count = articleResults.filter(a =>
+            normalizeUserneed(a.expectedUserneed) === sourceNormalized &&
+            normalizeUserneed(a.predictedUserneed) === predNormalized
+        ).length;
+
+        indicator.innerHTML = `
+            <span class="filter-icon">🔍</span>
+            <span class="filter-text">
+                Filtre actif : <strong>${matrixFilter.sourceUserneed}</strong> → <strong>${matrixFilter.predictionUserneed}</strong>
+                (${count} article${count > 1 ? 's' : ''})
+            </span>
+            <button class="filter-clear-btn" onclick="clearMatrixFilter()">✕ Réinitialiser</button>
+        `;
+        indicator.style.display = 'flex';
+    } else {
+        if (indicator) {
+            indicator.style.display = 'none';
+        }
+    }
+}
+
+/**
+ * Filtre le tableau selon la sélection de la matrice
+ */
+function filterTableByMatrix() {
+    const tableBody = document.getElementById('tableBody');
+    tableBody.innerHTML = ''; // Vider le tableau
+
+    // Déterminer quels articles afficher
+    let articlesToShow = articleResults;
+
+    if (matrixFilter.active) {
+        const sourceNormalized = normalizeUserneed(matrixFilter.sourceUserneed);
+        const predNormalized = normalizeUserneed(matrixFilter.predictionUserneed);
+
+        articlesToShow = articleResults.filter(article => {
+            const articleSource = normalizeUserneed(article.expectedUserneed);
+            const articlePred = normalizeUserneed(article.predictedUserneed);
+            return articleSource === sourceNormalized && articlePred === predNormalized;
+        });
+    }
+
+    // Régénérer les lignes du tableau
+    articlesToShow.forEach(article => {
+        const tr = createTableRow(article);
+        tableBody.appendChild(tr);
+    });
+
+    // Si aucun article trouvé
+    if (articlesToShow.length === 0 && matrixFilter.active) {
+        const emptyRow = document.createElement('tr');
+        emptyRow.innerHTML = `
+            <td colspan="5" style="text-align: center; padding: 40px; color: #9ca3af; font-style: italic;">
+                Aucun article ne correspond à ce filtre
+            </td>
+        `;
+        tableBody.appendChild(emptyRow);
+    }
+}
+
+/**
+ * Crée une ligne de tableau pour un article
+ * Extrait et réutilise le code existant de la fonction analyzeWithAI()
+ */
+function createTableRow(article) {
+    const tr = document.createElement('tr');
+
+    // Numéro
+    const numeroTd = document.createElement('td');
+    numeroTd.textContent = article.numero;
+    tr.appendChild(numeroTd);
+
+    // Titre avec lien
+    const titreTd = document.createElement('td');
+    const titreContainer = document.createElement('div');
+    titreContainer.style.display = 'flex';
+    titreContainer.style.alignItems = 'center';
+    titreContainer.style.gap = '8px';
+
+    const titreText = document.createElement('span');
+    titreText.textContent = article.titre || 'Sans titre';
+    titreText.style.flex = '1';
+    titreText.style.overflow = 'hidden';
+    titreText.style.textOverflow = 'ellipsis';
+    titreText.style.whiteSpace = 'nowrap';
+    titreContainer.appendChild(titreText);
+
+    if (article.url) {
+        const linkBtn = document.createElement('a');
+        linkBtn.href = article.url;
+        linkBtn.target = '_blank';
+        linkBtn.rel = 'noopener noreferrer';
+        linkBtn.className = 'open-url-btn';
+        linkBtn.innerHTML = '🔗';
+        linkBtn.title = 'Ouvrir l\'article';
+        linkBtn.setAttribute('aria-label', 'Ouvrir l\'article dans un nouvel onglet');
+        titreContainer.appendChild(linkBtn);
+    }
+
+    titreTd.appendChild(titreContainer);
+    tr.appendChild(titreTd);
+
+    // User Need attendu
+    const userIdTd = document.createElement('td');
+    userIdTd.textContent = article.expectedUserneed;
+    tr.appendChild(userIdTd);
+
+    // Prédiction IA
+    const aiTd = document.createElement('td');
+    aiTd.classList.add('ai-prediction');
+
+    // Si on a les 3 prédictions (nouveau format), afficher la structure complète
+    if (article.predictions && article.predictions.length === 3) {
+        const predContainer = document.createElement('div');
+        predContainer.className = 'predictions-container';
+
+        article.predictions.forEach((pred, index) => {
+            const predRow = document.createElement('div');
+            predRow.className = `prediction-row prediction-${pred.rank}`;
+
+            const rankLabel = document.createElement('span');
+            rankLabel.className = 'prediction-rank';
+            rankLabel.textContent = index === 0 ? '1️⃣' : index === 1 ? '2️⃣' : '3️⃣';
+
+            const userneedSpan = document.createElement('span');
+            userneedSpan.className = 'prediction-userneed';
+            userneedSpan.textContent = pred.userneed;
+
+            // Colorer uniquement le principal (vert si match, rouge sinon)
+            if (index === 0) {
+                userneedSpan.style.color = article.isMatch ? '#10b981' : '#ef4444';
+            }
+
+            const scoreSpan = document.createElement('span');
+            scoreSpan.className = 'prediction-score';
+            scoreSpan.textContent = `${pred.score}%`;
+
+            predRow.appendChild(rankLabel);
+            predRow.appendChild(userneedSpan);
+            predRow.appendChild(scoreSpan);
+            predContainer.appendChild(predRow);
+        });
+
+        aiTd.appendChild(predContainer);
+    } else {
+        // Fallback pour ancien format (un seul userneed)
+        const predContainer = document.createElement('div');
+        predContainer.className = 'prediction-container';
+        predContainer.style.display = 'flex';
+        predContainer.style.alignItems = 'center';
+        predContainer.style.gap = '8px';
+
+        const predText = document.createElement('span');
+        predText.textContent = article.predictedUserneed;
+        predText.style.color = article.isMatch ? '#10b981' : '#ef4444';
+        predText.style.fontWeight = '600';
+        predContainer.appendChild(predText);
+
+        aiTd.appendChild(predContainer);
+    }
+
+    tr.appendChild(aiTd);
+
+    // Justification IA - afficher uniquement la justification du userneed principal
+    const justificationTd = document.createElement('td');
+    justificationTd.classList.add('justification-cell');
+
+    // Récupérer la justification du principal (si disponible dans predictions)
+    let principalJustification = article.justification; // Fallback
+    if (article.predictions && article.predictions.length > 0 && article.predictions[0].justification) {
+        principalJustification = article.predictions[0].justification;
+    }
+
+    if (principalJustification || !article.isMatch) {
+        const justifContainer = document.createElement('div');
+        justifContainer.className = 'justification-container';
+        justifContainer.style.display = 'flex';
+        justifContainer.style.alignItems = 'flex-start';
+        justifContainer.style.gap = '8px';
+
+        if (principalJustification) {
+            const justifText = document.createElement('span');
+            justifText.className = 'justification-text';
+            const truncatedJustif = principalJustification.length > 150
+                ? principalJustification.substring(0, 150) + '...'
+                : principalJustification;
+            justifText.textContent = truncatedJustif;
+            justifText.style.flex = '1';
+            justifText.style.fontSize = '0.9em';
+            justifText.style.color = '#e5e7eb';
+            justifText.style.lineHeight = '1.4';
+            justifContainer.appendChild(justifText);
+
+            const expandBtn = document.createElement('button');
+            expandBtn.className = 'reasoning-btn';
+            expandBtn.innerHTML = '💬';
+            expandBtn.title = 'Voir la justification complète du userneed principal';
+            expandBtn.setAttribute('aria-label', 'Voir la justification complète du userneed principal');
+            expandBtn.onclick = () => showReasoningModal(article.index);
+            justifContainer.appendChild(expandBtn);
+        } else {
+            const noJustifText = document.createElement('span');
+            noJustifText.className = 'justification-text';
+            noJustifText.textContent = 'Justification non disponible';
+            noJustifText.style.flex = '1';
+            noJustifText.style.fontSize = '0.9em';
+            noJustifText.style.color = '#9ca3af';
+            noJustifText.style.fontStyle = 'italic';
+            justifContainer.appendChild(noJustifText);
+        }
+
+        justificationTd.appendChild(justifContainer);
+    } else {
+        justificationTd.textContent = '—';
+        justificationTd.style.color = '#9ca3af';
+        justificationTd.style.textAlign = 'center';
+        justificationTd.style.fontStyle = 'italic';
+    }
+
+    tr.appendChild(justificationTd);
+
+    return tr;
+}
+
 function updateStatisticsDisplay() {
     // Calculer les totaux
     let totalArticles = 0;
@@ -676,57 +1097,59 @@ function updateStatisticsDisplay() {
     document.getElementById('reclassifiedCount').textContent = reclassified;
     document.getElementById('reclassifiedPercent').textContent = reclassifiedPercent + '%';
 
-    // Distribution par source
-    const sourceDiv = document.getElementById('sourceDistribution');
-    sourceDiv.innerHTML = '';
+    // Distribution fusionnée Source vs Prédiction
+    const mergedDiv = document.getElementById('mergedDistribution');
+    if (mergedDiv) {
+        mergedDiv.innerHTML = '';
 
-    // Créer un tableau d'objets pour trier
-    const sourceItems = USERNEEDS.map(userneed => {
-        const count = sourceDistribution[userneed];
-        const percent = totalArticles > 0 ? ((count / totalArticles) * 100).toFixed(0) : 0;
-        return { userneed, count, percent };
-    }).filter(item => item.count > 0)  // Ne garder que les userneeds avec count > 0
-      .sort((a, b) => b.count - a.count);  // Trier du plus grand au plus petit
+        // Créer une structure fusionnée avec source ET prédiction
+        const mergedItems = USERNEEDS.map(userneed => {
+            const sourceCount = sourceDistribution[userneed] || 0;
+            const predCount = predictionDistribution[userneed] || 0;
+            const sourcePercent = totalArticles > 0 ? ((sourceCount / totalArticles) * 100).toFixed(0) : 0;
+            const predPercent = totalArticles > 0 ? ((predCount / totalArticles) * 100).toFixed(0) : 0;
 
-    // Afficher les items triés
-    sourceItems.forEach(({ userneed, count, percent }) => {
-        const item = document.createElement('div');
-        item.className = 'distribution-item';
-        item.innerHTML = `
-            <span>${getShortName(userneed)}</span>
-            <div class="distribution-bar">
-                <div class="distribution-fill" style="width: ${percent}%"></div>
-            </div>
-            <span>${percent}%</span>
-        `;
-        sourceDiv.appendChild(item);
-    });
+            return {
+                userneed,
+                sourceCount,
+                sourcePercent,
+                predCount,
+                predPercent,
+                totalCount: sourceCount + predCount
+            };
+        })
+        .filter(item => item.sourceCount > 0 || item.predCount > 0) // Afficher seulement les catégories avec des données
+        .sort((a, b) => b.sourceCount - a.sourceCount); // Trier par source (décroissant)
 
-    // Distribution par prédiction
-    const predDiv = document.getElementById('predictionDistribution');
-    predDiv.innerHTML = '';
+        mergedItems.forEach(({ userneed, sourceCount, sourcePercent, predCount, predPercent }) => {
+            const groupedItem = document.createElement('div');
+            groupedItem.className = 'distribution-item-grouped';
 
-    // Créer un tableau d'objets pour trier
-    const predItems = USERNEEDS.map(userneed => {
-        const count = predictionDistribution[userneed];
-        const percent = totalArticles > 0 ? ((count / totalArticles) * 100).toFixed(0) : 0;
-        return { userneed, count, percent };
-    }).filter(item => item.count > 0)
-      .sort((a, b) => b.count - a.count);
+            groupedItem.innerHTML = `
+                <div class="distribution-category-label">${getShortName(userneed)}</div>
 
-    // Afficher les items triés
-    predItems.forEach(({ userneed, count, percent }) => {
-        const item = document.createElement('div');
-        item.className = 'distribution-item';
-        item.innerHTML = `
-            <span>${getShortName(userneed)}</span>
-            <div class="distribution-bar">
-                <div class="distribution-fill" style="width: ${percent}%"></div>
-            </div>
-            <span>${percent}%</span>
-        `;
-        predDiv.appendChild(item);
-    });
+                <!-- Barre Source -->
+                <div class="distribution-row">
+                    <span class="distribution-row-label">Source</span>
+                    <div class="distribution-bar-grouped">
+                        <div class="distribution-fill-source" style="width: ${sourcePercent}%"></div>
+                    </div>
+                    <span class="distribution-value">${sourceCount} (${sourcePercent}%)</span>
+                </div>
+
+                <!-- Barre Prédiction -->
+                <div class="distribution-row">
+                    <span class="distribution-row-label">Prédiction</span>
+                    <div class="distribution-bar-grouped">
+                        <div class="distribution-fill-prediction" style="width: ${predPercent}%"></div>
+                    </div>
+                    <span class="distribution-value">${predCount} (${predPercent}%)</span>
+                </div>
+            `;
+
+            mergedDiv.appendChild(groupedItem);
+        });
+    }
 
     // Top 5 reclassifications
     const topDiv = document.getElementById('topReclassifications');
@@ -798,6 +1221,9 @@ async function analyzeWithAI() {
     stopAnalysis = false;
     articleResults = [];
 
+    // Réinitialiser le filtre de la matrice avant une nouvelle analyse
+    clearMatrixFilter();
+
     // Gérer les boutons
     analyzeBtn.style.display = 'none';
     stopBtn.style.display = 'inline-block';
@@ -846,11 +1272,28 @@ async function analyzeWithAI() {
             addLog(`⏳ Envoi à l'API Claude...`, 'info');
 
             // Appeler l'API pour analyser cet article
-            const { userneed, justification, hasJustification } = await analyzeArticle(apiKey, titre, chapo, corps);
+            const parsed = await analyzeArticle(apiKey, titre, chapo, corps);
+
+            // Gérer le nouveau format avec predictions ou l'ancien format (fallback)
+            let userneed, justification, hasJustification, predictions;
+
+            if (parsed.predictions && parsed.predictions.length > 0) {
+                // Nouveau format: 3 userneeds avec scores
+                predictions = parsed.predictions;
+                userneed = predictions[0].userneed; // Userneed principal
+                justification = parsed.justification;
+                hasJustification = parsed.hasJustification;
+            } else {
+                // Ancien format: un seul userneed
+                userneed = parsed.userneed;
+                justification = parsed.justification;
+                hasJustification = parsed.hasJustification;
+                predictions = null;
+            }
 
             addLog(`✅ Réponse reçue: <span class="log-result">${userneed}</span>`, 'success');
 
-            // Vérifier la concordance avec normalisation
+            // Vérifier la concordance avec normalisation (toujours sur le principal)
             const isMatch = normalizeUserneed(userneed) === normalizeUserneed(expectedUserneed);
             if (isMatch) {
                 addLog(`✓ <span style="color: #10b981;">Concordant</span>`, 'success');
@@ -858,146 +1301,26 @@ async function analyzeWithAI() {
                 addLog(`✗ <span style="color: #ef4444;">Différent</span> (attendu: ${expectedUserneed})`, 'error');
             }
 
-            // Créer une nouvelle ligne dans le tableau avec les résultats
-            const tr = document.createElement('tr');
-
-            // Numéro
-            const numeroTd = document.createElement('td');
-            numeroTd.textContent = i + 1;
-            tr.appendChild(numeroTd);
-
-            // Titre de l'article (colonne D - index 3) avec lien vers l'URL
-            const titreTd = document.createElement('td');
+            // Préparer les données de l'article
             const urlValue = row[2]; // URL (colonne C)
-            const titreValue = titre; // Le titre est déjà extrait plus haut
-
-            // Container pour titre + bouton lien
-            const titreContainer = document.createElement('div');
-            titreContainer.style.display = 'flex';
-            titreContainer.style.alignItems = 'center';
-            titreContainer.style.gap = '8px';
-
-            // Texte du titre (tronqué si trop long)
-            const titreText = document.createElement('span');
-            titreText.textContent = titreValue || 'Sans titre';
-            titreText.style.flex = '1';
-            titreText.style.overflow = 'hidden';
-            titreText.style.textOverflow = 'ellipsis';
-            titreText.style.whiteSpace = 'nowrap';
-            titreContainer.appendChild(titreText);
-
-            // Bouton lien pour ouvrir l'URL
-            if (urlValue) {
-                const linkBtn = document.createElement('a');
-                linkBtn.href = urlValue;
-                linkBtn.target = '_blank';
-                linkBtn.rel = 'noopener noreferrer';
-                linkBtn.className = 'open-url-btn';
-                linkBtn.innerHTML = '🔗';
-                linkBtn.title = 'Ouvrir l\'article';
-                linkBtn.setAttribute('aria-label', 'Ouvrir l\'article dans un nouvel onglet');
-                titreContainer.appendChild(linkBtn);
-            }
-
-            titreTd.appendChild(titreContainer);
-            tr.appendChild(titreTd);
-
-            // User ID attribué (colonne A - index 0)
-            const userIdTd = document.createElement('td');
-            userIdTd.textContent = expectedUserneed;
-            tr.appendChild(userIdTd);
-
-            // Prédiction IA avec coloration et bouton de justification
-            const aiTd = document.createElement('td');
-            aiTd.classList.add('ai-prediction');
-
-            // Container pour le texte + boutons
-            const predContainer = document.createElement('div');
-            predContainer.className = 'prediction-container';
-            predContainer.style.display = 'flex';
-            predContainer.style.alignItems = 'center';
-            predContainer.style.gap = '8px';
-
-            // Texte de la prédiction
-            const predText = document.createElement('span');
-            predText.textContent = userneed;
-            predText.style.color = isMatch ? '#10b981' : '#ef4444';
-            predText.style.fontWeight = '600';
-            predContainer.appendChild(predText);
-
-            aiTd.appendChild(predContainer);
-            tr.appendChild(aiTd);
-
-            // NOUVELLE COLONNE: Justification IA
-            const justificationTd = document.createElement('td');
-            justificationTd.classList.add('justification-cell');
-
-            // Afficher la justification si elle existe OU si la prédiction est différente
-            if (justification || !isMatch) {
-                // Container pour justification + bouton
-                const justifContainer = document.createElement('div');
-                justifContainer.className = 'justification-container';
-                justifContainer.style.display = 'flex';
-                justifContainer.style.alignItems = 'flex-start';
-                justifContainer.style.gap = '8px';
-
-                if (justification) {
-                    // Texte de la justification (tronqué à 150 caractères)
-                    const justifText = document.createElement('span');
-                    justifText.className = 'justification-text';
-                    const truncatedJustif = justification.length > 150
-                        ? justification.substring(0, 150) + '...'
-                        : justification;
-                    justifText.textContent = truncatedJustif;
-                    justifText.style.flex = '1';
-                    justifText.style.fontSize = '0.9em';
-                    justifText.style.color = '#e5e7eb';
-                    justifText.style.lineHeight = '1.4';
-                    justifContainer.appendChild(justifText);
-
-                    // Bouton pour voir la justification complète
-                    const expandBtn = document.createElement('button');
-                    expandBtn.className = 'reasoning-btn';
-                    expandBtn.innerHTML = '💬';
-                    expandBtn.title = 'Voir la justification complète';
-                    expandBtn.setAttribute('aria-label', 'Voir la justification complète');
-                    expandBtn.onclick = () => showReasoningModal(i);
-                    justifContainer.appendChild(expandBtn);
-                } else {
-                    // Prédiction différente mais pas de justification extractée
-                    const noJustifText = document.createElement('span');
-                    noJustifText.className = 'justification-text';
-                    noJustifText.textContent = 'Justification non disponible';
-                    noJustifText.style.flex = '1';
-                    noJustifText.style.fontSize = '0.9em';
-                    noJustifText.style.color = '#9ca3af';
-                    noJustifText.style.fontStyle = 'italic';
-                    justifContainer.appendChild(noJustifText);
-                }
-
-                justificationTd.appendChild(justifContainer);
-            } else {
-                // Prédiction concordante et pas de justification nécessaire
-                justificationTd.textContent = '—';
-                justificationTd.style.color = '#9ca3af';
-                justificationTd.style.textAlign = 'center';
-                justificationTd.style.fontStyle = 'italic';
-            }
-
-            tr.appendChild(justificationTd);
-
-            // Stocker le résultat complet
-            articleResults.push({
+            const articleData = {
                 index: i,
                 numero: i + 1,
                 url: urlValue,
                 titre: titre,
                 expectedUserneed: expectedUserneed,
-                predictedUserneed: userneed,
+                predictedUserneed: userneed, // Toujours le principal (pour matrice)
+                predictions: predictions, // Array de 3 prédictions (si nouveau format)
                 justification: justification,
                 isMatch: isMatch,
                 hasJustification: hasJustification
-            });
+            };
+
+            // Stocker le résultat complet
+            articleResults.push(articleData);
+
+            // Créer une nouvelle ligne dans le tableau avec les résultats
+            const tr = createTableRow(articleData);
 
             // Ajouter la ligne au tableau
             tableBody.appendChild(tr);
@@ -1040,6 +1363,10 @@ async function analyzeArticle(apiKey, titre, chapo, corps) {
     // Utiliser le prompt du gestionnaire au lieu du hardcodé
     const prompt = promptManager.buildPromptText(titre, chapo, corps);
 
+    // Configuration du timeout (30 secondes)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
     try {
         addLog(`🔑 Vérification de la clé API (longueur: ${apiKey.length} caractères)`, 'info');
         addLog(`🌐 Connexion au serveur proxy...`, 'info');
@@ -1052,8 +1379,11 @@ async function analyzeArticle(apiKey, titre, chapo, corps) {
             body: JSON.stringify({
                 apiKey: apiKey,
                 prompt: prompt
-            })
+            }),
+            signal: controller.signal
         });
+
+        clearTimeout(timeoutId);
 
         addLog(`📡 Réponse HTTP reçue (status: ${response.status})`, 'info');
 
@@ -1076,12 +1406,60 @@ async function analyzeArticle(apiKey, titre, chapo, corps) {
 
         return parsed;
     } catch (error) {
-        addLog(`❌ Exception capturée: ${error.name} - ${error.message}`, 'error');
-        if (error.message.includes('Failed to fetch')) {
-            addLog(`💡 Conseil: Vérifiez votre connexion Internet`, 'error');
-            addLog(`💡 Conseil: Vérifiez que votre clé API est valide`, 'error');
-            addLog(`💡 Conseil: Vérifiez votre firewall/antivirus`, 'error');
+        clearTimeout(timeoutId);
+
+        // Gérer spécifiquement l'erreur de timeout
+        if (error.name === 'AbortError') {
+            addLog(`❌ Timeout: La requête a pris plus de 30 secondes`, 'error');
+            throw new Error('Timeout: La requête a pris plus de 30 secondes');
         }
+
+        addLog(`❌ Exception capturée: ${error.name} - ${error.message}`, 'error');
+
+        // Messages d'erreur spécifiques et actionnables
+        if (error.message.includes('Failed to fetch')) {
+            addLog(``, 'error');
+            addLog(`⚠️ ERREUR DE CONNEXION AU SERVEUR LOCAL`, 'error');
+            addLog(``, 'error');
+            addLog(`Vérifiez que le serveur Python est bien démarré :`, 'error');
+            addLog(`  1. Ouvrez un terminal`, 'error');
+            addLog(`  2. cd "/Users/livioricci/Documents/FRANCETV/App qualif user needs"`, 'error');
+            addLog(`  3. python3 server.py`, 'error');
+            addLog(``, 'error');
+            addLog(`Si le serveur est démarré, vérifiez :`, 'error');
+            addLog(`  • Que le port 8000 n'est pas utilisé par un autre processus`, 'error');
+            addLog(`  • Votre connexion Internet`, 'error');
+            addLog(`  • Que votre clé API est valide dans config.json`, 'error');
+        } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+            addLog(``, 'error');
+            addLog(`⚠️ CLÉ API INVALIDE`, 'error');
+            addLog(``, 'error');
+            addLog(`Votre clé API Anthropic est incorrecte ou expirée.`, 'error');
+            addLog(`Vérifiez la clé dans le fichier config.json`, 'error');
+            addLog(``, 'error');
+            addLog(`Obtenez une nouvelle clé sur : https://console.anthropic.com/`, 'error');
+        } else if (error.message.includes('429')) {
+            addLog(``, 'error');
+            addLog(`⚠️ LIMITE DE REQUÊTES ATTEINTE`, 'error');
+            addLog(``, 'error');
+            addLog(`Vous avez dépassé votre quota API Anthropic.`, 'error');
+            addLog(`Attendez quelques minutes avant de réessayer.`, 'error');
+            addLog(``, 'error');
+            addLog(`Si le problème persiste, vérifiez votre plan sur console.anthropic.com`, 'error');
+        } else if (error.message.includes('Timeout') || error.message.includes('AbortError')) {
+            addLog(``, 'error');
+            addLog(`⚠️ TIMEOUT DE LA REQUÊTE`, 'error');
+            addLog(``, 'error');
+            addLog(`La requête a pris plus de 30 secondes.`, 'error');
+            addLog(`Vérifiez votre connexion Internet ou réessayez.`, 'error');
+        } else if (error.message.includes('500')) {
+            addLog(``, 'error');
+            addLog(`⚠️ ERREUR SERVEUR API`, 'error');
+            addLog(``, 'error');
+            addLog(`L'API Anthropic rencontre un problème temporaire.`, 'error');
+            addLog(`Réessayez dans quelques instants.`, 'error');
+        }
+
         throw error;
     }
 }
@@ -1217,6 +1595,36 @@ function exportToExcel() {
 
     const wsConcordance = XLSX.utils.aoa_to_sheet(concordanceData);
     XLSX.utils.book_append_sheet(wb, wsConcordance, 'Concordance par Catégorie');
+
+    // === FEUILLE 5 : DÉTAILS DES ARTICLES ===
+    const articlesData = [
+        ['DÉTAILS DES ARTICLES ANALYSÉS'],
+        [''],
+        ['N°', 'Titre', 'User Need Attendu', 'Prédiction IA', 'Justification']
+    ];
+
+    articleResults.forEach(article => {
+        // Construire la colonne prédiction : afficher les 3 userneeds ou juste le principal
+        let predictionText;
+        if (article.predictions && article.predictions.length === 3) {
+            predictionText = article.predictions
+                .map(p => `${p.userneed} (${p.score}%)`)
+                .join('\n');
+        } else {
+            predictionText = article.predictedUserneed;
+        }
+
+        articlesData.push([
+            article.numero,
+            article.titre,
+            article.expectedUserneed,
+            predictionText,
+            article.justification || 'N/A'
+        ]);
+    });
+
+    const wsArticles = XLSX.utils.aoa_to_sheet(articlesData);
+    XLSX.utils.book_append_sheet(wb, wsArticles, 'Détails Articles');
 
     // Générer le fichier et le télécharger
     const date = new Date().toISOString().split('T')[0];
@@ -1606,4 +2014,56 @@ function showToast(message, type = 'success') {
             container.removeChild(toast);
         }, 300);
     }, 3000);
+}
+
+// ===================================
+// GESTION DU THÈME
+// ===================================
+
+/**
+ * Initialise le thème au chargement de la page
+ */
+function initTheme() {
+    // Récupérer le thème sauvegardé dans localStorage (par défaut: 'dark')
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+
+    // Appliquer le thème
+    setTheme(savedTheme);
+
+    // Ajouter l'event listener sur le bouton
+    if (themeToggle) {
+        themeToggle.addEventListener('click', toggleTheme);
+    }
+}
+
+/**
+ * Applique un thème spécifique
+ */
+function setTheme(theme) {
+    const root = document.documentElement;
+    const themeIcon = document.querySelector('.theme-icon');
+
+    if (theme === 'light') {
+        root.setAttribute('data-theme', 'light');
+        if (themeIcon) themeIcon.textContent = '☀️';
+        localStorage.setItem('theme', 'light');
+    } else {
+        root.removeAttribute('data-theme');
+        if (themeIcon) themeIcon.textContent = '🌙';
+        localStorage.setItem('theme', 'dark');
+    }
+}
+
+/**
+ * Bascule entre les thèmes clair et sombre
+ */
+function toggleTheme() {
+    const root = document.documentElement;
+    const currentTheme = root.getAttribute('data-theme');
+
+    if (currentTheme === 'light') {
+        setTheme('dark');
+    } else {
+        setTheme('light');
+    }
 }

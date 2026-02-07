@@ -6,14 +6,20 @@
     <title>Analyse IA Userneeds - Franceinfo</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=12">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🎯 Analyse IA des Userneeds</h1>
+            <h1>
+                <img src="assets/franceinfo.jpg" alt="Franceinfo" class="header-logo">
+                Analyse IA des Userneeds
+            </h1>
             <div class="header-actions">
+                <button id="themeToggle" class="header-btn theme-btn" title="Changer de thème">
+                    <span class="theme-icon">🌙</span>
+                </button>
                 <label for="fileInput" class="header-btn upload-btn" title="Sélectionner un fichier Excel">
                     📁 Fichier
                 </label>
@@ -23,7 +29,6 @@
                 <button id="analyzeBtn" class="header-btn analyze-btn" style="display: none;">Analyse IA</button>
                 <button id="stopBtn" class="header-btn stop-btn" style="display: none;">⏹ Stop</button>
             </div>
-            <p>Classification automatique des articles Franceinfo avec Claude AI</p>
         </header>
 
         <div id="statsContainer" class="stats-container" style="display: none;">
@@ -71,16 +76,22 @@
                     </div>
                     <div class="stats-box">
                         <div class="stat-title">Total d'articles : <span id="totalArticles">0</span></div>
-                        <div class="stat-item">Articles concordants : <span id="concordantCount">0</span> (<span id="concordantPercent">0%</span>)</div>
-                        <div class="stat-item">Articles reclassifiés : <span id="reclassifiedCount">0</span> (<span id="reclassifiedPercent">0%</span>)</div>
+                        <div class="stat-item">Articles concordants : <span id="concordantCount" class="stat-value-success">0</span> (<span id="concordantPercent" class="stat-value-success">0%</span>)</div>
+                        <div class="stat-item">Articles reclassifiés : <span id="reclassifiedCount" class="stat-value-error">0</span> (<span id="reclassifiedPercent" class="stat-value-error">0%</span>)</div>
                     </div>
                     <div class="stats-box">
-                        <div class="stat-subtitle">Distribution par catégorie source</div>
-                        <div id="sourceDistribution"></div>
-                    </div>
-                    <div class="stats-box">
-                        <div class="stat-subtitle">Distribution par prédiction IA</div>
-                        <div id="predictionDistribution"></div>
+                        <div class="stat-subtitle">Distribution Source vs Prédiction IA</div>
+                        <div class="distribution-legend">
+                            <span class="legend-item">
+                                <span class="legend-color legend-source"></span>
+                                Catégorie source
+                            </span>
+                            <span class="legend-item">
+                                <span class="legend-color legend-prediction"></span>
+                                Prédiction IA
+                            </span>
+                        </div>
+                        <div id="mergedDistribution"></div>
                     </div>
                     <div class="stats-box">
                         <div class="stat-subtitle">Top 5 reclassifications</div>

@@ -1246,93 +1246,114 @@ async function analyzeWithAI() {
     const userIdIndex = 0; // Colonne A
 
     try {
-        // Analyser chaque ligne
-        for (let i = 0; i < rows.length; i++) {
+        // Traitement par batch de 5 articles en parallèle
+        const BATCH_SIZE = 5;
+        const totalBatches = Math.ceil(rows.length / BATCH_SIZE);
+
+        addLog(`🔢 Traitement par batch de ${BATCH_SIZE} articles en parallèle`, 'info');
+        addLog(`📦 Nombre de batches : ${totalBatches}`, 'info');
+
+        for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
             // Vérifier si l'utilisateur a demandé l'arrêt
             if (stopAnalysis) {
-                addLog(`<br/>🛑 <strong>ANALYSE ARRÊTÉE</strong> par l'utilisateur à l'article ${i}/${rows.length}`, 'error');
+                const processedCount = batchIndex * BATCH_SIZE;
+                addLog(`<br/>🛑 <strong>ANALYSE ARRÊTÉE</strong> par l'utilisateur à l'article ${processedCount}/${rows.length}`, 'error');
                 break;
             }
 
-            const row = rows[i];
-            const titre = row[titreIndex] || '';
-            const chapo = row[chapoIndex] || '';
-            const corps = row[corpsIndex] || '';
-            const expectedUserneed = row[userIdIndex] || '';
-
-            // Mettre à jour la progression
-            const progress = ((i + 1) / rows.length) * 100;
-            progressFill.style.width = `${progress}%`;
-            progressText.textContent = `Analyse en cours... ${i + 1}/${rows.length} articles`;
+            const batchStart = batchIndex * BATCH_SIZE;
+            const batchEnd = Math.min(batchStart + BATCH_SIZE, rows.length);
+            const batchRows = rows.slice(batchStart, batchEnd);
 
             addLog(`<br/>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`, 'info');
-            addLog(`📰 Article ${i + 1}/${rows.length}`, 'info');
-            addLog(`<span class="log-title">Titre:</span> ${titre.substring(0, 100)}${titre.length > 100 ? '...' : ''}`, 'info');
-            addLog(`🎯 User need attendu: <span class="log-result">${expectedUserneed}</span>`, 'info');
-            addLog(`⏳ Envoi à l'API Claude...`, 'info');
+            addLog(`📦 Batch ${batchIndex + 1}/${totalBatches} - Articles ${batchStart + 1} à ${batchEnd}`, 'info');
+            addLog(`⏳ Envoi de ${batchRows.length} requêtes en parallèle...`, 'info');
 
-            // Appeler l'API pour analyser cet article
-            const parsed = await analyzeArticle(apiKey, titre, chapo, corps);
+            // Créer les promesses pour tous les articles du batch
+            const batchPromises = batchRows.map(async (row, batchOffset) => {
+                const i = batchStart + batchOffset;
+                const titre = row[titreIndex] || '';
+                const chapo = row[chapoIndex] || '';
+                const corps = row[corpsIndex] || '';
+                const expectedUserneed = row[userIdIndex] || '';
+                const urlValue = row[2]; // URL (colonne C)
 
-            // Gérer le nouveau format avec predictions ou l'ancien format (fallback)
-            let userneed, justification, hasJustification, predictions;
+                addLog(`📰 Article ${i + 1}/${rows.length} : ${titre.substring(0, 80)}${titre.length > 80 ? '...' : ''}`, 'info');
 
-            if (parsed.predictions && parsed.predictions.length > 0) {
-                // Nouveau format: 3 userneeds avec scores
-                predictions = parsed.predictions;
-                userneed = predictions[0].userneed; // Userneed principal
-                justification = parsed.justification;
-                hasJustification = parsed.hasJustification;
-            } else {
-                // Ancien format: un seul userneed
-                userneed = parsed.userneed;
-                justification = parsed.justification;
-                hasJustification = parsed.hasJustification;
-                predictions = null;
+                // Appeler l'API pour analyser cet article
+                const parsed = await analyzeArticle(apiKey, titre, chapo, corps);
+
+                // Gérer le nouveau format avec predictions ou l'ancien format (fallback)
+                let userneed, justification, hasJustification, predictions;
+
+                if (parsed.predictions && parsed.predictions.length > 0) {
+                    // Nouveau format: 3 userneeds avec scores
+                    predictions = parsed.predictions;
+                    userneed = predictions[0].userneed; // Userneed principal
+                    justification = parsed.justification;
+                    hasJustification = parsed.hasJustification;
+                } else {
+                    // Ancien format: un seul userneed
+                    userneed = parsed.userneed;
+                    justification = parsed.justification;
+                    hasJustification = parsed.hasJustification;
+                    predictions = null;
+                }
+
+                // Vérifier la concordance avec normalisation (toujours sur le principal)
+                const isMatch = normalizeUserneed(userneed) === normalizeUserneed(expectedUserneed);
+
+                // Retourner les données de l'article
+                return {
+                    index: i,
+                    numero: i + 1,
+                    url: urlValue,
+                    titre: titre,
+                    expectedUserneed: expectedUserneed,
+                    predictedUserneed: userneed,
+                    predictions: predictions,
+                    justification: justification,
+                    isMatch: isMatch,
+                    hasJustification: hasJustification
+                };
+            });
+
+            // Attendre que toutes les requêtes du batch soient terminées
+            const batchResults = await Promise.all(batchPromises);
+
+            // Traiter les résultats du batch
+            for (const articleData of batchResults) {
+                addLog(`✅ Article ${articleData.numero}: <span class="log-result">${articleData.predictedUserneed}</span>`, 'success');
+
+                if (articleData.isMatch) {
+                    addLog(`✓ <span style="color: #10b981;">Concordant</span>`, 'success');
+                } else {
+                    addLog(`✗ <span style="color: #ef4444;">Différent</span> (attendu: ${articleData.expectedUserneed})`, 'error');
+                }
+
+                // Stocker le résultat complet
+                articleResults.push(articleData);
+
+                // Créer une nouvelle ligne dans le tableau avec les résultats
+                const tr = createTableRow(articleData);
+
+                // Ajouter la ligne au tableau
+                tableBody.appendChild(tr);
+
+                // Mettre à jour la matrice de confusion
+                updateConfusionMatrix(articleData.expectedUserneed, articleData.predictedUserneed);
             }
 
-            addLog(`✅ Réponse reçue: <span class="log-result">${userneed}</span>`, 'success');
+            // Mettre à jour la progression
+            const progress = (batchEnd / rows.length) * 100;
+            progressFill.style.width = `${progress}%`;
+            progressText.textContent = `Analyse en cours... ${batchEnd}/${rows.length} articles (Batch ${batchIndex + 1}/${totalBatches})`;
 
-            // Vérifier la concordance avec normalisation (toujours sur le principal)
-            const isMatch = normalizeUserneed(userneed) === normalizeUserneed(expectedUserneed);
-            if (isMatch) {
-                addLog(`✓ <span style="color: #10b981;">Concordant</span>`, 'success');
-            } else {
-                addLog(`✗ <span style="color: #ef4444;">Différent</span> (attendu: ${expectedUserneed})`, 'error');
-            }
+            addLog(`💾 Batch ${batchIndex + 1} enregistré (${batchResults.length} articles)`, 'success');
 
-            // Préparer les données de l'article
-            const urlValue = row[2]; // URL (colonne C)
-            const articleData = {
-                index: i,
-                numero: i + 1,
-                url: urlValue,
-                titre: titre,
-                expectedUserneed: expectedUserneed,
-                predictedUserneed: userneed, // Toujours le principal (pour matrice)
-                predictions: predictions, // Array de 3 prédictions (si nouveau format)
-                justification: justification,
-                isMatch: isMatch,
-                hasJustification: hasJustification
-            };
-
-            // Stocker le résultat complet
-            articleResults.push(articleData);
-
-            // Créer une nouvelle ligne dans le tableau avec les résultats
-            const tr = createTableRow(articleData);
-
-            // Ajouter la ligne au tableau
-            tableBody.appendChild(tr);
-
-            // Mettre à jour la matrice de confusion
-            updateConfusionMatrix(expectedUserneed, userneed);
-
-            addLog(`💾 Résultat enregistré dans le tableau`, 'success');
-
-            // Délai de 6 secondes pour respecter les limites de rate (50k tokens/min)
-            if (i < rows.length - 1 && !stopAnalysis) {
-                addLog(`⏱️ Attente de 6 secondes avant le prochain article...`, 'info');
+            // Délai de 6 secondes entre les batches (pas entre les articles individuels)
+            if (batchEnd < rows.length && !stopAnalysis) {
+                addLog(`⏱️ Attente de 6 secondes avant le prochain batch...`, 'info');
                 await new Promise(resolve => setTimeout(resolve, 6000));
             }
         }
@@ -1363,9 +1384,9 @@ async function analyzeArticle(apiKey, titre, chapo, corps) {
     // Utiliser le prompt du gestionnaire au lieu du hardcodé
     const prompt = promptManager.buildPromptText(titre, chapo, corps);
 
-    // Configuration du timeout (30 secondes)
+    // Configuration du timeout (90 secondes pour Sonnet 4.5)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
 
     try {
         addLog(`🔑 Vérification de la clé API (longueur: ${apiKey.length} caractères)`, 'info');
@@ -1410,8 +1431,8 @@ async function analyzeArticle(apiKey, titre, chapo, corps) {
 
         // Gérer spécifiquement l'erreur de timeout
         if (error.name === 'AbortError') {
-            addLog(`❌ Timeout: La requête a pris plus de 30 secondes`, 'error');
-            throw new Error('Timeout: La requête a pris plus de 30 secondes');
+            addLog(`❌ Timeout: La requête a pris plus de 90 secondes`, 'error');
+            throw new Error('Timeout: La requête a pris plus de 90 secondes');
         }
 
         addLog(`❌ Exception capturée: ${error.name} - ${error.message}`, 'error');

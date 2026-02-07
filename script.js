@@ -1246,8 +1246,8 @@ async function analyzeWithAI() {
     const userIdIndex = 0; // Colonne A
 
     try {
-        // Traitement par batch de 3 articles en parallèle
-        const BATCH_SIZE = 3;
+        // Traitement par batch de 2 articles en parallèle
+        const BATCH_SIZE = 2;
         const totalBatches = Math.ceil(rows.length / BATCH_SIZE);
 
         addLog(`🔢 Traitement par batch de ${BATCH_SIZE} articles en parallèle`, 'info');

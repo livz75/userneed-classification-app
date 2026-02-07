@@ -1384,9 +1384,9 @@ async function analyzeArticle(apiKey, titre, chapo, corps) {
     // Utiliser le prompt du gestionnaire au lieu du hardcodé
     const prompt = promptManager.buildPromptText(titre, chapo, corps);
 
-    // Configuration du timeout (90 secondes pour Sonnet 4.5)
+    // Configuration du timeout (120 secondes pour Sonnet 4.5)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 90000);
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
 
     try {
         addLog(`🔑 Vérification de la clé API (longueur: ${apiKey.length} caractères)`, 'info');
@@ -1431,8 +1431,8 @@ async function analyzeArticle(apiKey, titre, chapo, corps) {
 
         // Gérer spécifiquement l'erreur de timeout
         if (error.name === 'AbortError') {
-            addLog(`❌ Timeout: La requête a pris plus de 90 secondes`, 'error');
-            throw new Error('Timeout: La requête a pris plus de 90 secondes');
+            addLog(`❌ Timeout: La requête a pris plus de 120 secondes`, 'error');
+            throw new Error('Timeout: La requête a pris plus de 120 secondes');
         }
 
         addLog(`❌ Exception capturée: ${error.name} - ${error.message}`, 'error');

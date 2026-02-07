@@ -1246,8 +1246,8 @@ async function analyzeWithAI() {
     const userIdIndex = 0; // Colonne A
 
     try {
-        // Traitement par batch de 2 articles en parallèle
-        const BATCH_SIZE = 2;
+        // Traitement par batch de 5 articles en parallèle
+        const BATCH_SIZE = 5;
         const totalBatches = Math.ceil(rows.length / BATCH_SIZE);
 
         addLog(`🔢 Traitement par batch de ${BATCH_SIZE} articles en parallèle`, 'info');
@@ -1384,9 +1384,9 @@ async function analyzeArticle(apiKey, titre, chapo, corps) {
     // Utiliser le prompt du gestionnaire au lieu du hardcodé
     const prompt = promptManager.buildPromptText(titre, chapo, corps);
 
-    // Configuration du timeout (120 secondes pour Sonnet 4.5)
+    // Configuration du timeout (60 secondes pour Haiku 3)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000);
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
 
     try {
         addLog(`🔑 Vérification de la clé API (longueur: ${apiKey.length} caractères)`, 'info');
@@ -1431,8 +1431,8 @@ async function analyzeArticle(apiKey, titre, chapo, corps) {
 
         // Gérer spécifiquement l'erreur de timeout
         if (error.name === 'AbortError') {
-            addLog(`❌ Timeout: La requête a pris plus de 120 secondes`, 'error');
-            throw new Error('Timeout: La requête a pris plus de 120 secondes');
+            addLog(`❌ Timeout: La requête a pris plus de 60 secondes`, 'error');
+            throw new Error('Timeout: La requête a pris plus de 60 secondes');
         }
 
         addLog(`❌ Exception capturée: ${error.name} - ${error.message}`, 'error');

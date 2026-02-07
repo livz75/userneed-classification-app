@@ -27,7 +27,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps({
                 'status': 'ok',
                 'timestamp': int(__import__('time').time() * 1000),
-                'model': 'claude-sonnet-4-20250514'
+                'model': 'claude-3-haiku-20240307'
             }).encode('utf-8'))
             return
         else:
@@ -43,14 +43,50 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 api_key = request_data['apiKey']
                 prompt = request_data['prompt']
 
-                # Préparer la requête vers l'API Anthropic
+                # Préparer la requête vers l'API Anthropic avec Prompt Caching
                 api_url = 'https://api.anthropic.com/v1/messages'
+
+                # Extraire les instructions fixes (à mettre en cache) et le contenu dynamique
+                # Le prompt contient généralement : instructions + liste userneeds + article
+                # On va séparer les instructions fixes du contenu de l'article
+
+                # Instructions système (mises en cache) - partie fixe du prompt
+                system_instructions = [{
+                    "type": "text",
+                    "text": """Analyse cet article et détermine OBLIGATOIREMENT le userneed principal, un userneed secondaire et un userneed tertiaire parmi ces options, et donne à chacun un score (le total des 3 scores doit être égal à 100).
+
+OPTIONS :
+- UPDATE ME
+- EXPLAIN ME
+- GIVE ME PERSPECTIVE
+- GIVE ME A BREAK
+- GIVE ME CONCERNING NEWS
+- INSPIRE ME
+- MAKE ME FEEL THE NEWS
+- REVEAL NEWS
+
+IMPORTANT : Réponds EXACTEMENT avec ce format (ne rajoute rien d'autre) :
+
+USERNEED PRINCIPAL : [nom exact] (SCORE : [nombre])
+JUSTIFICATION : [explication en 10 mots maximum]
+
+USERNEED SECONDAIRE : [nom exact] (SCORE : [nombre])
+JUSTIFICATION : [explication en 10 mots maximum]
+
+USERNEED TERTIAIRE : [nom exact] (SCORE : [nombre])
+JUSTIFICATION : [explication en 10 mots maximum]
+
+Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100.""",
+                    "cache_control": {"type": "ephemeral"}
+                }]
+
                 api_data = json.dumps({
-                    'model': 'claude-sonnet-4-20250514',
-                    'max_tokens': 2048,
+                    'model': 'claude-3-haiku-20240307',
+                    'max_tokens': 1024,
+                    'system': system_instructions,
                     'messages': [{
                         'role': 'user',
-                        'content': prompt
+                        'content': prompt  # Contenu de l'article (partie dynamique)
                     }]
                 }).encode('utf-8')
 
@@ -59,6 +95,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 req.add_header('Content-Type', 'application/json')
                 req.add_header('x-api-key', api_key)
                 req.add_header('anthropic-version', '2023-06-01')
+                req.add_header('anthropic-beta', 'prompt-caching-2024-07-31')
 
                 # Envoyer la requête
                 with urllib.request.urlopen(req) as response:

@@ -27,7 +27,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps({
                 'status': 'ok',
                 'timestamp': int(__import__('time').time() * 1000),
-                'model': 'claude-3-haiku-20240307'
+                'model': 'claude-sonnet-4-20250514'
             }).encode('utf-8'))
             return
         else:
@@ -46,8 +46,8 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 # Préparer la requête vers l'API Anthropic
                 api_url = 'https://api.anthropic.com/v1/messages'
                 api_data = json.dumps({
-                    'model': 'claude-3-haiku-20240307',
-                    'max_tokens': 1024,
+                    'model': 'claude-sonnet-4-20250514',
+                    'max_tokens': 2048,
                     'messages': [{
                         'role': 'user',
                         'content': prompt

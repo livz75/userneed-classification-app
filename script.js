@@ -1334,15 +1334,12 @@ async function analyzeWithAI() {
                 // Stocker le résultat complet
                 articleResults.push(articleData);
 
-                // Créer une nouvelle ligne dans le tableau avec les résultats
-                const tr = createTableRow(articleData);
-
-                // Ajouter la ligne au tableau
-                tableBody.appendChild(tr);
-
                 // Mettre à jour la matrice de confusion
                 updateConfusionMatrix(articleData.expectedUserneed, articleData.predictedUserneed);
             }
+
+            // Rafraîchir l'affichage du tableau avec tous les résultats
+            filterTableByMatrix();
 
             // Mettre à jour la progression
             const progress = (batchEnd / rows.length) * 100;

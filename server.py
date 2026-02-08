@@ -27,7 +27,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps({
                 'status': 'ok',
                 'timestamp': int(__import__('time').time() * 1000),
-                'model': 'claude-3-haiku-20240307'
+                'model': 'claude-3-5-haiku-20241022'
             }).encode('utf-8'))
             return
         else:
@@ -81,7 +81,7 @@ Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100.""",
                 }]
 
                 api_data = json.dumps({
-                    'model': 'claude-3-haiku-20240307',
+                    'model': 'claude-3-5-haiku-20241022',
                     'max_tokens': 1024,
                     'system': system_instructions,
                     'messages': [{

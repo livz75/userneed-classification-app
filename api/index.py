@@ -15,7 +15,8 @@ class handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        if self.path == '/api/health':
+        # Accepter /api/health ou /health (pour Vercel)
+        if self.path in ['/api/health', '/health', '/']:
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self._set_cors_headers()

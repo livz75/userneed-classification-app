@@ -110,6 +110,7 @@ const USERNEED_VARIANTS = {
 
 // Normalise un userneed vers sa forme canonique
 function normalizeUserneed(userneed) {
+    if (!userneed) return null;
     const normalized = userneed.trim().toUpperCase();
     return USERNEED_VARIANTS[normalized] || normalized;
 }
@@ -144,27 +145,30 @@ function parseAIResponse(responseText) {
 
     // Si on a trouvé les 3 userneeds, retourner la nouvelle structure
     if (principalMatch || secondaireMatch || tertiaireMatch) {
+        const predictions = [
+            {
+                userneed: validateUserneed(principalMatch?.[1]) || '❓ Non identifié',
+                score: parseInt(principalMatch?.[2] || 0),
+                rank: 'principal',
+                justification: principalJustMatch?.[1]?.trim() || ''
+            },
+            {
+                userneed: validateUserneed(secondaireMatch?.[1]) || '❓ Non identifié',
+                score: parseInt(secondaireMatch?.[2] || 0),
+                rank: 'secondaire',
+                justification: secondaireJustMatch?.[1]?.trim() || ''
+            },
+            {
+                userneed: validateUserneed(tertiaireMatch?.[1]) || '❓ Non identifié',
+                score: parseInt(tertiaireMatch?.[2] || 0),
+                rank: 'tertiaire',
+                justification: tertiaireJustMatch?.[1]?.trim() || ''
+            }
+        ];
+        // Plus de filtre → toujours 3 éléments
+
         return {
-            predictions: [
-                {
-                    userneed: validateUserneed(principalMatch?.[1]) || 'N/A',
-                    score: parseInt(principalMatch?.[2] || 0),
-                    rank: 'principal',
-                    justification: principalJustMatch?.[1]?.trim() || ''
-                },
-                {
-                    userneed: validateUserneed(secondaireMatch?.[1]) || 'N/A',
-                    score: parseInt(secondaireMatch?.[2] || 0),
-                    rank: 'secondaire',
-                    justification: secondaireJustMatch?.[1]?.trim() || ''
-                },
-                {
-                    userneed: validateUserneed(tertiaireMatch?.[1]) || 'N/A',
-                    score: parseInt(tertiaireMatch?.[2] || 0),
-                    rank: 'tertiaire',
-                    justification: tertiaireJustMatch?.[1]?.trim() || ''
-                }
-            ],
+            predictions,
             justification: principalJustMatch?.[1]?.trim() || '',
             hasJustification: !!principalJustMatch?.[1]
         };
@@ -242,16 +246,7 @@ class PromptManager {
             this.createDefaultPrompt();
         }
 
-        // Vérifier et mettre à jour le prompt système s'il utilise l'ancien format
-        const systemPrompt = this.prompts.find(p => p.isDefault);
-        const newTaskFormat = 'Analyse cet article et réponds EXACTEMENT avec ce format (ne rajoute rien d\'autre) :\n\nUSERNEED: [nom exact du userneed]\nJUSTIFICATION: [2-3 phrases expliquant pourquoi ce userneed correspond à l\'article]\n\nUserneeds disponibles :\n- UPDATE ME\n- EXPLAIN ME\n- GIVE ME PERSPECTIVE\n- GIVE ME A BREAK\n- GIVE ME CONCERNING NEWS\n- INSPIRE ME\n- MAKE ME FEEL THE NEWS\n- REVEAL NEWS\n\nRègle CRITIQUE : Tu dois répondre EXACTEMENT avec le format ci-dessus. Commence par "USERNEED:" suivi du nom, puis sur une nouvelle ligne "JUSTIFICATION:" suivi de ton explication. Ne rajoute AUCUN texte avant ou après.';
-
-        if (systemPrompt && systemPrompt.content.task !== newTaskFormat) {
-            console.log('🔄 Mise à jour du prompt système avec le format structuré obligatoire');
-            systemPrompt.content.task = newTaskFormat;
-            systemPrompt.modifiedAt = new Date().toISOString();
-            this.saveToStorage();
-        }
+        // Note : Ancien code de mise à jour supprimé car content est maintenant une string complète
 
         // S'assurer qu'un prompt est actif
         if (!this.activePromptId || !this.getPromptById(this.activePromptId)) {
@@ -269,12 +264,53 @@ class PromptManager {
             isActive: true,
             createdAt: new Date().toISOString(),
             modifiedAt: new Date().toISOString(),
-            content: {
-                role: 'Tu es un expert en data analyse et IA spécialisé dans la classification éditoriale pour France Télévisions. Ta mission est de catégoriser précisément des articles de franceinfo selon 8 userneeds prédéfinis.',
-                vision: '1. L\'information de Franceinfo est le reflet d\'une couverture exacte, équilibrée, complète et impartiale de l\'actualité.\n2. L\'information de Franceinfo est certifiée, validée avant d\'être publiée.\n3. L\'information de Franceinfo revendique la liberté de ton sur tous les supports.\n4. L\'information de Franceinfo est au service du public et participe à la construction de la citoyenneté.\n5. L\'information de Franceinfo est honnête et transparente.',
-                definitions: '1. UPDATE ME - Information factuelle sur l\'actualité récente. Brèves ou contenus factuels récapitulant les événements.\n\n2. EXPLAIN ME - Vulgarisation et mise en contexte pédagogique. Premier niveau de compréhension, synthétique et didactique.\n\n3. GIVE ME PERSPECTIVE - Analyse approfondie avec différents points de vue. Second niveau de compréhension pour ceux qui connaissent déjà le sujet.\n\n4. GIVE ME A BREAK - Contenus légers et divertissants. Insolite, étonnant, drôle, curiosité.\n\n5. GIVE ME CONCERNING NEWS - Contenus qui touchent à la sphère privée, dans l\'air du temps, utiles au quotidien.\n\n6. INSPIRE ME - Récits inspirants et solutions. Histoires positives, résilience, espoir, journalisme de solution.\n\n7. MAKE ME FEEL THE NEWS - Témoignages et expériences vécues. Récits de première main qui provoquent une émotion.\n\n8. REVEAL NEWS - Enquêtes et révélations exclusives. Information obtenue par France Télévisions/franceinfo/Radio France.',
-                task: 'Analyse cet article et réponds EXACTEMENT avec ce format (ne rajoute rien d\'autre) :\n\nUSERNEED: [nom exact du userneed]\nJUSTIFICATION: [2-3 phrases expliquant pourquoi ce userneed correspond à l\'article]\n\nUserneeds disponibles :\n- UPDATE ME\n- EXPLAIN ME\n- GIVE ME PERSPECTIVE\n- GIVE ME A BREAK\n- GIVE ME CONCERNING NEWS\n- INSPIRE ME\n- MAKE ME FEEL THE NEWS\n- REVEAL NEWS\n\nRègle CRITIQUE : Tu dois répondre EXACTEMENT avec le format ci-dessus. Commence par "USERNEED:" suivi du nom, puis sur une nouvelle ligne "JUSTIFICATION:" suivi de ton explication. Ne rajoute AUCUN texte avant ou après.'
-            },
+            content: `#ROLE
+Tu es un expert en data analyse et IA spécialisé dans la classification éditoriale pour France Télévisions. Ta mission est de catégoriser précisément des articles de franceinfo selon 8 userneeds prédéfinis.
+
+#VISION DE FRANCEINFO
+
+1. L'information de Franceinfo est le reflet d'une couverture exacte, équilibrée, complète et impartiale de l'actualité.
+2. L'information de Franceinfo est certifiée, validée avant d'être publiée.
+3. L'information de Franceinfo revendique la liberté de ton sur tous les supports.
+4. L'information de Franceinfo est au service du public et participe à la construction de la citoyenneté.
+5. L'information de Franceinfo est honnête et transparente.
+
+#DÉFINITIONS DES USERNEEDS
+
+1. UPDATE ME - Information factuelle sur l'actualité récente. Brèves ou contenus factuels récapitulant les événements.
+
+2. EXPLAIN ME - Vulgarisation et mise en contexte pédagogique. Premier niveau de compréhension, synthétique et didactique.
+
+3. GIVE ME PERSPECTIVE - Analyse approfondie avec différents points de vue. Second niveau de compréhension pour ceux qui connaissent déjà le sujet.
+
+4. GIVE ME A BREAK - Contenus légers et divertissants. Insolite, étonnant, drôle, curiosité.
+
+5. GIVE ME CONCERNING NEWS - Contenus qui touchent à la sphère privée, dans l'air du temps, utiles au quotidien.
+
+6. INSPIRE ME - Récits inspirants et solutions. Histoires positives, résilience, espoir, journalisme de solution.
+
+7. MAKE ME FEEL THE NEWS - Témoignages et expériences vécues. Récits de première main qui provoquent une émotion.
+
+8. REVEAL NEWS - Enquêtes et révélations exclusives. Information obtenue par France Télévisions/franceinfo/Radio France.
+
+#TÂCHE
+
+Analyse cet article et réponds EXACTEMENT avec ce format (ne rajoute rien d'autre) :
+
+USERNEED: [nom exact du userneed]
+JUSTIFICATION: [2-3 phrases expliquant pourquoi ce userneed correspond à l'article]
+
+Userneeds disponibles :
+- UPDATE ME
+- EXPLAIN ME
+- GIVE ME PERSPECTIVE
+- GIVE ME A BREAK
+- GIVE ME CONCERNING NEWS
+- INSPIRE ME
+- MAKE ME FEEL THE NEWS
+- REVEAL NEWS
+
+Règle CRITIQUE : Tu dois répondre EXACTEMENT avec le format ci-dessus. Commence par "USERNEED:" suivi du nom, puis sur une nouvelle ligne "JUSTIFICATION:" suivi de ton explication. Ne rajoute AUCUN texte avant ou après.`,
             userneeds: [...USERNEEDS],
             metadata: {
                 version: '1.0',
@@ -291,7 +327,9 @@ class PromptManager {
         try {
             const data = localStorage.getItem(this.storageKey);
             if (data) {
-                this.prompts = JSON.parse(data);
+                const parsed = JSON.parse(data);
+                // Migrer les anciens prompts au nouveau format
+                this.prompts = parsed.map(prompt => migrateOldPromptFormat(prompt));
             }
             const activeId = localStorage.getItem(this.activePromptKey);
             if (activeId) {
@@ -324,32 +362,19 @@ class PromptManager {
         return this.prompts.find(p => p.id === id);
     }
 
-    buildPromptText(titre, chapo, corps) {
+    buildFullPrompt(titre, chapo, corps) {
         const activePrompt = this.getActivePrompt();
         if (!activePrompt) {
             throw new Error('Aucun prompt actif trouvé');
         }
 
-        const { content } = activePrompt;
-        let promptText = '';
+        // Le prompt de base est déjà complet dans content (string)
+        const basePrompt = activePrompt.content;
 
-        if (content.role) {
-            promptText += `#ROLE\n${content.role}\n\n`;
-        }
-        if (content.vision) {
-            promptText += `#VISION DE FRANCEINFO\n${content.vision}\n\n`;
-        }
-        if (content.definitions) {
-            promptText += `#DÉFINITIONS DES USERNEEDS\n\n${content.definitions}\n\n`;
-        }
+        // Ajouter uniquement la section article à analyser
+        const articleSection = `\n\n#ARTICLE À ANALYSER\n\nTitre: ${titre}\n\nChapô: ${chapo}\n\nCorps: ${corps}`;
 
-        promptText += `#ARTICLE À ANALYSER\n\nTitre: ${titre}\n\nChapô: ${chapo}\n\nCorps: ${corps}\n\n`;
-
-        if (content.task) {
-            promptText += `#TÂCHE\n${content.task}`;
-        }
-
-        return promptText;
+        return basePrompt + articleSection;
     }
 
     setActivePrompt(id) {
@@ -457,8 +482,138 @@ class PromptManager {
     }
 }
 
+// Migration des anciens prompts (format objet) vers nouveau format (string)
+function migrateOldPromptFormat(prompt) {
+    // Si content est déjà une string, rien à faire
+    if (typeof prompt.content === 'string') {
+        return prompt;
+    }
+
+    // Si content est un objet (ancien format), convertir en string
+    if (typeof prompt.content === 'object' && prompt.content !== null) {
+        let fullPrompt = '';
+
+        if (prompt.content.role) {
+            fullPrompt += `#ROLE\n${prompt.content.role}\n\n`;
+        }
+
+        if (prompt.content.vision) {
+            fullPrompt += `#VISION DE FRANCEINFO\n${prompt.content.vision}\n\n`;
+        }
+
+        if (prompt.content.definitions) {
+            fullPrompt += `#DÉFINITIONS DES USERNEEDS\n\n${prompt.content.definitions}\n\n`;
+        }
+
+        if (prompt.content.task) {
+            fullPrompt += `#TÂCHE\n${prompt.content.task}`;
+        }
+
+        prompt.content = fullPrompt;
+        console.log(`✅ Migration du prompt "${prompt.name}" vers le nouveau format`);
+        return prompt;
+    }
+
+    return prompt;
+}
+
 // Instance globale du gestionnaire de prompts
 let promptManager = null;
+
+// ========================
+// PROVIDER CONFIGURATION MANAGER
+// ========================
+
+class ProviderManager {
+    constructor() {
+        this.openrouterApiKey = null;
+        this.selectedModel = 'anthropic/claude-3.5-haiku';
+        this.configFileLoaded = false;
+    }
+
+    async loadConfigurationFromFile() {
+        try {
+            const response = await fetch('/config.json');
+            if (response.ok) {
+                const config = await response.json();
+
+                // Charger la clé OpenRouter
+                if (config.openrouter_api_key) {
+                    this.openrouterApiKey = config.openrouter_api_key;
+                }
+
+                // Si pas de clé dans config.json, essayer localStorage
+                if (!this.openrouterApiKey) {
+                    const storedKey = localStorage.getItem('openrouter_api_key');
+                    if (storedKey) {
+                        this.openrouterApiKey = storedKey;
+                        console.log('🔑 Clé OpenRouter chargée depuis localStorage');
+                    }
+                }
+
+                // Charger le modèle
+                this.selectedModel = config.default_model || 'anthropic/claude-3.5-haiku';
+
+                this.configFileLoaded = true;
+                console.log('✅ Configuration OpenRouter chargée');
+                console.log(`   Modèle: ${this.selectedModel}`);
+                console.log(`   OpenRouter key: ${this.openrouterApiKey ? '✓' : '✗'}`);
+
+                // Nettoyer localStorage obsolète
+                localStorage.removeItem('llm_provider');
+                localStorage.removeItem('anthropic_api_key');
+
+                return true;
+            }
+        } catch (error) {
+            console.log('⚠️ Fichier config.json non disponible');
+        }
+        return false;
+    }
+
+    loadConfiguration() {
+        if (this.configFileLoaded) {
+            console.log('ℹ️ Config.json déjà chargé');
+            return;
+        }
+
+        const storedModel = localStorage.getItem('openrouter_model');
+        if (storedModel) {
+            this.selectedModel = storedModel;
+        }
+
+        this.openrouterApiKey = localStorage.getItem('openrouter_api_key');
+    }
+
+    saveConfiguration() {
+        if (this.openrouterApiKey) {
+            localStorage.setItem('openrouter_api_key', this.openrouterApiKey);
+        }
+        if (this.selectedModel) {
+            localStorage.setItem('openrouter_model', this.selectedModel);
+        }
+        console.log('💾 Configuration OpenRouter sauvegardée');
+    }
+
+    getActiveApiKey() {
+        return this.openrouterApiKey;
+    }
+
+    getRequestPayload(prompt) {
+        return {
+            apiKey: this.openrouterApiKey,
+            model: this.selectedModel,
+            prompt: prompt
+        };
+    }
+
+    isConfigured() {
+        return !!(this.openrouterApiKey && this.selectedModel);
+    }
+}
+
+// Instance globale du gestionnaire de provider
+let providerManager = null;
 
 // Matrice de confusion : confusionMatrix[source][prediction] = count
 let confusionMatrix = {};
@@ -467,31 +622,37 @@ let predictionDistribution = {};
 
 // Charger la clé API depuis le fichier config.json au démarrage
 window.addEventListener('DOMContentLoaded', async () => {
-    // NOUVEAU: Initialiser le gestionnaire de prompts en premier
+    console.log('🚀 Démarrage de l\'application...');
+
+    // Nettoyer les clés obsolètes d'Anthropic Direct
+    localStorage.removeItem('llm_provider');
+    localStorage.removeItem('anthropic_api_key');
+    console.log('🧹 localStorage nettoyé (clés Anthropic obsolètes)');
+
+    // 1. Initialiser le gestionnaire de prompts
     promptManager = new PromptManager();
     console.log('📝 Gestionnaire de prompts initialisé');
 
-    // Ensuite charger l'API key (code existant)
-    try {
-        const response = await fetch('/config.json');
-        if (response.ok) {
-            const config = await response.json();
-            if (config.apiKey && config.apiKey !== 'VOTRE_CLE_API_ICI') {
-                localStorage.setItem('anthropic_api_key', config.apiKey);
-                console.log('🔑 Clé API chargée depuis config.json');
-            }
-        }
-    } catch (error) {
-        console.warn('Impossible de charger config.json:', error);
-        // La clé API sera chargée depuis localStorage lors de l'analyse
-        const savedApiKey = localStorage.getItem('anthropic_api_key');
-        if (savedApiKey) {
-            console.log('🔑 Clé API disponible dans le stockage local');
-        }
+    // 2. Initialiser le gestionnaire de provider
+    providerManager = new ProviderManager();
+
+    // 3. Charger la configuration depuis config.json (prioritaire)
+    const configLoaded = await providerManager.loadConfigurationFromFile();
+
+    // 4. Si config.json n'est pas disponible, fallback sur localStorage
+    if (!configLoaded) {
+        providerManager.loadConfiguration();
+        console.log('🔌 Configuration chargée depuis localStorage');
     }
 
-    // Initialiser la gestion des prompts UI
-    initializePromptUI();
+    console.log(`   Provider: OpenRouter`);
+    console.log(`   Modèle: ${providerManager.selectedModel}`);
+
+    // 5. Initialiser l'interface UI
+    initializePromptUI();  // PROMPTS + LLM
+    initializeProviderUI(); // Configuration provider
+
+    console.log('✅ Application initialisée');
 });
 
 function addLog(message, type = 'info') {
@@ -1097,60 +1258,6 @@ function updateStatisticsDisplay() {
     document.getElementById('reclassifiedCount').textContent = reclassified;
     document.getElementById('reclassifiedPercent').textContent = reclassifiedPercent + '%';
 
-    // Distribution fusionnée Source vs Prédiction
-    const mergedDiv = document.getElementById('mergedDistribution');
-    if (mergedDiv) {
-        mergedDiv.innerHTML = '';
-
-        // Créer une structure fusionnée avec source ET prédiction
-        const mergedItems = USERNEEDS.map(userneed => {
-            const sourceCount = sourceDistribution[userneed] || 0;
-            const predCount = predictionDistribution[userneed] || 0;
-            const sourcePercent = totalArticles > 0 ? ((sourceCount / totalArticles) * 100).toFixed(0) : 0;
-            const predPercent = totalArticles > 0 ? ((predCount / totalArticles) * 100).toFixed(0) : 0;
-
-            return {
-                userneed,
-                sourceCount,
-                sourcePercent,
-                predCount,
-                predPercent,
-                totalCount: sourceCount + predCount
-            };
-        })
-        .filter(item => item.sourceCount > 0 || item.predCount > 0) // Afficher seulement les catégories avec des données
-        .sort((a, b) => b.sourceCount - a.sourceCount); // Trier par source (décroissant)
-
-        mergedItems.forEach(({ userneed, sourceCount, sourcePercent, predCount, predPercent }) => {
-            const groupedItem = document.createElement('div');
-            groupedItem.className = 'distribution-item-grouped';
-
-            groupedItem.innerHTML = `
-                <div class="distribution-category-label">${getShortName(userneed)}</div>
-
-                <!-- Barre Source -->
-                <div class="distribution-row">
-                    <span class="distribution-row-label">Source</span>
-                    <div class="distribution-bar-grouped">
-                        <div class="distribution-fill-source" style="width: ${sourcePercent}%"></div>
-                    </div>
-                    <span class="distribution-value">${sourceCount} (${sourcePercent}%)</span>
-                </div>
-
-                <!-- Barre Prédiction -->
-                <div class="distribution-row">
-                    <span class="distribution-row-label">Prédiction</span>
-                    <div class="distribution-bar-grouped">
-                        <div class="distribution-fill-prediction" style="width: ${predPercent}%"></div>
-                    </div>
-                    <span class="distribution-value">${predCount} (${predPercent}%)</span>
-                </div>
-            `;
-
-            mergedDiv.appendChild(groupedItem);
-        });
-    }
-
     // Top 5 reclassifications
     const topDiv = document.getElementById('topReclassifications');
     topDiv.innerHTML = '';
@@ -1205,10 +1312,9 @@ function hideError() {
 }
 
 async function analyzeWithAI() {
-    const apiKey = localStorage.getItem('anthropic_api_key');
-
-    if (!apiKey) {
-        showError('Veuillez configurer votre clé API Anthropic dans le fichier config.json ou via localStorage');
+    // Vérifier la configuration OpenRouter
+    if (!providerManager.isConfigured()) {
+        showError('Veuillez configurer votre clé API OpenRouter dans le panneau 🤖 LLM ou dans le fichier config.json');
         return;
     }
 
@@ -1246,65 +1352,75 @@ async function analyzeWithAI() {
     const userIdIndex = 0; // Colonne A
 
     try {
-        // Traitement par batch de 5 articles en parallèle
-        const BATCH_SIZE = 5;
-        const totalBatches = Math.ceil(rows.length / BATCH_SIZE);
+        // Traitement séquentiel article par article (plus fiable, moins de timeouts)
+        const ARTICLE_DELAY_MS = 5000; // Délai de 5 secondes entre chaque article (augmenté pour éviter rate limiting)
 
-        addLog(`🔢 Traitement par batch de ${BATCH_SIZE} articles en parallèle`, 'info');
-        addLog(`📦 Nombre de batches : ${totalBatches}`, 'info');
+        // Récupérer la clé API active selon le provider
+        const apiKey = providerManager.getActiveApiKey();
 
-        for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+        if (!apiKey) {
+            showError('Veuillez configurer votre clé API dans le panneau LLM');
+            analyzeBtn.style.display = 'inline-block';
+            stopBtn.style.display = 'none';
+            progressContainer.style.display = 'none';
+            return;
+        }
+
+        addLog(`🔄 Traitement séquentiel : 1 article à la fois`, 'info');
+        addLog(`📊 Nombre total d'articles : ${rows.length}`, 'info');
+        addLog(`⏱️ Délai entre articles : ${ARTICLE_DELAY_MS / 1000} secondes`, 'info');
+
+        // Boucle simple sur tous les articles
+        for (let i = 0; i < rows.length; i++) {
             // Vérifier si l'utilisateur a demandé l'arrêt
             if (stopAnalysis) {
-                const processedCount = batchIndex * BATCH_SIZE;
-                addLog(`<br/>🛑 <strong>ANALYSE ARRÊTÉE</strong> par l'utilisateur à l'article ${processedCount}/${rows.length}`, 'error');
+                addLog(`<br/>🛑 <strong>ANALYSE ARRÊTÉE</strong> par l'utilisateur à l'article ${i + 1}/${rows.length}`, 'error');
                 break;
             }
 
-            const batchStart = batchIndex * BATCH_SIZE;
-            const batchEnd = Math.min(batchStart + BATCH_SIZE, rows.length);
-            const batchRows = rows.slice(batchStart, batchEnd);
+            const row = rows[i];
+            const titre = row[titreIndex] || '';
+            const chapo = row[chapoIndex] || '';
+            const corps = row[corpsIndex] || '';
+            const expectedUserneed = row[userIdIndex] || '';
+            const urlValue = row[2]; // URL (colonne C)
 
-            addLog(`<br/>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`, 'info');
-            addLog(`📦 Batch ${batchIndex + 1}/${totalBatches} - Articles ${batchStart + 1} à ${batchEnd}`, 'info');
-            addLog(`⏳ Envoi de ${batchRows.length} requêtes en parallèle...`, 'info');
+            // Log de début de traitement
+            addLog(`<br/>📰 Article ${i + 1}/${rows.length} : ${titre.substring(0, 80)}${titre.length > 80 ? '...' : ''}`, 'info');
 
-            // Créer les promesses pour tous les articles du batch
-            const batchPromises = batchRows.map(async (row, batchOffset) => {
-                const i = batchStart + batchOffset;
-                const titre = row[titreIndex] || '';
-                const chapo = row[chapoIndex] || '';
-                const corps = row[corpsIndex] || '';
-                const expectedUserneed = row[userIdIndex] || '';
-                const urlValue = row[2]; // URL (colonne C)
-
-                addLog(`📰 Article ${i + 1}/${rows.length} : ${titre.substring(0, 80)}${titre.length > 80 ? '...' : ''}`, 'info');
-
+            try {
                 // Appeler l'API pour analyser cet article
                 const parsed = await analyzeArticle(apiKey, titre, chapo, corps);
 
                 // Gérer le nouveau format avec predictions ou l'ancien format (fallback)
                 let userneed, justification, hasJustification, predictions;
 
-                if (parsed.predictions && parsed.predictions.length > 0) {
+                if (parsed && parsed.predictions && parsed.predictions.length > 0) {
                     // Nouveau format: 3 userneeds avec scores
                     predictions = parsed.predictions;
                     userneed = predictions[0].userneed; // Userneed principal
                     justification = parsed.justification;
                     hasJustification = parsed.hasJustification;
-                } else {
+                } else if (parsed) {
                     // Ancien format: un seul userneed
                     userneed = parsed.userneed;
                     justification = parsed.justification;
                     hasJustification = parsed.hasJustification;
                     predictions = null;
+                } else {
+                    // Si le parsing a échoué complètement
+                    addLog(`⚠️ Impossible d'extraire un userneed valide de la réponse`, 'warning');
+                    userneed = '❓ Non identifié';
+                    justification = '';
+                    hasJustification = false;
+                    predictions = null;
                 }
 
-                // Vérifier la concordance avec normalisation (toujours sur le principal)
+                // Vérifier la concordance avec normalisation
                 const isMatch = normalizeUserneed(userneed) === normalizeUserneed(expectedUserneed);
 
-                // Retourner les données de l'article
-                return {
+                // Créer l'objet article
+                const articleData = {
                     index: i,
                     numero: i + 1,
                     url: urlValue,
@@ -1316,42 +1432,58 @@ async function analyzeWithAI() {
                     isMatch: isMatch,
                     hasJustification: hasJustification
                 };
-            });
 
-            // Attendre que toutes les requêtes du batch soient terminées
-            const batchResults = await Promise.all(batchPromises);
+                // Log du résultat
+                addLog(`✅ Résultat: <span class="log-result">${userneed}</span>`, 'success');
 
-            // Traiter les résultats du batch
-            for (const articleData of batchResults) {
-                addLog(`✅ Article ${articleData.numero}: <span class="log-result">${articleData.predictedUserneed}</span>`, 'success');
-
-                if (articleData.isMatch) {
+                if (isMatch) {
                     addLog(`✓ <span style="color: #10b981;">Concordant</span>`, 'success');
                 } else {
-                    addLog(`✗ <span style="color: #ef4444;">Différent</span> (attendu: ${articleData.expectedUserneed})`, 'error');
+                    addLog(`✗ <span style="color: #ef4444;">Différent</span> (attendu: ${expectedUserneed})`, 'error');
                 }
 
-                // Stocker le résultat complet
+                // Stocker le résultat
                 articleResults.push(articleData);
 
-                // Mettre à jour la matrice de confusion
-                updateConfusionMatrix(articleData.expectedUserneed, articleData.predictedUserneed);
+                // Mettre à jour la matrice de confusion seulement si on a un userneed valide
+                // Ne pas comptabiliser les userneeds "Non identifié"
+                if (userneed && expectedUserneed && !userneed.includes('Non identifié')) {
+                    updateConfusionMatrix(expectedUserneed, userneed);
+                }
+
+                // Rafraîchir l'affichage du tableau
+                filterTableByMatrix();
+
+            } catch (error) {
+                // Gestion d'erreur pour cet article
+                addLog(`❌ Erreur sur article ${i + 1} : ${error.message}`, 'error');
+
+                // Stocker un résultat avec erreur
+                articleResults.push({
+                    index: i,
+                    numero: i + 1,
+                    url: urlValue,
+                    titre: titre,
+                    expectedUserneed: expectedUserneed,
+                    predictedUserneed: 'ERROR',
+                    predictions: null,
+                    justification: `Erreur: ${error.message}`,
+                    isMatch: false,
+                    hasJustification: false
+                });
             }
 
-            // Rafraîchir l'affichage du tableau avec tous les résultats
-            filterTableByMatrix();
-
-            // Mettre à jour la progression
-            const progress = (batchEnd / rows.length) * 100;
+            // Mise à jour de la barre de progression
+            const progress = ((i + 1) / rows.length) * 100;
             progressFill.style.width = `${progress}%`;
-            progressText.textContent = `Analyse en cours... ${batchEnd}/${rows.length} articles (Batch ${batchIndex + 1}/${totalBatches})`;
+            progressText.textContent = `Analyse en cours... ${i + 1}/${rows.length} articles`;
 
-            addLog(`💾 Batch ${batchIndex + 1} enregistré (${batchResults.length} articles)`, 'success');
-
-            // Délai de 6 secondes entre les batches (pas entre les articles individuels)
-            if (batchEnd < rows.length && !stopAnalysis) {
-                addLog(`⏱️ Attente de 6 secondes avant le prochain batch...`, 'info');
-                await new Promise(resolve => setTimeout(resolve, 6000));
+            // Délai entre articles (sauf pour le dernier)
+            if (i < rows.length - 1 && !stopAnalysis) {
+                if (ARTICLE_DELAY_MS > 0) {
+                    addLog(`⏱️ Attente de ${ARTICLE_DELAY_MS / 1000} secondes avant le prochain article...`, 'info');
+                    await new Promise(resolve => setTimeout(resolve, ARTICLE_DELAY_MS));
+                }
             }
         }
 
@@ -1379,25 +1511,27 @@ async function analyzeWithAI() {
 
 async function analyzeArticle(apiKey, titre, chapo, corps) {
     // Utiliser le prompt du gestionnaire au lieu du hardcodé
-    const prompt = promptManager.buildPromptText(titre, chapo, corps);
+    const prompt = promptManager.buildFullPrompt(titre, chapo, corps);
 
-    // Configuration du timeout (60 secondes pour Haiku 3)
+    // NEW: Get request payload from provider manager
+    const requestPayload = providerManager.getRequestPayload(prompt);
+
+    // Configuration du timeout (120 secondes - augmenté pour éviter les timeouts)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
 
     try {
+        addLog(`🔌 Provider: OpenRouter`, 'info');
+        addLog(`🤖 Modèle: ${providerManager.selectedModel}`, 'info');
         addLog(`🔑 Vérification de la clé API (longueur: ${apiKey.length} caractères)`, 'info');
         addLog(`🌐 Connexion au serveur proxy...`, 'info');
 
-        const response = await fetch('/api/claude', {
+        const response = await fetch('/api/analyze', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                apiKey: apiKey,
-                prompt: prompt
-            }),
+            body: JSON.stringify(requestPayload),
             signal: controller.signal
         });
 
@@ -1412,10 +1546,17 @@ async function analyzeArticle(apiKey, titre, chapo, corps) {
         }
 
         const data = await response.json();
-        const responseText = data.content[0].text.trim();
 
-        // DEBUG: Log la réponse brute de Claude
-        console.log('🔍 Réponse brute de Claude:', responseText);
+        // NEW: Handle different response formats
+        let responseText;
+        if (data.provider === 'openrouter') {
+            responseText = data.content; // OpenRouter format
+        } else {
+            responseText = data.content[0].text.trim(); // Anthropic format
+        }
+
+        // DEBUG: Log la réponse brute
+        console.log('🔍 Réponse brute:', responseText);
 
         const parsed = parseAIResponse(responseText);
 
@@ -1452,18 +1593,18 @@ async function analyzeArticle(apiKey, titre, chapo, corps) {
             addLog(``, 'error');
             addLog(`⚠️ CLÉ API INVALIDE`, 'error');
             addLog(``, 'error');
-            addLog(`Votre clé API Anthropic est incorrecte ou expirée.`, 'error');
-            addLog(`Vérifiez la clé dans le fichier config.json`, 'error');
+            addLog(`Votre clé API OpenRouter est incorrecte ou expirée.`, 'error');
+            addLog(`Vérifiez la clé dans le fichier config.json ou le panneau 🤖 LLM`, 'error');
             addLog(``, 'error');
-            addLog(`Obtenez une nouvelle clé sur : https://console.anthropic.com/`, 'error');
+            addLog(`Obtenez une nouvelle clé sur : https://openrouter.ai/keys`, 'error');
         } else if (error.message.includes('429')) {
             addLog(``, 'error');
             addLog(`⚠️ LIMITE DE REQUÊTES ATTEINTE`, 'error');
             addLog(``, 'error');
-            addLog(`Vous avez dépassé votre quota API Anthropic.`, 'error');
+            addLog(`Vous avez dépassé votre quota API OpenRouter.`, 'error');
             addLog(`Attendez quelques minutes avant de réessayer.`, 'error');
             addLog(``, 'error');
-            addLog(`Si le problème persiste, vérifiez votre plan sur console.anthropic.com`, 'error');
+            addLog(`Si le problème persiste, vérifiez votre plan sur openrouter.ai`, 'error');
         } else if (error.message.includes('Timeout') || error.message.includes('AbortError')) {
             addLog(``, 'error');
             addLog(`⚠️ TIMEOUT DE LA REQUÊTE`, 'error');
@@ -1474,7 +1615,7 @@ async function analyzeArticle(apiKey, titre, chapo, corps) {
             addLog(``, 'error');
             addLog(`⚠️ ERREUR SERVEUR API`, 'error');
             addLog(``, 'error');
-            addLog(`L'API Anthropic rencontre un problème temporaire.`, 'error');
+            addLog(`L'API OpenRouter rencontre un problème temporaire.`, 'error');
             addLog(`Réessayez dans quelques instants.`, 'error');
         }
 
@@ -1659,9 +1800,40 @@ function exportToExcel() {
 let currentEditingPromptId = null;
 
 function initializePromptUI() {
+    // Références DOM pour la gestion LLM
+    // Références DOM pour LLM
+    const llmBtn = document.getElementById('llmBtn');
+    const llmPanel = document.getElementById('llmPanel');
+
+    // CRITIQUE : Vérifier que les éléments LLM existent
+    if (!llmBtn || !llmPanel) {
+        console.error('❌ Éléments LLM manquants (llmBtn ou llmPanel)');
+        // Continue quand même pour initialiser PROMPTS
+    } else {
+        const closeLlmPanelBtn = document.getElementById('closeLlmPanelBtn');
+        const llmPanelBackdrop = llmPanel.querySelector('.llm-panel-backdrop');
+
+        if (!closeLlmPanelBtn || !llmPanelBackdrop) {
+            console.error('❌ Éléments internes LLM manquants');
+        } else {
+            // Event listeners pour LLM
+            llmBtn.addEventListener('click', openLlmPanel);
+            closeLlmPanelBtn.addEventListener('click', closeLlmPanel);
+            llmPanelBackdrop.addEventListener('click', closeLlmPanel);
+            console.log('✅ Bouton LLM initialisé');
+        }
+    }
+
     // Références DOM pour la gestion des prompts
     const settingsBtn = document.getElementById('settingsBtn');
     const promptPanel = document.getElementById('promptPanel');
+
+    // CRITIQUE : Vérifier que les éléments PROMPTS existent
+    if (!settingsBtn || !promptPanel) {
+        console.error('❌ Éléments PROMPTS manquants (settingsBtn ou promptPanel)');
+        return; // Arrêter complètement si PROMPTS manquant
+    }
+
     const closePanelBtn = document.getElementById('closePanelBtn');
     const promptPanelBackdrop = promptPanel.querySelector('.prompt-panel-backdrop');
     const createPromptBtn = document.getElementById('createPromptBtn');
@@ -1675,20 +1847,126 @@ function initializePromptUI() {
 
     const importFileInput = document.getElementById('importFileInput');
 
-    // Event listeners
+    // Vérifications supplémentaires pour PROMPTS
+    if (!closePanelBtn || !promptPanelBackdrop) {
+        console.error('❌ Éléments internes PROMPTS manquants');
+        return;
+    }
+
+    // Event listeners pour Prompts
     settingsBtn.addEventListener('click', openPromptPanel);
     closePanelBtn.addEventListener('click', closePromptPanel);
     promptPanelBackdrop.addEventListener('click', closePromptPanel);
-    createPromptBtn.addEventListener('click', () => openPromptModal());
-    importPromptsBtn.addEventListener('click', importPrompts);
-    exportPromptsBtn.addEventListener('click', exportPrompts);
-    closeModalBtn.addEventListener('click', closePromptModal);
-    cancelModalBtn.addEventListener('click', closePromptModal);
-    savePromptBtn.addEventListener('click', savePrompt);
-    importFileInput.addEventListener('change', handleImportFile);
+
+    if (createPromptBtn) createPromptBtn.addEventListener('click', () => openPromptModal());
+    if (importPromptsBtn) importPromptsBtn.addEventListener('click', importPrompts);
+    if (exportPromptsBtn) exportPromptsBtn.addEventListener('click', exportPrompts);
+    if (closeModalBtn) closeModalBtn.addEventListener('click', closePromptModal);
+    if (cancelModalBtn) cancelModalBtn.addEventListener('click', closePromptModal);
+    if (savePromptBtn) savePromptBtn.addEventListener('click', savePrompt);
+    if (importFileInput) importFileInput.addEventListener('change', handleImportFile);
+
+    console.log('✅ Interface UI initialisée (PROMPTS + LLM)');
 
     // Charger la liste des prompts au démarrage
     refreshPromptList();
+}
+
+// ====================================
+// PROVIDER MANAGEMENT UI FUNCTIONS
+// ====================================
+
+function initializeProviderUI() {
+    const modelSelect = document.getElementById('modelSelect');
+    const openrouterApiKeyInput = document.getElementById('openrouterApiKey');
+    const saveProviderConfigBtn = document.getElementById('saveProviderConfigBtn');
+
+    // CRITIQUE : Vérifier que les éléments existent
+    if (!modelSelect) {
+        console.error('⚠️ Élément modelSelect manquant - UI provider non initialisée');
+        return;
+    }
+
+    // Charger la configuration
+    modelSelect.value = providerManager.selectedModel;
+    if (openrouterApiKeyInput) {
+        openrouterApiKeyInput.value = providerManager.openrouterApiKey || '';
+    }
+
+    // Event: changement de modèle
+    modelSelect.addEventListener('change', (e) => {
+        providerManager.selectedModel = e.target.value;
+        console.log(`✅ Modèle sélectionné: ${providerManager.selectedModel}`);
+    });
+
+    // Event listener for OpenRouter API key
+    if (openrouterApiKeyInput) {
+        openrouterApiKeyInput.addEventListener('input', (e) => {
+            providerManager.openrouterApiKey = e.target.value;
+        });
+    }
+
+    // Event listener for save button
+    if (saveProviderConfigBtn) {
+        saveProviderConfigBtn.addEventListener('click', () => {
+            providerManager.saveConfiguration();
+            console.log('✅ Clé API OpenRouter sauvegardée');
+
+            // Visual feedback
+            const originalText = saveProviderConfigBtn.textContent;
+            saveProviderConfigBtn.textContent = '✅ Sauvegardé !';
+            saveProviderConfigBtn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+            setTimeout(() => {
+                saveProviderConfigBtn.textContent = originalText;
+                saveProviderConfigBtn.style.background = '';
+            }, 2000);
+        });
+    }
+
+    // Event listener for reset configuration button
+    const resetConfigBtn = document.getElementById('resetConfigBtn');
+    if (resetConfigBtn) {
+        resetConfigBtn.addEventListener('click', async () => {
+            console.log('🔄 Rechargement de la configuration depuis config.json...');
+
+            // Nettoyer localStorage
+            localStorage.clear();
+            console.log('🧹 localStorage effacé');
+
+            // Recharger depuis config.json
+            providerManager.configFileLoaded = false; // Reset flag
+            await providerManager.loadConfigurationFromFile();
+
+            // Rafraîchir l'UI
+            modelSelect.value = providerManager.selectedModel;
+            if (openrouterApiKeyInput) {
+                openrouterApiKeyInput.value = providerManager.openrouterApiKey || '';
+            }
+
+            // Visual feedback
+            const originalText = resetConfigBtn.textContent;
+            resetConfigBtn.textContent = '✅ Configuration rechargée !';
+            resetConfigBtn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+            setTimeout(() => {
+                resetConfigBtn.textContent = originalText;
+                resetConfigBtn.style.background = '';
+            }, 2000);
+
+            console.log('✅ Configuration rechargée avec succès');
+        });
+    }
+
+    console.log('✅ Interface OpenRouter initialisée');
+}
+
+function openLlmPanel() {
+    const llmPanel = document.getElementById('llmPanel');
+    llmPanel.classList.add('active');
+}
+
+function closeLlmPanel() {
+    const llmPanel = document.getElementById('llmPanel');
+    llmPanel.classList.remove('active');
 }
 
 function openPromptPanel() {
@@ -1716,10 +1994,7 @@ function openPromptModal(promptId = null) {
         modalTitle.textContent = prompt.isDefault ? 'Voir le prompt' : 'Éditer le prompt';
         document.getElementById('promptName').value = prompt.name;
         document.getElementById('promptDescription').value = prompt.description || '';
-        document.getElementById('promptRole').value = prompt.content.role || '';
-        document.getElementById('promptVision').value = prompt.content.vision || '';
-        document.getElementById('promptDefinitions').value = prompt.content.definitions || '';
-        document.getElementById('promptTask').value = prompt.content.task || '';
+        document.getElementById('promptContent').value = prompt.content || '';
 
         // Désactiver l'édition si c'est le prompt par défaut
         if (prompt.isDefault) {
@@ -1738,10 +2013,7 @@ function openPromptModal(promptId = null) {
         modalTitle.textContent = 'Nouveau prompt';
         document.getElementById('promptName').value = '';
         document.getElementById('promptDescription').value = '';
-        document.getElementById('promptRole').value = '';
-        document.getElementById('promptVision').value = '';
-        document.getElementById('promptDefinitions').value = '';
-        document.getElementById('promptTask').value = '';
+        document.getElementById('promptContent').value = '';
 
         document.querySelectorAll('#promptModal input, #promptModal textarea').forEach(el => {
             el.disabled = false;
@@ -1761,26 +2033,23 @@ function closePromptModal() {
 function savePrompt() {
     const name = document.getElementById('promptName').value.trim();
     const description = document.getElementById('promptDescription').value.trim();
-    const role = document.getElementById('promptRole').value.trim();
-    const vision = document.getElementById('promptVision').value.trim();
-    const definitions = document.getElementById('promptDefinitions').value.trim();
-    const task = document.getElementById('promptTask').value.trim();
+    const content = document.getElementById('promptContent').value.trim();
 
-    // Validation
+    // Validation simplifiée
     if (!name) {
         alert('Le nom du prompt est obligatoire');
         return;
     }
 
-    if (!role || !definitions || !task) {
-        alert('Les sections #ROLE, #DÉFINITIONS et #TÂCHE sont obligatoires');
+    if (!content) {
+        alert('Le contenu du prompt ne peut pas être vide');
         return;
     }
 
     const promptData = {
         name,
         description,
-        content: { role, vision, definitions, task },
+        content: content, // String directe au lieu d'objet
         userneeds: [...USERNEEDS],
         tags: []
     };

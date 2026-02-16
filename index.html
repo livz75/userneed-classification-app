@@ -25,7 +25,8 @@
                 </label>
                 <input type="file" id="fileInput" accept=".xlsx" style="display: none;" />
                 <button id="resetBtn" class="header-btn reset-btn" title="Réinitialiser" style="display: none;">🔄 Réinitialiser</button>
-                <button id="settingsBtn" class="header-btn prompts-btn" title="Gérer les prompts">PROMPTS</button>
+                <button id="llmBtn" class="header-btn llm-btn" title="Configuration des modèles LLM">🤖 LLM</button>
+                <button id="settingsBtn" class="header-btn prompts-btn" title="Gérer les prompts">📝 PROMPTS</button>
                 <button id="analyzeBtn" class="header-btn analyze-btn" style="display: none;">Analyse IA</button>
                 <button id="stopBtn" class="header-btn stop-btn" style="display: none;">⏹ Stop</button>
             </div>
@@ -80,20 +81,6 @@
                         <div class="stat-item">Articles reclassifiés : <span id="reclassifiedCount" class="stat-value-error">0</span> (<span id="reclassifiedPercent" class="stat-value-error">0%</span>)</div>
                     </div>
                     <div class="stats-box">
-                        <div class="stat-subtitle">Distribution Source vs Prédiction IA</div>
-                        <div class="distribution-legend">
-                            <span class="legend-item">
-                                <span class="legend-color legend-source"></span>
-                                Catégorie source
-                            </span>
-                            <span class="legend-item">
-                                <span class="legend-color legend-prediction"></span>
-                                Prédiction IA
-                            </span>
-                        </div>
-                        <div id="mergedDistribution"></div>
-                    </div>
-                    <div class="stats-box">
                         <div class="stat-subtitle">Top 5 reclassifications</div>
                         <div id="topReclassifications"></div>
                     </div>
@@ -124,6 +111,73 @@
         </div>
 
         <div id="error" class="error" style="display: none;"></div>
+    </div>
+
+    <!-- Panneau de configuration LLM -->
+    <div id="llmPanel" class="llm-panel">
+        <div class="llm-panel-backdrop"></div>
+        <div class="llm-panel-content">
+            <div class="llm-panel-header">
+                <h2>🤖 Configuration OpenRouter</h2>
+                <button id="closeLlmPanelBtn" class="close-panel-btn">✕</button>
+            </div>
+
+            <div class="provider-config-section">
+                <h3>⚙️ Sélection du Modèle</h3>
+
+                <div class="form-group">
+                    <label for="modelSelect">Choisissez votre modèle LLM :</label>
+                    <select id="modelSelect" class="model-select">
+                        <optgroup label="🟣 Anthropic (via OpenRouter)">
+                            <option value="anthropic/claude-3.5-haiku">Claude 3.5 Haiku ⚡</option>
+                            <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+                            <option value="anthropic/claude-3-opus">Claude 3 Opus</option>
+                        </optgroup>
+                        <optgroup label="🟣 OpenAI (via OpenRouter)">
+                            <option value="openai/gpt-4o-mini">GPT-4o Mini ⚡</option>
+                            <option value="openai/gpt-4o">GPT-4o</option>
+                        </optgroup>
+                        <optgroup label="🟣 Google (via OpenRouter)">
+                            <option value="google/gemini-2.5-flash-lite">Gemini 2.5 Flash Lite ⚡⚡⚡</option>
+                            <option value="google/gemini-flash-1.5">Gemini Flash 1.5 ⚡⚡</option>
+                            <option value="google/gemini-pro-1.5">Gemini Pro 1.5</option>
+                        </optgroup>
+                        <optgroup label="🟣 Meta Llama (via OpenRouter)">
+                            <option value="meta-llama/llama-3.1-8b-instruct">Llama 3.1 8B 🆓</option>
+                            <option value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B</option>
+                        </optgroup>
+                        <optgroup label="🟣 Mistral AI (via OpenRouter)">
+                            <option value="mistralai/mistral-small-24b-instruct-2501">Mistral Small</option>
+                            <option value="mistralai/mistral-medium">Mistral Medium</option>
+                        </optgroup>
+                        <optgroup label="🟣 Alibaba (via OpenRouter)">
+                            <option value="qwen/qwen-2.5-72b-instruct">Qwen 2.5 72B</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <div class="provider-api-config">
+                    <div class="form-group">
+                        <label for="openrouterApiKey">Clé API OpenRouter :</label>
+                        <input type="password" id="openrouterApiKey" class="api-key-input" placeholder="sk-or-...">
+                        <p class="input-help-text">Obtenez votre clé sur <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a></p>
+                    </div>
+                    <button id="saveProviderConfigBtn" class="btn-save-provider">💾 Enregistrer la configuration</button>
+                </div>
+
+                <p class="provider-help-text">
+                    💡 Tous les modèles utilisent <strong>OpenRouter</strong> comme provider unifié<br>
+                    💡 Vous pouvez configurer la clé API dans <code>config.json</code> ou la saisir ci-dessus
+                </p>
+
+                <div class="reset-config-section">
+                    <button id="resetConfigBtn" class="btn-reset-config">
+                        🔄 Recharger depuis config.json
+                    </button>
+                    <p class="reset-help-text">Rechargez la configuration depuis config.json si vous l'avez modifié</p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Panneau de gestion des prompts -->
@@ -177,28 +231,28 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="promptRole">#ROLE *</label>
-                    <textarea id="promptRole" placeholder="Tu es un expert..." rows="3"></textarea>
+                    <label for="promptContent">📝 Prompt complet *</label>
+                    <textarea id="promptContent" rows="25" placeholder="Collez ici votre prompt complet...
+
+Exemple de structure recommandée :
+
+#ROLE
+Tu es un expert en...
+
+#VISION DE FRANCEINFO
+1. ...
+2. ...
+
+#DÉFINITIONS DES USERNEEDS
+1. UPDATE ME - ...
+2. EXPLAIN ME - ...
+
+#TÂCHE
+Analyse cet article..."></textarea>
                 </div>
 
                 <div class="form-group">
-                    <label for="promptVision">#VISION (optionnel)</label>
-                    <textarea id="promptVision" placeholder="La vision éditoriale..." rows="3"></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label for="promptDefinitions">#DÉFINITIONS DES USERNEEDS *</label>
-                    <textarea id="promptDefinitions" placeholder="1. UPDATE ME : ..." rows="6"></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label for="promptTask">#TÂCHE *</label>
-                    <textarea id="promptTask" placeholder="Analyse cet article..." rows="3"></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label>Champs requis : *</label>
-                    <p class="help-text">Les sections #ROLE, #DÉFINITIONS et #TÂCHE sont obligatoires</p>
+                    <p class="help-text">💡 Vous pouvez structurer votre prompt librement. La section <strong>#ARTICLE À ANALYSER</strong> sera automatiquement ajoutée lors de l'analyse.</p>
                 </div>
             </div>
 

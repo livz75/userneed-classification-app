@@ -27,33 +27,19 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps({
                 'status': 'ok',
                 'timestamp': int(__import__('time').time() * 1000),
-                'model': 'claude-3-5-haiku-20241022'
+                'provider': 'openrouter',
+                'default_model': 'anthropic/claude-3.5-haiku'
             }).encode('utf-8'))
             return
         else:
             super().do_GET()
 
-    def do_POST(self):
-        if self.path == '/api/claude':
-            content_length = int(self.headers['Content-Length'])
-            post_data = self.rfile.read(content_length)
+    def _call_openrouter(self, api_key, model, prompt):
+        """Call OpenRouter API with specified model"""
+        api_url = 'https://openrouter.ai/api/v1/chat/completions'
 
-            try:
-                request_data = json.loads(post_data.decode('utf-8'))
-                api_key = request_data['apiKey']
-                prompt = request_data['prompt']
-
-                # Préparer la requête vers l'API Anthropic avec Prompt Caching
-                api_url = 'https://api.anthropic.com/v1/messages'
-
-                # Extraire les instructions fixes (à mettre en cache) et le contenu dynamique
-                # Le prompt contient généralement : instructions + liste userneeds + article
-                # On va séparer les instructions fixes du contenu de l'article
-
-                # Instructions système (mises en cache) - partie fixe du prompt
-                system_instructions = [{
-                    "type": "text",
-                    "text": """Analyse cet article et détermine OBLIGATOIREMENT le userneed principal, un userneed secondaire et un userneed tertiaire parmi ces options, et donne à chacun un score (le total des 3 scores doit être égal à 100).
+        # System message (identique à Anthropic mais format OpenAI)
+        system_message = """Analyse cet article et détermine OBLIGATOIREMENT le userneed principal, un userneed secondaire et un userneed tertiaire parmi ces options, et donne à chacun un score (le total des 3 scores doit être égal à 100).
 
 OPTIONS :
 - UPDATE ME
@@ -76,34 +62,55 @@ JUSTIFICATION : [explication en 10 mots maximum]
 USERNEED TERTIAIRE : [nom exact] (SCORE : [nombre])
 JUSTIFICATION : [explication en 10 mots maximum]
 
-Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100.""",
-                    "cache_control": {"type": "ephemeral"}
-                }]
+Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
 
-                api_data = json.dumps({
-                    'model': 'claude-3-5-haiku-20241022',
-                    'max_tokens': 1024,
-                    'system': system_instructions,
-                    'messages': [{
-                        'role': 'user',
-                        'content': prompt  # Contenu de l'article (partie dynamique)
-                    }]
-                }).encode('utf-8')
+        api_data = json.dumps({
+            'model': model,
+            'messages': [
+                {'role': 'system', 'content': system_message},
+                {'role': 'user', 'content': prompt}
+            ],
+            'max_tokens': 1024
+        }).encode('utf-8')
 
-                # Créer la requête
-                req = urllib.request.Request(api_url, data=api_data, method='POST')
-                req.add_header('Content-Type', 'application/json')
-                req.add_header('x-api-key', api_key)
-                req.add_header('anthropic-version', '2023-06-01')
-                req.add_header('anthropic-beta', 'prompt-caching-2024-07-31')
+        req = urllib.request.Request(api_url, data=api_data, method='POST')
+        req.add_header('Content-Type', 'application/json')
+        req.add_header('Authorization', f'Bearer {api_key}')
+        req.add_header('HTTP-Referer', 'https://franceinfo.fr')
+        req.add_header('X-Title', 'Franceinfo Userneeds Analysis')
 
-                # Envoyer la requête
-                with urllib.request.urlopen(req) as response:
-                    response_data = response.read()
-                    self.send_response(200)
-                    self.send_header('Content-Type', 'application/json')
-                    self.end_headers()
-                    self.wfile.write(response_data)
+        with urllib.request.urlopen(req) as response:
+            openrouter_response = json.loads(response.read())
+
+            # Transformer pour compatibilité frontend
+            transformed_response = {
+                'provider': 'openrouter',
+                'content': openrouter_response['choices'][0]['message']['content'],
+                'model': model,
+                'usage': openrouter_response.get('usage', {})
+            }
+
+            return json.dumps(transformed_response).encode('utf-8')
+
+    def do_POST(self):
+        # Unified analyze endpoint - OpenRouter only
+        if self.path == '/api/analyze':
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+
+            try:
+                request_data = json.loads(post_data.decode('utf-8'))
+                api_key = request_data['apiKey']
+                prompt = request_data['prompt']
+                model = request_data.get('model', 'anthropic/claude-3.5-haiku')
+
+                # Toujours utiliser OpenRouter
+                response_data = self._call_openrouter(api_key, model, prompt)
+
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(response_data)
 
             except urllib.error.HTTPError as e:
                 error_body = e.read()
@@ -129,6 +136,7 @@ if __name__ == '__main__':
 
     with socketserver.TCPServer(("", PORT), ProxyHTTPRequestHandler) as httpd:
         print(f"✅ Serveur démarré sur http://localhost:{PORT}")
-        print(f"📡 Proxy API Claude activé sur http://localhost:{PORT}/api/claude")
+        print(f"📡 API Analyze activée (OpenRouter uniquement)")
+        print(f"   - /api/analyze (tous modèles via OpenRouter)")
         print("Appuyez sur Ctrl+C pour arrêter le serveur")
         httpd.serve_forever()

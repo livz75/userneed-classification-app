@@ -1,0 +1,7 @@
+{
+  "anthropic_api_key": "sk-ant-VOTRE_CLE_ANTHROPIC_ICI",
+  "openrouter_api_key": "sk-or-VOTRE_CLE_OPENROUTER_ICI",
+  "default_provider": "anthropic",
+  "default_model": "anthropic/claude-3.5-haiku",
+  "_comment": "Copiez ce fichier en config.json et remplacez les clés API par vos vraies clés"
+}

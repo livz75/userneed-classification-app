@@ -6,7 +6,7 @@ import urllib.request
 from urllib.parse import urlparse, parse_qs
 import os
 
-PORT = 8000
+PORT = int(os.environ.get('PORT', 8000))
 
 class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):

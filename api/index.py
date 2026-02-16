@@ -89,7 +89,8 @@ Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
             return json.dumps(transformed_response).encode('utf-8')
 
     def do_POST(self):
-        if self.path == '/api/analyze':
+        # Sur Vercel, accepter plusieurs formats de path
+        if self.path in ['/', '/analyze', '/api/analyze']:
             content_length = int(self.headers['Content-Length'])
             post_data = self.rfile.read(content_length)
 

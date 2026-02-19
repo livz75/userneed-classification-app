@@ -1104,7 +1104,7 @@ function getConfidenceFilteredArticles() {
     return articleResults.filter(a => {
         const level = a.confidenceLevel || 'BASSE';
         if (confidenceFilter === 'haute') return level === 'HAUTE';
-        if (confidenceFilter === 'haute+moyenne') return level === 'HAUTE' || level === 'MOYENNE';
+        if (confidenceFilter === 'moyenne') return level === 'MOYENNE';
         if (confidenceFilter === 'basse') return level === 'BASSE';
         return true;
     });

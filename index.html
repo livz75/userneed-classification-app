@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=12">
+    <link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
     <div class="container">
@@ -93,6 +93,12 @@
                     </div>
                     <div class="stats-box" id="confidenceStatsBox" style="display: none;">
                         <div class="stat-subtitle">📊 Indice de confiance</div>
+                        <div class="concordance-filter-bar" id="concordanceFilterBar">
+                            <span class="filter-label">Filtrer :</span>
+                            <button class="concordance-filter-btn active" data-filter="all" onclick="setConcordanceFilter('all')">Tous</button>
+                            <button class="concordance-filter-btn" data-filter="concordant" onclick="setConcordanceFilter('concordant')">Concordant</button>
+                            <button class="concordance-filter-btn" data-filter="non-concordant" onclick="setConcordanceFilter('non-concordant')">Non concordant</button>
+                        </div>
                         <div id="confidenceDistribution"></div>
                         <div id="confidencePrecision" style="margin-top: 10px;"></div>
                     </div>
@@ -316,6 +322,6 @@ Analyse cet article..."></textarea>
     <div id="toastContainer" class="toast-container"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="script.js?v=11"></script>
+    <script src="script.js?v=12"></script>
 </body>
 </html>

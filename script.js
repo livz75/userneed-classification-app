@@ -31,6 +31,9 @@ let matrixFilter = {
 // Variable pour le filtrage par confiance
 let confidenceFilter = 'all'; // 'all' | 'haute' | 'haute+moyenne' | 'basse'
 
+// Variable pour le filtrage par concordance
+let concordanceFilter = 'all'; // 'all' | 'concordant' | 'non-concordant'
+
 // ===================================
 // HEALTH CHECK DU SERVEUR
 // ===================================
@@ -888,6 +891,12 @@ function resetApplication() {
         btn.classList.toggle('active', btn.dataset.filter === 'all');
     });
 
+    // Réinitialiser le filtre de concordance
+    concordanceFilter = 'all';
+    document.querySelectorAll('.concordance-filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === 'all');
+    });
+
     // Réinitialiser les boutons
     analyzeBtn.style.display = 'none';
     resetBtn.style.display = 'none';
@@ -1067,6 +1076,23 @@ function setConfidenceFilter(level) {
     filterTableByMatrix();
 
     console.log(`📊 Filtre confiance: ${level}`);
+}
+
+/**
+ * Filtre les stats de confiance par concordance (concordant / non-concordant)
+ */
+function setConcordanceFilter(level) {
+    concordanceFilter = level;
+
+    // Mettre à jour les boutons actifs
+    document.querySelectorAll('.concordance-filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === level);
+    });
+
+    // Recalculer les stats de confiance avec le filtre
+    updateConfidenceStats();
+
+    console.log(`📊 Filtre concordance: ${level}`);
 }
 
 /**
@@ -1460,16 +1486,25 @@ function updateConfidenceStats() {
     const box = document.getElementById('confidenceStatsBox');
     if (!box) return;
 
-    const total = articleResults.length;
-    if (total === 0) { box.style.display = 'none'; return; }
+    if (articleResults.length === 0) { box.style.display = 'none'; return; }
 
     box.style.display = 'block';
+
+    // Appliquer le filtre de concordance
+    let filtered = articleResults;
+    if (concordanceFilter === 'concordant') {
+        filtered = articleResults.filter(a => a.isMatch === true);
+    } else if (concordanceFilter === 'non-concordant') {
+        filtered = articleResults.filter(a => a.isMatch === false);
+    }
+
+    const total = filtered.length;
 
     // Compter par niveau
     const counts = { HAUTE: 0, MOYENNE: 0, BASSE: 0 };
     const concordantByLevel = { HAUTE: 0, MOYENNE: 0, BASSE: 0 };
 
-    articleResults.forEach(a => {
+    filtered.forEach(a => {
         const level = a.confidenceLevel || 'BASSE';
         counts[level]++;
         if (a.isMatch) concordantByLevel[level]++;
@@ -1567,6 +1602,12 @@ async function analyzeWithAI() {
     // Réinitialiser le filtre de confiance
     confidenceFilter = 'all';
     document.querySelectorAll('.confidence-filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === 'all');
+    });
+
+    // Réinitialiser le filtre de concordance
+    concordanceFilter = 'all';
+    document.querySelectorAll('.concordance-filter-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.filter === 'all');
     });
 

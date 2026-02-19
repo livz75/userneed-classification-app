@@ -1614,6 +1614,43 @@ input[type="file"] {
     border-color: var(--accent-purple);
 }
 
+.concordance-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.concordance-filter-bar .filter-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.concordance-filter-btn {
+    padding: 4px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-darker);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.concordance-filter-btn:hover {
+    border-color: var(--accent-purple);
+    color: var(--text-primary);
+}
+
+.concordance-filter-btn.active {
+    background: var(--accent-purple);
+    color: white;
+    border-color: var(--accent-purple);
+}
+
 /* ============================= */
 /* PROMPT CARD ACTIONS          */
 /* ============================= */

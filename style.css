@@ -1527,6 +1527,94 @@ input[type="file"] {
 }
 
 /* ============================= */
+/* CONFIDENCE BADGES             */
+/* ============================= */
+
+.confidence-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.confidence-badge:hover {
+    transform: scale(1.08);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.confidence-haute {
+    background: var(--accent-green);
+    color: white;
+}
+
+.confidence-moyenne {
+    background: #f59e0b;
+    color: white;
+}
+
+.confidence-basse {
+    background: var(--accent-red);
+    color: white;
+}
+
+/* Colonne confiance */
+.confidence-column {
+    width: 100px;
+}
+
+#dataTable th:nth-child(6),
+#dataTable td:nth-child(6) {
+    width: 100px;
+    text-align: center;
+}
+
+/* ============================= */
+/* CONFIDENCE FILTER BAR         */
+/* ============================= */
+
+.confidence-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.confidence-filter-bar .filter-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.confidence-filter-btn {
+    padding: 5px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-darker);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.confidence-filter-btn:hover {
+    border-color: var(--accent-purple);
+    color: var(--text-primary);
+}
+
+.confidence-filter-btn.active {
+    background: var(--accent-purple);
+    color: white;
+    border-color: var(--accent-purple);
+}
+
+/* ============================= */
 /* PROMPT CARD ACTIONS          */
 /* ============================= */
 

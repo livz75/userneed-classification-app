@@ -28,6 +28,9 @@ let matrixFilter = {
     selectedCellIndex: null
 };
 
+// Variable pour le filtrage par confiance
+let confidenceFilter = 'all'; // 'all' | 'haute' | 'haute+moyenne' | 'basse'
+
 // ===================================
 // HEALTH CHECK DU SERVEUR
 // ===================================
@@ -223,6 +226,52 @@ function parseAIResponse(responseText) {
         justification: null,
         hasJustification: false
     };
+}
+
+// ========================
+// CONFIDENCE SCORE
+// ========================
+
+/**
+ * Calcule le score de confiance d'un article basé sur les prédictions.
+ * @param {Array} predictions - Tableau de 3 prédictions [{userneed, score, rank}, ...]
+ * @returns {Object} {delta, icp, confidenceLevel, icpLevel}
+ */
+function calculateConfidence(predictions) {
+    if (!predictions || predictions.length < 2) {
+        return { delta: 0, icp: 0, confidenceLevel: 'BASSE', icpLevel: 'BASSE' };
+    }
+
+    const scoreP1 = predictions[0].score;
+    const scoreP2 = predictions[1].score;
+
+    // Delta P1-P2
+    const delta = scoreP1 - scoreP2;
+
+    // ICP = (Delta / 100) × Score P1
+    const icp = Math.round(((delta / 100) * scoreP1) * 10) / 10;
+
+    // Niveau basé sur le delta
+    let confidenceLevel;
+    if (delta >= 30) {
+        confidenceLevel = 'HAUTE';
+    } else if (delta >= 15) {
+        confidenceLevel = 'MOYENNE';
+    } else {
+        confidenceLevel = 'BASSE';
+    }
+
+    // Niveau basé sur l'ICP
+    let icpLevel;
+    if (icp >= 18) {
+        icpLevel = 'HAUTE';
+    } else if (icp >= 7) {
+        icpLevel = 'MOYENNE';
+    } else {
+        icpLevel = 'BASSE';
+    }
+
+    return { delta, icp, confidenceLevel, icpLevel };
 }
 
 // ========================
@@ -687,10 +736,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (closeReasoningBtn) closeReasoningBtn.addEventListener('click', closeReasoningModal);
     if (reasoningBackdrop) reasoningBackdrop.addEventListener('click', closeReasoningModal);
 
+    // Event listeners pour le modal de confiance
+    const closeConfidenceBtn = document.getElementById('closeConfidenceBtn');
+    const confidenceBackdrop = document.querySelector('#confidenceModal .reasoning-modal-backdrop');
+
+    if (closeConfidenceBtn) closeConfidenceBtn.addEventListener('click', closeConfidenceModal);
+    if (confidenceBackdrop) confidenceBackdrop.addEventListener('click', closeConfidenceModal);
+
     // Fermer avec Escape
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             closeReasoningModal();
+            closeConfidenceModal();
         }
     });
 
@@ -791,6 +848,12 @@ function displayTable(data, sheetName) {
     justificationTh.classList.add('justification-column');
     headerRow.appendChild(justificationTh);
 
+    // NOUVELLE COLONNE: Confiance
+    const confidenceTh = document.createElement('th');
+    confidenceTh.textContent = 'Confiance';
+    confidenceTh.classList.add('confidence-column');
+    headerRow.appendChild(confidenceTh);
+
     tableHead.appendChild(headerRow);
 
     // Le tableau reste vide, les lignes seront ajoutées au fur et à mesure de l'analyse
@@ -818,6 +881,12 @@ function resetApplication() {
     tableBody.innerHTML = '';
     currentData = null;
     articleResults = [];
+
+    // Réinitialiser le filtre de confiance
+    confidenceFilter = 'all';
+    document.querySelectorAll('.confidence-filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === 'all');
+    });
 
     // Réinitialiser les boutons
     analyzeBtn.style.display = 'none';
@@ -885,6 +954,7 @@ function updateConfusionMatrix(source, prediction) {
     // Mettre à jour l'affichage
     updateConfusionMatrixDisplay();
     updateStatisticsDisplay();
+    updateConfidenceStats();
 }
 
 function updateConfusionMatrixDisplay() {
@@ -975,6 +1045,78 @@ function clearMatrixFilter() {
     console.log('🔄 Filtre désactivé - Affichage de tous les articles');
 }
 
+// ========================
+// CONFIDENCE FILTER
+// ========================
+
+/**
+ * Active un filtre de confiance et recalcule la matrice
+ */
+function setConfidenceFilter(level) {
+    confidenceFilter = level;
+
+    // Mettre à jour les boutons actifs
+    document.querySelectorAll('.confidence-filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === level);
+    });
+
+    // Recalculer la matrice avec les articles filtrés
+    recalculateMatrixForConfidence();
+
+    // Refiltrer le tableau
+    filterTableByMatrix();
+
+    console.log(`📊 Filtre confiance: ${level}`);
+}
+
+/**
+ * Retourne les articles filtrés selon le filtre de confiance actif
+ */
+function getConfidenceFilteredArticles() {
+    if (confidenceFilter === 'all') return articleResults;
+
+    return articleResults.filter(a => {
+        const level = a.confidenceLevel || 'BASSE';
+        if (confidenceFilter === 'haute') return level === 'HAUTE';
+        if (confidenceFilter === 'haute+moyenne') return level === 'HAUTE' || level === 'MOYENNE';
+        if (confidenceFilter === 'basse') return level === 'BASSE';
+        return true;
+    });
+}
+
+/**
+ * Recalcule la matrice de confusion en tenant compte du filtre de confiance
+ */
+function recalculateMatrixForConfidence() {
+    // Remettre à zéro
+    USERNEEDS.forEach(source => {
+        sourceDistribution[source] = 0;
+        predictionDistribution[source] = 0;
+        USERNEEDS.forEach(pred => {
+            confusionMatrix[source][pred] = 0;
+        });
+    });
+
+    // Recompter uniquement les articles filtrés
+    const filtered = getConfidenceFilteredArticles();
+    filtered.forEach(article => {
+        const source = normalizeUserneed(article.expectedUserneed);
+        const pred = normalizeUserneed(article.predictedUserneed);
+        if (USERNEEDS.includes(source) && USERNEEDS.includes(pred) &&
+            article.predictedUserneed && !article.predictedUserneed.includes('Non identifié') &&
+            article.predictedUserneed !== 'ERROR') {
+            confusionMatrix[source][pred]++;
+            sourceDistribution[source]++;
+            predictionDistribution[pred]++;
+        }
+    });
+
+    // Mettre à jour les affichages
+    updateConfusionMatrixDisplay();
+    updateStatisticsDisplay();
+    updateConfidenceStats();
+}
+
 /**
  * Met à jour l'apparence visuelle de la matrice (cellule sélectionnée)
  */
@@ -1013,7 +1155,7 @@ function updateFilterIndicator() {
 
         const sourceNormalized = normalizeUserneed(matrixFilter.sourceUserneed);
         const predNormalized = normalizeUserneed(matrixFilter.predictionUserneed);
-        const count = articleResults.filter(a =>
+        const count = getConfidenceFilteredArticles().filter(a =>
             normalizeUserneed(a.expectedUserneed) === sourceNormalized &&
             normalizeUserneed(a.predictedUserneed) === predNormalized
         ).length;
@@ -1041,14 +1183,15 @@ function filterTableByMatrix() {
     const tableBody = document.getElementById('tableBody');
     tableBody.innerHTML = ''; // Vider le tableau
 
-    // Déterminer quels articles afficher
-    let articlesToShow = articleResults;
+    // D'abord appliquer le filtre de confiance
+    let articlesToShow = getConfidenceFilteredArticles();
 
+    // Puis appliquer le filtre de cellule matrice par-dessus
     if (matrixFilter.active) {
         const sourceNormalized = normalizeUserneed(matrixFilter.sourceUserneed);
         const predNormalized = normalizeUserneed(matrixFilter.predictionUserneed);
 
-        articlesToShow = articleResults.filter(article => {
+        articlesToShow = articlesToShow.filter(article => {
             const articleSource = normalizeUserneed(article.expectedUserneed);
             const articlePred = normalizeUserneed(article.predictedUserneed);
             return articleSource === sourceNormalized && articlePred === predNormalized;
@@ -1062,11 +1205,11 @@ function filterTableByMatrix() {
     });
 
     // Si aucun article trouvé
-    if (articlesToShow.length === 0 && matrixFilter.active) {
+    if (articlesToShow.length === 0 && (matrixFilter.active || confidenceFilter !== 'all')) {
         const emptyRow = document.createElement('tr');
         emptyRow.innerHTML = `
-            <td colspan="5" style="text-align: center; padding: 40px; color: #9ca3af; font-style: italic;">
-                Aucun article ne correspond à ce filtre
+            <td colspan="6" style="text-align: center; padding: 40px; color: #9ca3af; font-style: italic;">
+                Aucun article ne correspond aux filtres actifs
             </td>
         `;
         tableBody.appendChild(emptyRow);
@@ -1234,6 +1377,35 @@ function createTableRow(article) {
 
     tr.appendChild(justificationTd);
 
+    // Confiance
+    const confidenceTd = document.createElement('td');
+    confidenceTd.style.textAlign = 'center';
+
+    if (article.predictions && article.predictions.length >= 2) {
+        const badge = document.createElement('span');
+        badge.className = 'confidence-badge';
+
+        if (article.confidenceLevel === 'HAUTE') {
+            badge.classList.add('confidence-haute');
+            badge.textContent = 'HAUTE';
+        } else if (article.confidenceLevel === 'MOYENNE') {
+            badge.classList.add('confidence-moyenne');
+            badge.textContent = 'MOYENNE';
+        } else {
+            badge.classList.add('confidence-basse');
+            badge.textContent = 'BASSE';
+        }
+
+        badge.title = `Delta P1-P2: ${article.delta} | ICP: ${article.icp}`;
+        badge.onclick = () => showConfidenceDetail(article.index);
+        confidenceTd.appendChild(badge);
+    } else {
+        confidenceTd.textContent = '—';
+        confidenceTd.style.color = '#9ca3af';
+    }
+
+    tr.appendChild(confidenceTd);
+
     return tr;
 }
 
@@ -1284,6 +1456,68 @@ function updateStatisticsDisplay() {
     });
 }
 
+function updateConfidenceStats() {
+    const box = document.getElementById('confidenceStatsBox');
+    if (!box) return;
+
+    const total = articleResults.length;
+    if (total === 0) { box.style.display = 'none'; return; }
+
+    box.style.display = 'block';
+
+    // Compter par niveau
+    const counts = { HAUTE: 0, MOYENNE: 0, BASSE: 0 };
+    const concordantByLevel = { HAUTE: 0, MOYENNE: 0, BASSE: 0 };
+
+    articleResults.forEach(a => {
+        const level = a.confidenceLevel || 'BASSE';
+        counts[level]++;
+        if (a.isMatch) concordantByLevel[level]++;
+    });
+
+    // Barres de distribution
+    const distDiv = document.getElementById('confidenceDistribution');
+    distDiv.innerHTML = '';
+
+    const levels = [
+        { key: 'HAUTE', color: '#10b981', label: 'HAUTE' },
+        { key: 'MOYENNE', color: '#f59e0b', label: 'MOYENNE' },
+        { key: 'BASSE', color: '#ef4444', label: 'BASSE' }
+    ];
+
+    levels.forEach(({ key, color, label }) => {
+        const count = counts[key];
+        const pct = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
+
+        const item = document.createElement('div');
+        item.className = 'distribution-item';
+        item.innerHTML = `
+            <span style="min-width: 80px; color: ${color}; font-weight: 700; font-size: 0.8rem;">${label}</span>
+            <div class="distribution-bar">
+                <div class="distribution-fill" style="width: ${pct}%; background: ${color};">&nbsp;</div>
+            </div>
+            <span style="min-width: 80px; text-align: right; color: ${color}; font-size: 0.85rem;">${count} (${pct}%)</span>
+        `;
+        distDiv.appendChild(item);
+    });
+
+    // Précision par niveau
+    const precDiv = document.getElementById('confidencePrecision');
+    precDiv.innerHTML = '<div class="stat-subtitle" style="margin-bottom: 8px;">Précision par niveau</div>';
+
+    levels.forEach(({ key, color, label }) => {
+        const count = counts[key];
+        const correct = concordantByLevel[key];
+        const precision = count > 0 ? ((correct / count) * 100).toFixed(1) : '—';
+
+        const item = document.createElement('div');
+        item.className = 'stat-item';
+        item.style.margin = '4px 0';
+        item.innerHTML = `<span style="color: ${color}; font-weight: 600;">${label}</span> : ${precision}% <span style="color: var(--text-secondary);">(${correct}/${count})</span>`;
+        precDiv.appendChild(item);
+    });
+}
+
 function getShortName(userneed) {
     // Normaliser d'abord vers la forme canonique
     const normalized = normalizeUserneed(userneed);
@@ -1329,6 +1563,12 @@ async function analyzeWithAI() {
 
     // Réinitialiser le filtre de la matrice avant une nouvelle analyse
     clearMatrixFilter();
+
+    // Réinitialiser le filtre de confiance
+    confidenceFilter = 'all';
+    document.querySelectorAll('.confidence-filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === 'all');
+    });
 
     // Gérer les boutons
     analyzeBtn.style.display = 'none';
@@ -1420,6 +1660,9 @@ async function analyzeWithAI() {
                 const isMatch = normalizeUserneed(userneed) === normalizeUserneed(expectedUserneed);
 
                 // Créer l'objet article
+                // Calculer le score de confiance
+                const confidence = calculateConfidence(predictions);
+
                 const articleData = {
                     index: i,
                     numero: i + 1,
@@ -1430,7 +1673,11 @@ async function analyzeWithAI() {
                     predictions: predictions,
                     justification: justification,
                     isMatch: isMatch,
-                    hasJustification: hasJustification
+                    hasJustification: hasJustification,
+                    delta: confidence.delta,
+                    icp: confidence.icp,
+                    confidenceLevel: confidence.confidenceLevel,
+                    icpLevel: confidence.icpLevel
                 };
 
                 // Log du résultat
@@ -1469,7 +1716,11 @@ async function analyzeWithAI() {
                     predictions: null,
                     justification: `Erreur: ${error.message}`,
                     isMatch: false,
-                    hasJustification: false
+                    hasJustification: false,
+                    delta: 0,
+                    icp: 0,
+                    confidenceLevel: 'BASSE',
+                    icpLevel: 'BASSE'
                 });
             }
 
@@ -1759,7 +2010,7 @@ function exportToExcel() {
     const articlesData = [
         ['DÉTAILS DES ARTICLES ANALYSÉS'],
         [''],
-        ['N°', 'Titre', 'User Need Attendu', 'Prédiction IA', 'Justification']
+        ['N°', 'Titre', 'User Need Attendu', 'Prédiction IA', 'Justification', 'Delta P1-P2', 'ICP', 'Niveau de confiance']
     ];
 
     articleResults.forEach(article => {
@@ -1778,12 +2029,84 @@ function exportToExcel() {
             article.titre,
             article.expectedUserneed,
             predictionText,
-            article.justification || 'N/A'
+            article.justification || 'N/A',
+            article.delta !== undefined ? article.delta : 'N/A',
+            article.icp !== undefined ? article.icp : 'N/A',
+            article.confidenceLevel || 'N/A'
         ]);
     });
 
     const wsArticles = XLSX.utils.aoa_to_sheet(articlesData);
     XLSX.utils.book_append_sheet(wb, wsArticles, 'Détails Articles');
+
+    // === FEUILLE 6 : ANALYSE DE CONFIANCE ===
+    const confidenceData = [
+        ['ANALYSE DE CONFIANCE'],
+        [''],
+        ['Distribution par niveau de confiance'],
+        ['Niveau', 'Nombre d\'articles', 'Pourcentage', 'Taux de concordance']
+    ];
+
+    const cCounts = { HAUTE: 0, MOYENNE: 0, BASSE: 0 };
+    const cConcordant = { HAUTE: 0, MOYENNE: 0, BASSE: 0 };
+
+    articleResults.forEach(a => {
+        const level = a.confidenceLevel || 'BASSE';
+        cCounts[level]++;
+        if (a.isMatch) cConcordant[level]++;
+    });
+
+    ['HAUTE', 'MOYENNE', 'BASSE'].forEach(level => {
+        const count = cCounts[level];
+        const pct = articleResults.length > 0 ? ((count / articleResults.length) * 100).toFixed(1) : 0;
+        const precision = count > 0 ? ((cConcordant[level] / count) * 100).toFixed(1) : 'N/A';
+        confidenceData.push([level, count, `${pct}%`, `${precision}%`]);
+    });
+
+    confidenceData.push(['']);
+    confidenceData.push(['Top confusions à basse confiance']);
+    confidenceData.push(['Source', 'Prédiction IA', 'Nombre', 'Delta moyen', 'ICP moyen']);
+
+    // Collecter les confusions à basse confiance
+    const lowConfConfusions = {};
+    articleResults.filter(a => a.confidenceLevel === 'BASSE' && !a.isMatch).forEach(a => {
+        const key = `${a.expectedUserneed}|${a.predictedUserneed}`;
+        if (!lowConfConfusions[key]) {
+            lowConfConfusions[key] = { source: a.expectedUserneed, pred: a.predictedUserneed, count: 0, deltaSum: 0, icpSum: 0 };
+        }
+        lowConfConfusions[key].count++;
+        lowConfConfusions[key].deltaSum += a.delta || 0;
+        lowConfConfusions[key].icpSum += a.icp || 0;
+    });
+
+    Object.values(lowConfConfusions)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10)
+        .forEach(item => {
+            confidenceData.push([
+                getShortName(item.source),
+                getShortName(item.pred),
+                item.count,
+                (item.deltaSum / item.count).toFixed(1),
+                (item.icpSum / item.count).toFixed(1)
+            ]);
+        });
+
+    confidenceData.push(['']);
+    confidenceData.push(['Recommandation seuil automatisation']);
+    const hauteRate = cCounts.HAUTE > 0 ? ((cConcordant.HAUTE / cCounts.HAUTE) * 100).toFixed(1) : 0;
+    const hautePct = articleResults.length > 0 ? ((cCounts.HAUTE / articleResults.length) * 100).toFixed(1) : 0;
+    const hauteMoyCount = cCounts.HAUTE + cCounts.MOYENNE;
+    const hauteMoyPct = articleResults.length > 0 ? ((hauteMoyCount / articleResults.length) * 100).toFixed(1) : 0;
+    const hauteMoyCorrect = cConcordant.HAUTE + cConcordant.MOYENNE;
+    const hauteMoyRate = hauteMoyCount > 0 ? ((hauteMoyCorrect / hauteMoyCount) * 100).toFixed(1) : 0;
+
+    confidenceData.push([`Confiance HAUTE : ${cCounts.HAUTE} articles (${hautePct}%) avec ${hauteRate}% de concordance`]);
+    confidenceData.push([`Confiance HAUTE + MOYENNE : ${hauteMoyCount} articles (${hauteMoyPct}%) avec ${hauteMoyRate}% de concordance`]);
+    confidenceData.push([`Seuil recommandé : Delta >= 30 pour validation automatique (précision ${hauteRate}%)`]);
+
+    const wsConfidence = XLSX.utils.aoa_to_sheet(confidenceData);
+    XLSX.utils.book_append_sheet(wb, wsConfidence, 'Analyse de Confiance');
 
     // Générer le fichier et le télécharger
     const date = new Date().toISOString().split('T')[0];
@@ -2249,6 +2572,62 @@ function showReasoningModal(articleIndex) {
 // Fermer le modal de justification
 function closeReasoningModal() {
     const modal = document.getElementById('reasoningModal');
+    modal.classList.remove('active');
+}
+
+// Afficher le détail de confiance d'un article
+function showConfidenceDetail(articleIndex) {
+    const article = articleResults[articleIndex];
+    if (!article) return;
+
+    const modal = document.getElementById('confidenceModal');
+    const detail = document.getElementById('confidenceDetail');
+
+    const levelColor = article.confidenceLevel === 'HAUTE' ? '#10b981'
+                     : article.confidenceLevel === 'MOYENNE' ? '#f59e0b'
+                     : '#ef4444';
+
+    let scoresHtml = '';
+    if (article.predictions && article.predictions.length > 0) {
+        article.predictions.forEach((p, i) => {
+            const rankLabel = i === 0 ? '1️⃣ Principal' : i === 1 ? '2️⃣ Secondaire' : '3️⃣ Tertiaire';
+            scoresHtml += `<div class="stat-item" style="margin: 6px 0;">
+                <span style="color: var(--text-secondary);">${rankLabel} :</span>
+                <strong>${p.userneed}</strong> — <span style="font-weight: 700;">${p.score}%</span>
+            </div>`;
+        });
+    }
+
+    detail.innerHTML = `
+        <div class="stats-box">
+            <div class="stat-title" style="font-size: 1.1rem; margin-bottom: 12px;">
+                Niveau : <span style="color: ${levelColor}; font-size: 1.2rem;">${article.confidenceLevel}</span>
+            </div>
+            <div class="stat-item" style="margin: 8px 0;">
+                <strong>Delta P1-P2 :</strong> <span style="color: ${levelColor}; font-weight: 700; font-size: 1.1rem;">${article.delta}</span>
+                <span style="color: var(--text-secondary); font-size: 0.85rem;"> (écart entre score principal et secondaire)</span>
+            </div>
+            <div class="stat-item" style="margin: 8px 0;">
+                <strong>ICP :</strong> <span style="color: ${levelColor}; font-weight: 700; font-size: 1.1rem;">${article.icp}</span>
+                <span style="color: var(--text-secondary); font-size: 0.85rem;"> (Indice de Confiance Pondéré)</span>
+            </div>
+        </div>
+        <div class="stats-box">
+            <div class="stat-subtitle">Décomposition des scores</div>
+            ${scoresHtml}
+        </div>
+        <div class="stats-box" style="font-size: 0.85rem; color: var(--text-secondary);">
+            <strong>Seuils Delta :</strong> HAUTE ≥ 30 | MOYENNE 15-29 | BASSE < 15<br>
+            <strong>Seuils ICP :</strong> HAUTE ≥ 18 | MOYENNE 7-17 | BASSE < 7
+        </div>
+    `;
+
+    modal.classList.add('active');
+}
+
+// Fermer le modal de confiance
+function closeConfidenceModal() {
+    const modal = document.getElementById('confidenceModal');
     modal.classList.remove('active');
 }
 

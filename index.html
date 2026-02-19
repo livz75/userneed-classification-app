@@ -36,6 +36,13 @@
             <div class="confusion-matrix-wrapper">
                 <div class="matrix-section">
                     <h3>Matrice de confusion</h3>
+                    <div class="confidence-filter-bar" id="confidenceFilterBar">
+                        <span class="filter-label">Filtrer par confiance :</span>
+                        <button class="confidence-filter-btn active" data-filter="all" onclick="setConfidenceFilter('all')">Tous</button>
+                        <button class="confidence-filter-btn" data-filter="haute" onclick="setConfidenceFilter('haute')">Haute</button>
+                        <button class="confidence-filter-btn" data-filter="haute+moyenne" onclick="setConfidenceFilter('haute+moyenne')">Haute + Moyenne</button>
+                        <button class="confidence-filter-btn" data-filter="basse" onclick="setConfidenceFilter('basse')">Basse</button>
+                    </div>
                     <div class="matrix-container">
                         <div class="matrix-with-y-labels">
                             <div class="label-title-y">Catégorie source</div>
@@ -83,6 +90,11 @@
                     <div class="stats-box">
                         <div class="stat-subtitle">Top 5 reclassifications</div>
                         <div id="topReclassifications"></div>
+                    </div>
+                    <div class="stats-box" id="confidenceStatsBox" style="display: none;">
+                        <div class="stat-subtitle">📊 Indice de confiance</div>
+                        <div id="confidenceDistribution"></div>
+                        <div id="confidencePrecision" style="margin-top: 10px;"></div>
                     </div>
                 </div>
             </div>
@@ -282,6 +294,20 @@ Analyse cet article..."></textarea>
                         <p id="reasoningText"></p>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal pour détails de confiance -->
+    <div id="confidenceModal" class="reasoning-modal">
+        <div class="reasoning-modal-backdrop"></div>
+        <div class="reasoning-modal-content" style="max-width: 500px;">
+            <div class="reasoning-modal-header">
+                <h2>📊 Indice de Confiance</h2>
+                <button id="closeConfidenceBtn" class="close-modal-btn">✕</button>
+            </div>
+            <div class="reasoning-modal-body">
+                <div id="confidenceDetail"></div>
             </div>
         </div>
     </div>

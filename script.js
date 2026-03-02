@@ -2142,7 +2142,7 @@ async function refreshArticlesList() {
     const statsSpan = document.getElementById('articleStats');
 
     try {
-        const articles = await articleManager.loadFromSupabase({ limit: 100 });
+        const articles = await articleManager.loadFromSupabase({ limit: 500 });
 
         // Filtrer selon le filtre actif
         let filtered = articles;

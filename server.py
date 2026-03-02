@@ -106,6 +106,24 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             }).encode('utf-8'))
             return
 
+        elif path == '/api/config':
+            # Retourne la config depuis les variables d'environnement (pour Render)
+            config = {}
+            if os.environ.get('SUPABASE_URL'):
+                config['supabase_url'] = os.environ['SUPABASE_URL']
+            if os.environ.get('SUPABASE_ANON_KEY'):
+                config['supabase_anon_key'] = os.environ['SUPABASE_ANON_KEY']
+            if os.environ.get('OPENROUTER_API_KEY'):
+                config['openrouter_api_key'] = os.environ['OPENROUTER_API_KEY']
+            if os.environ.get('DEFAULT_MODEL'):
+                config['default_model'] = os.environ['DEFAULT_MODEL']
+
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(config).encode('utf-8'))
+            return
+
         elif path == '/api/articles/latest':
             try:
                 page = params.get('page', ['1'])[0]

@@ -11,10 +11,18 @@ let supabaseConfig = null;
  */
 async function initSupabase() {
     try {
-        // Charger la config depuis config.json
-        const response = await fetch('/config.json');
-        if (!response.ok) throw new Error('config.json non trouvé');
-        const config = await response.json();
+        // Charger la config : essayer config.json (dev local), sinon /api/config (Render env vars)
+        let config;
+        try {
+            const response = await fetch('/config.json');
+            if (!response.ok) throw new Error('config.json non trouvé');
+            config = await response.json();
+        } catch (e) {
+            console.log('ℹ️ config.json indisponible, tentative /api/config...');
+            const response2 = await fetch('/api/config');
+            if (!response2.ok) throw new Error('Aucune source de configuration trouvée');
+            config = await response2.json();
+        }
 
         const url = config.supabase_url;
         const key = config.supabase_anon_key;

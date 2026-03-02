@@ -3,19 +3,10 @@ import http.server
 import socketserver
 import json
 import urllib.request
-import urllib.parse
 from urllib.parse import urlparse, parse_qs
-from html.parser import HTMLParser
 import os
-import re
-try:
-    import requests as req_lib
-    USE_REQUESTS = True
-except ImportError:
-    USE_REQUESTS = False
 
 PORT = int(os.environ.get('PORT', 8000))
-FRANCEINFO_PROXY_URL = os.environ.get('FRANCEINFO_PROXY_URL', '')
 
 class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
@@ -27,101 +18,6 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_response(200)
         self.end_headers()
-
-    def _strip_html(self, html_text):
-        """Nettoie le HTML et retourne du texte brut"""
-        if not html_text:
-            return ''
-
-        class HTMLTextExtractor(HTMLParser):
-            def __init__(self):
-                super().__init__()
-                self.result = []
-                self.skip_tags = {'script', 'style', 'iframe'}
-                self.current_skip = False
-
-            def handle_starttag(self, tag, attrs):
-                if tag in self.skip_tags:
-                    self.current_skip = True
-                elif tag in ('p', 'br', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li'):
-                    self.result.append('\n')
-
-            def handle_endtag(self, tag):
-                if tag in self.skip_tags:
-                    self.current_skip = False
-
-            def handle_data(self, data):
-                if not self.current_skip:
-                    self.result.append(data)
-
-        extractor = HTMLTextExtractor()
-        extractor.feed(html_text)
-        text = ''.join(extractor.result)
-        # Nettoyer les espaces multiples et lignes vides
-        text = re.sub(r'\n{3,}', '\n\n', text)
-        return text.strip()
-
-    def _normalize_article(self, raw):
-        """Normalise un article de l'API franceinfo en format standard"""
-        path = raw.get('path', '')
-        url_page = raw.get('urlPage', '')
-        article_id = str(raw.get('id', ''))
-        public_url = raw.get('url') or (f"https://www.franceinfo.fr/{path}/{url_page}_{article_id}.html" if path and url_page and article_id else '')
-
-        return {
-            'external_id': article_id,
-            'titre': raw.get('title', ''),
-            'chapo': raw.get('description', ''),
-            'corps': self._strip_html(raw.get('text', '')),
-            'url': public_url,
-            'auteur': raw.get('author', None),
-            'path': path,
-            'word_count': raw.get('wordCount', 0),
-            'date_publication': raw.get('firstPublicationDate', None),
-            'date_modification': raw.get('lastUpdateDate', None),
-            'content_type': raw.get('class', raw.get('@type', 'Unknown')),
-            'metadata': {
-                'teams': raw.get('teams', []),
-                'source': raw.get('source', None),
-                'pushed': raw.get('pushed', False),
-                'breakingNews': raw.get('breakingNews', False),
-            }
-        }
-
-    def _fetch_franceinfo_api(self, api_path):
-        """Appelle l'API franceinfo (via proxy Vercel si configuré, sinon en direct)"""
-        if FRANCEINFO_PROXY_URL:
-            # Passer par le proxy Vercel (IP française) pour contourner la géo-restriction
-            url = f'{FRANCEINFO_PROXY_URL}/api/franceinfo_proxy?path={urllib.parse.quote(api_path)}'
-        else:
-            # Appel direct (fonctionne en local / IP française)
-            url = f'https://api-front.publish.franceinfo.francetvinfo.fr{api_path}'
-        headers = {
-            'Accept': 'application/ld+json',
-            'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.5',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-            'Referer': 'https://www.francetvinfo.fr/',
-            'Origin': 'https://www.francetvinfo.fr',
-        }
-        try:
-            if USE_REQUESTS:
-                response = req_lib.get(url, headers=headers, timeout=20)
-                response.raise_for_status()
-                return response.json()
-            else:
-                request = urllib.request.Request(url, headers=headers)
-                with urllib.request.urlopen(request, timeout=20) as resp:
-                    return json.loads(resp.read())
-        except Exception as e:
-            err_type = type(e).__name__
-            err_msg = str(e)
-            if 'timed out' in err_msg or 'Timeout' in err_type or 'timeout' in err_msg:
-                raise Exception(
-                    "API franceinfo inaccessible depuis ce serveur (timeout). "
-                    "L'API est probablement restreinte aux IP France TV / réseau France. "
-                    "Configurez FRANCEINFO_PROXY_URL avec un proxy Vercel en région cdg1."
-                )
-            raise
 
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -156,61 +52,6 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
             self.wfile.write(json.dumps(config).encode('utf-8'))
-            return
-
-        elif path == '/api/articles/latest':
-            try:
-                page = params.get('page', ['1'])[0]
-                items_per_page = params.get('itemsPerPage', ['30'])[0]
-                api_path = f'/contents.jsonld?itemsPerPage={items_per_page}&page={page}'
-                data = self._fetch_franceinfo_api(api_path)
-
-                members = data.get('hydra:member', [])
-                articles = [self._normalize_article(m) for m in members]
-
-                # Pagination info
-                view = data.get('hydra:view', {})
-                result = {
-                    'articles': articles,
-                    'pagination': {
-                        'current_page': int(page),
-                        'items_per_page': int(items_per_page),
-                        'has_next': 'hydra:next' in view
-                    }
-                }
-
-                self.send_response(200)
-                self.send_header('Content-Type', 'application/json')
-                self.end_headers()
-                self.wfile.write(json.dumps(result, ensure_ascii=False).encode('utf-8'))
-            except Exception as e:
-                self.send_response(500)
-                self.send_header('Content-Type', 'application/json')
-                self.end_headers()
-                self.wfile.write(json.dumps({'error': str(e)}).encode('utf-8'))
-            return
-
-        elif re.match(r'^/api/articles/\d+$', path):
-            try:
-                article_id = path.split('/')[-1]
-                api_path = f'/contents/{article_id}.jsonld'
-                data = self._fetch_franceinfo_api(api_path)
-                article = self._normalize_article(data)
-
-                self.send_response(200)
-                self.send_header('Content-Type', 'application/json')
-                self.end_headers()
-                self.wfile.write(json.dumps(article, ensure_ascii=False).encode('utf-8'))
-            except urllib.error.HTTPError as e:
-                self.send_response(e.code)
-                self.send_header('Content-Type', 'application/json')
-                self.end_headers()
-                self.wfile.write(json.dumps({'error': f'Article {article_id} non trouvé'}).encode('utf-8'))
-            except Exception as e:
-                self.send_response(500)
-                self.send_header('Content-Type', 'application/json')
-                self.end_headers()
-                self.wfile.write(json.dumps({'error': str(e)}).encode('utf-8'))
             return
 
         else:
@@ -324,7 +165,5 @@ if __name__ == '__main__':
         print(f"📡 API endpoints actifs :")
         print(f"   - /api/health")
         print(f"   - /api/analyze (OpenRouter LLM)")
-        print(f"   - /api/articles/latest (proxy franceinfo)")
-        print(f"   - /api/articles/{{id}} (proxy franceinfo)")
         print("Appuyez sur Ctrl+C pour arrêter le serveur")
         httpd.serve_forever()

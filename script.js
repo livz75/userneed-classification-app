@@ -2110,101 +2110,10 @@ function initializeArticlesUI() {
 
     const closeArticlesPanelBtn = document.getElementById('closeArticlesPanelBtn');
     const articlesPanelBackdrop = articlesPanel.querySelector('.articles-panel-backdrop');
-    const fetchLatestBtn = document.getElementById('fetchLatestBtn');
-    const articleSearchBtn = document.getElementById('articleSearchBtn');
-    const articleSearchInput = document.getElementById('articleSearchInput');
-    const pollingToggle = document.getElementById('pollingToggle');
-    const pollingInterval = document.getElementById('pollingInterval');
-    const loadMoreBtn = document.getElementById('loadMoreBtn');
-
     // Ouvrir/Fermer le panneau
     articlesBtn.addEventListener('click', openArticlesPanel);
     closeArticlesPanelBtn.addEventListener('click', closeArticlesPanel);
     articlesPanelBackdrop.addEventListener('click', closeArticlesPanel);
-
-    // Charger les derniers articles
-    fetchLatestBtn.addEventListener('click', async () => {
-        fetchLatestBtn.disabled = true;
-        fetchLatestBtn.textContent = '⏳ Chargement...';
-        try {
-            const articles = await articleManager.fetchAndSave(1, 30);
-            console.log(`✅ ${articles.length} articles récupérés et sauvegardés`);
-            await refreshArticlesList();
-            showToast(`${articles.length} articles chargés`);
-        } catch (error) {
-            console.error('Erreur fetch articles:', error);
-            const isApiUnavailable = error.message && (
-                error.message.includes('inaccessible') ||
-                error.message.includes('timeout') ||
-                error.message.includes('timed out') ||
-                error.message.includes('500')
-            );
-            if (isApiUnavailable) {
-                showToast('API franceinfo inaccessible (serveur cloud). Articles Supabase affichés.', 'error');
-                await refreshArticlesList();
-            } else {
-                showToast('Erreur: ' + error.message, 'error');
-            }
-        } finally {
-            fetchLatestBtn.disabled = false;
-            fetchLatestBtn.textContent = '🔄 Charger les derniers articles';
-        }
-    });
-
-    // Recherche par ID
-    articleSearchBtn.addEventListener('click', () => searchArticleById());
-    articleSearchInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') searchArticleById();
-    });
-
-    // Polling
-    pollingToggle.addEventListener('change', () => {
-        const indicator = document.getElementById('pollingIndicator');
-        if (pollingToggle.checked) {
-            const interval = parseInt(pollingInterval.value);
-            articleManager.startPolling(interval);
-            indicator.classList.add('active');
-        } else {
-            articleManager.stopPolling();
-            indicator.classList.remove('active');
-        }
-    });
-
-    pollingInterval.addEventListener('change', () => {
-        if (pollingToggle.checked) {
-            const interval = parseInt(pollingInterval.value);
-            articleManager.startPolling(interval);
-        }
-    });
-
-    // Load more
-    if (loadMoreBtn) {
-        loadMoreBtn.addEventListener('click', async () => {
-            loadMoreBtn.disabled = true;
-            try {
-                const nextPage = articleManager.currentPage + 1;
-                const articles = await articleManager.fetchAndSave(nextPage, 30);
-                await refreshArticlesList();
-            } catch (error) {
-                const isApiUnavailable = error.message && (
-                    error.message.includes('inaccessible') ||
-                    error.message.includes('timeout') ||
-                    error.message.includes('timed out') ||
-                    error.message.includes('500')
-                );
-                showToast(isApiUnavailable
-                    ? 'API franceinfo inaccessible depuis le serveur cloud.'
-                    : 'Erreur: ' + error.message, 'error');
-            } finally {
-                loadMoreBtn.disabled = false;
-            }
-        });
-    }
-
-    // Écouter les mises à jour de polling
-    window.addEventListener('articles-updated', async () => {
-        await refreshArticlesList();
-    });
 
     console.log('✅ Panneau Articles initialisé');
 }
@@ -2218,30 +2127,6 @@ function openArticlesPanel() {
 function closeArticlesPanel() {
     const panel = document.getElementById('articlesPanel');
     panel.classList.remove('active');
-}
-
-async function searchArticleById() {
-    const input = document.getElementById('articleSearchInput');
-    const id = input.value.trim();
-    if (!id) return;
-
-    const searchBtn = document.getElementById('articleSearchBtn');
-    searchBtn.disabled = true;
-    searchBtn.textContent = '⏳...';
-
-    try {
-        const article = await articleManager.fetchById(id);
-        // Sauvegarder dans Supabase
-        await articleManager.saveToSupabase([article]);
-        await refreshArticlesList();
-        showToast(`Article #${id} chargé`);
-        input.value = '';
-    } catch (error) {
-        showToast('Article non trouvé: ' + error.message, 'error');
-    } finally {
-        searchBtn.disabled = false;
-        searchBtn.textContent = '🔍 Chercher';
-    }
 }
 
 function setArticleFilter(filter) {

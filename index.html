@@ -139,28 +139,6 @@
             </div>
 
             <div class="articles-panel-toolbar">
-                <div class="articles-search-group">
-                    <input type="text" id="articleSearchInput" class="article-search-input" placeholder="Rechercher par ID (ex: 7779494)">
-                    <button id="articleSearchBtn" class="action-btn search-btn">🔍 Chercher</button>
-                </div>
-
-                <div class="articles-actions-group">
-                    <button id="fetchLatestBtn" class="action-btn fetch-btn">🔄 Charger les derniers articles</button>
-                    <div class="polling-controls">
-                        <label class="polling-toggle">
-                            <input type="checkbox" id="pollingToggle">
-                            <span class="polling-toggle-label">Polling auto</span>
-                            <span id="pollingIndicator" class="polling-indicator"></span>
-                        </label>
-                        <select id="pollingInterval" class="polling-interval-select">
-                            <option value="120000">2 min</option>
-                            <option value="300000" selected>5 min</option>
-                            <option value="600000">10 min</option>
-                            <option value="1800000">30 min</option>
-                        </select>
-                    </div>
-                </div>
-
                 <div class="articles-filter-group">
                     <span class="filter-label">Filtrer :</span>
                     <button class="article-filter-btn active" data-filter="all" onclick="setArticleFilter('all')">Tous</button>
@@ -172,10 +150,7 @@
 
             <div id="articlesListContainer" class="articles-list-container">
                 <div id="articlesList" class="articles-list">
-                    <p class="articles-empty">Cliquez sur "Charger les derniers articles" pour commencer.</p>
-                </div>
-                <div id="articlesLoadMore" class="articles-load-more" style="display: none;">
-                    <button id="loadMoreBtn" class="action-btn">📄 Charger plus d'articles</button>
+                    <p class="articles-empty">Aucun article.</p>
                 </div>
             </div>
         </div>

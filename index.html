@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=13">
+    <link rel="stylesheet" href="style.css?v=14">
 </head>
 <body>
     <div class="container">
@@ -20,14 +20,14 @@
                 <button id="themeToggle" class="header-btn theme-btn" title="Changer de thème">
                     <span class="theme-icon">🌙</span>
                 </button>
-                <label for="fileInput" class="header-btn upload-btn" title="Sélectionner un fichier Excel">
-                    📁 Fichier
-                </label>
-                <input type="file" id="fileInput" accept=".xlsx" style="display: none;" />
+                <button id="articlesBtn" class="header-btn articles-btn" title="Gestion des articles">
+                    📰 Articles
+                </button>
                 <button id="resetBtn" class="header-btn reset-btn" title="Réinitialiser" style="display: none;">🔄 Réinitialiser</button>
                 <button id="llmBtn" class="header-btn llm-btn" title="Configuration des modèles LLM">🤖 LLM</button>
                 <button id="settingsBtn" class="header-btn prompts-btn" title="Gérer les prompts">📝 PROMPTS</button>
-                <button id="analyzeBtn" class="header-btn analyze-btn" style="display: none;">Analyse IA</button>
+                <button id="testsBtn" class="header-btn tests-btn" title="Historique des tests">📋 Tests</button>
+                <button id="analyzeBtn" class="header-btn analyze-btn">Analyse IA</button>
                 <button id="stopBtn" class="header-btn stop-btn" style="display: none;">⏹ Stop</button>
             </div>
         </header>
@@ -106,8 +106,6 @@
             </div>
         </div>
 
-        <div id="fileName" class="file-name" style="text-align: center; margin: 20px 0; display: none;"></div>
-
         <div id="progress" class="progress-container" style="display: none;">
             <div class="progress-bar">
                 <div id="progressFill" class="progress-fill"></div>
@@ -117,8 +115,8 @@
 
         <div id="tableContainer" class="table-container" style="display: none;">
             <div class="table-header">
-                <h2 id="tableTitle">Contenu du fichier</h2>
-                <button id="clearBtn" class="clear-btn">Nouveau fichier</button>
+                <h2 id="tableTitle">Articles analysés</h2>
+                <button id="clearBtn" class="clear-btn">Réinitialiser</button>
             </div>
             <div class="table-wrapper">
                 <table id="dataTable">
@@ -129,6 +127,106 @@
         </div>
 
         <div id="error" class="error" style="display: none;"></div>
+    </div>
+
+    <!-- Panneau des articles -->
+    <div id="articlesPanel" class="articles-panel">
+        <div class="articles-panel-backdrop"></div>
+        <div class="articles-panel-content">
+            <div class="articles-panel-header">
+                <h2>📰 Articles franceinfo</h2>
+                <button id="closeArticlesPanelBtn" class="close-panel-btn">✕</button>
+            </div>
+
+            <div class="articles-panel-toolbar">
+                <div class="articles-search-group">
+                    <input type="text" id="articleSearchInput" class="article-search-input" placeholder="Rechercher par ID (ex: 7779494)">
+                    <button id="articleSearchBtn" class="action-btn search-btn">🔍 Chercher</button>
+                </div>
+
+                <div class="articles-actions-group">
+                    <button id="fetchLatestBtn" class="action-btn fetch-btn">🔄 Charger les derniers articles</button>
+                    <div class="polling-controls">
+                        <label class="polling-toggle">
+                            <input type="checkbox" id="pollingToggle">
+                            <span class="polling-toggle-label">Polling auto</span>
+                            <span id="pollingIndicator" class="polling-indicator"></span>
+                        </label>
+                        <select id="pollingInterval" class="polling-interval-select">
+                            <option value="120000">2 min</option>
+                            <option value="300000" selected>5 min</option>
+                            <option value="600000">10 min</option>
+                            <option value="1800000">30 min</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="articles-filter-group">
+                    <span class="filter-label">Filtrer :</span>
+                    <button class="article-filter-btn active" data-filter="all" onclick="setArticleFilter('all')">Tous</button>
+                    <button class="article-filter-btn" data-filter="classified" onclick="setArticleFilter('classified')">Classifiés</button>
+                    <button class="article-filter-btn" data-filter="unclassified" onclick="setArticleFilter('unclassified')">Non classifiés</button>
+                    <span id="articleStats" class="article-stats"></span>
+                </div>
+            </div>
+
+            <div id="articlesListContainer" class="articles-list-container">
+                <div id="articlesList" class="articles-list">
+                    <p class="articles-empty">Cliquez sur "Charger les derniers articles" pour commencer.</p>
+                </div>
+                <div id="articlesLoadMore" class="articles-load-more" style="display: none;">
+                    <button id="loadMoreBtn" class="action-btn">📄 Charger plus d'articles</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panneau des Test Runs -->
+    <div id="testsPanel" class="tests-panel">
+        <div class="tests-panel-backdrop"></div>
+        <div class="tests-panel-content">
+            <div class="tests-panel-header">
+                <h2>📋 Historique des Tests</h2>
+                <button id="closeTestsPanelBtn" class="close-panel-btn">✕</button>
+            </div>
+
+            <div class="tests-panel-toolbar">
+                <button id="refreshTestsBtn" class="action-btn fetch-btn">🔄 Actualiser</button>
+                <button id="compareTestsBtn" class="action-btn compare-btn">⚖️ Comparer 2 tests</button>
+            </div>
+
+            <!-- Vue liste des test runs -->
+            <div id="testsListView">
+                <div id="testsList" class="tests-list">
+                    <p class="tests-empty">Chargement des tests...</p>
+                </div>
+            </div>
+
+            <!-- Vue détail d'un test run -->
+            <div id="testDetailView" class="test-detail-view" style="display: none;">
+                <button id="backToTestsListBtn" class="action-btn back-btn">← Retour à la liste</button>
+                <div id="testDetailHeader" class="test-detail-header"></div>
+                <div id="testDetailContent" class="test-detail-content"></div>
+            </div>
+
+            <!-- Vue comparaison de 2 tests -->
+            <div id="testCompareView" class="test-compare-view" style="display: none;">
+                <button id="backFromCompareBtn" class="action-btn back-btn">← Retour à la liste</button>
+                <div class="compare-selectors">
+                    <div class="compare-selector">
+                        <label>Test A :</label>
+                        <select id="compareTestA" class="compare-select"></select>
+                    </div>
+                    <div class="compare-vs">VS</div>
+                    <div class="compare-selector">
+                        <label>Test B :</label>
+                        <select id="compareTestB" class="compare-select"></select>
+                    </div>
+                    <button id="runCompareBtn" class="action-btn compare-run-btn">📊 Comparer</button>
+                </div>
+                <div id="compareResults" class="compare-results"></div>
+            </div>
+        </div>
     </div>
 
     <!-- Panneau de configuration LLM -->
@@ -321,7 +419,11 @@ Analyse cet article..."></textarea>
     <!-- Toast notification container -->
     <div id="toastContainer" class="toast-container"></div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="script.js?v=13"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-client.js?v=1"></script>
+    <script src="js/article-manager.js?v=1"></script>
+    <script src="js/classification-manager.js?v=1"></script>
+    <script src="js/test-run-manager.js?v=1"></script>
+    <script src="script.js?v=15"></script>
 </body>
 </html>

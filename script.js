@@ -1,5 +1,3 @@
-const fileInput = document.getElementById('fileInput');
-const fileName = document.getElementById('fileName');
 const tableContainer = document.getElementById('tableContainer');
 const tableHead = document.getElementById('tableHead');
 const tableBody = document.getElementById('tableBody');
@@ -16,9 +14,10 @@ const statsContainer = document.getElementById('statsContainer');
 const exportBtn = document.getElementById('exportBtn');
 const themeToggle = document.getElementById('themeToggle');
 
-let currentData = null;
+let currentArticles = []; // Articles chargés depuis Supabase (avec classifications)
 let stopAnalysis = false;
 let articleResults = []; // Stockage global des résultats d'analyse
+let articleFilter = 'all'; // 'all' | 'classified' | 'unclassified'
 
 // Variables pour le filtrage de la matrice
 let matrixFilter = {
@@ -288,23 +287,153 @@ class PromptManager {
         this.storageKey = 'userneeds_prompts';
         this.activePromptKey = 'userneeds_active_prompt_id';
         this.settingsKey = 'userneeds_settings';
-        this.initialize();
+        this.supabaseReady = false;
+        this.initializeSync();
     }
 
-    initialize() {
-        // Charger depuis localStorage ou créer le prompt par défaut
-        this.loadFromStorage();
+    // Initialisation synchrone (localStorage uniquement) pour affichage immédiat
+    initializeSync() {
+        this.loadFromLocalStorage();
         if (this.prompts.length === 0) {
             this.createDefaultPrompt();
         }
-
-        // Note : Ancien code de mise à jour supprimé car content est maintenant une string complète
-
-        // S'assurer qu'un prompt est actif
         if (!this.activePromptId || !this.getPromptById(this.activePromptId)) {
             const defaultPrompt = this.prompts.find(p => p.isDefault) || this.prompts[0];
             this.activePromptId = defaultPrompt.id;
         }
+    }
+
+    // Initialisation async (Supabase) — appelée après initSupabase()
+    async initializeAsync() {
+        if (!isSupabaseAvailable()) {
+            console.log('📝 Prompts: mode localStorage uniquement');
+            return;
+        }
+
+        try {
+            // Tenter la migration localStorage → Supabase
+            await this.migrateToSupabase();
+            // Charger depuis Supabase
+            await this.loadFromSupabase();
+            this.supabaseReady = true;
+            console.log('✅ Prompts synchronisés avec Supabase');
+        } catch (error) {
+            console.warn('⚠️ Fallback localStorage pour les prompts:', error.message);
+        }
+    }
+
+    // Migration one-time : localStorage → Supabase
+    async migrateToSupabase() {
+        if (localStorage.getItem('prompts_migrated_to_supabase')) return;
+        if (!isSupabaseAvailable()) return;
+
+        const localPrompts = this.prompts;
+        if (localPrompts.length === 0) return;
+
+        // Vérifier si Supabase a déjà des prompts
+        const { data: existing } = await supabaseClient
+            .from('prompts')
+            .select('id')
+            .limit(1);
+
+        if (existing && existing.length > 0) {
+            localStorage.setItem('prompts_migrated_to_supabase', 'true');
+            return;
+        }
+
+        // Migrer tous les prompts
+        const rows = localPrompts.map(p => ({
+            id: p.id,
+            name: p.name,
+            description: p.description || '',
+            content: typeof p.content === 'string' ? p.content : JSON.stringify(p.content),
+            is_default: p.isDefault || false,
+            is_active: p.id === this.activePromptId,
+            userneeds: p.userneeds || USERNEEDS,
+            metadata: p.metadata || {},
+            created_at: p.createdAt || new Date().toISOString(),
+            modified_at: p.modifiedAt || new Date().toISOString()
+        }));
+
+        const { error } = await supabaseClient.from('prompts').upsert(rows);
+        if (error) {
+            console.error('Erreur migration prompts:', error);
+            return;
+        }
+
+        localStorage.setItem('prompts_migrated_to_supabase', 'true');
+        console.log(`✅ ${rows.length} prompt(s) migrés vers Supabase`);
+    }
+
+    // Charger depuis Supabase
+    async loadFromSupabase() {
+        if (!isSupabaseAvailable()) return false;
+
+        const { data, error } = await supabaseClient
+            .from('prompts')
+            .select('*')
+            .order('created_at');
+
+        if (error) {
+            console.warn('Erreur chargement Supabase prompts:', error.message);
+            return false;
+        }
+
+        if (data && data.length > 0) {
+            this.prompts = data.map(row => ({
+                id: row.id,
+                name: row.name,
+                description: row.description || '',
+                isDefault: row.is_default,
+                isActive: row.is_active,
+                createdAt: row.created_at,
+                modifiedAt: row.modified_at,
+                content: row.content,
+                userneeds: row.userneeds || USERNEEDS,
+                metadata: row.metadata || {}
+            }));
+
+            // Trouver le prompt actif
+            const activePrompt = this.prompts.find(p => p.isActive);
+            if (activePrompt) {
+                this.activePromptId = activePrompt.id;
+            }
+            // Sauvegarder en localStorage comme cache
+            this.saveToLocalStorage();
+            return true;
+        }
+        return false;
+    }
+
+    // Sauvegarder vers Supabase (+ localStorage en cache)
+    async saveToSupabase() {
+        // Toujours sauvegarder en localStorage (cache/fallback)
+        this.saveToLocalStorage();
+
+        if (!isSupabaseAvailable() || !this.supabaseReady) return;
+
+        const rows = this.prompts.map(p => ({
+            id: p.id,
+            name: p.name,
+            description: p.description || '',
+            content: typeof p.content === 'string' ? p.content : JSON.stringify(p.content),
+            is_default: p.isDefault || false,
+            is_active: p.id === this.activePromptId,
+            userneeds: p.userneeds || USERNEEDS,
+            metadata: p.metadata || {},
+            created_at: p.createdAt || new Date().toISOString(),
+            modified_at: p.modifiedAt || new Date().toISOString()
+        }));
+
+        const { error } = await supabaseClient.from('prompts').upsert(rows);
+        if (error) {
+            console.error('Erreur sauvegarde Supabase prompts:', error);
+        }
+    }
+
+    initialize() {
+        // Backward compat — appelé nulle part maintenant, voir initializeSync()
+        this.initializeSync();
     }
 
     createDefaultPrompt() {
@@ -375,12 +504,11 @@ Règle CRITIQUE : Tu dois répondre EXACTEMENT avec le format ci-dessus. Commenc
         this.saveToStorage();
     }
 
-    loadFromStorage() {
+    loadFromLocalStorage() {
         try {
             const data = localStorage.getItem(this.storageKey);
             if (data) {
                 const parsed = JSON.parse(data);
-                // Migrer les anciens prompts au nouveau format
                 this.prompts = parsed.map(prompt => migrateOldPromptFormat(prompt));
             }
             const activeId = localStorage.getItem(this.activePromptKey);
@@ -393,7 +521,7 @@ Règle CRITIQUE : Tu dois répondre EXACTEMENT avec le format ci-dessus. Commenc
         }
     }
 
-    saveToStorage() {
+    saveToLocalStorage() {
         try {
             localStorage.setItem(this.storageKey, JSON.stringify(this.prompts));
             localStorage.setItem(this.activePromptKey, this.activePromptId);
@@ -404,6 +532,16 @@ Règle CRITIQUE : Tu dois répondre EXACTEMENT avec le format ci-dessus. Commenc
         } catch (error) {
             console.error('Erreur lors de la sauvegarde des prompts:', error);
         }
+    }
+
+    // Méthode de compatibilité — redirige vers dual save (localStorage + Supabase)
+    saveToStorage() {
+        this.saveToLocalStorage();
+        this.saveToSupabase(); // async, fire-and-forget
+    }
+
+    loadFromStorage() {
+        this.loadFromLocalStorage();
     }
 
     getActivePrompt() {
@@ -482,6 +620,11 @@ Règle CRITIQUE : Tu dois répondre EXACTEMENT avec le format ci-dessus. Commenc
                 this.activePromptId = defaultPrompt.id;
             }
             this.saveToStorage();
+            // Supprimer aussi de Supabase
+            if (isSupabaseAvailable() && this.supabaseReady) {
+                supabaseClient.from('prompts').delete().eq('id', id)
+                    .then(({ error }) => { if (error) console.error('Erreur suppression Supabase:', error); });
+            }
             return true;
         }
         return false;
@@ -681,17 +824,26 @@ window.addEventListener('DOMContentLoaded', async () => {
     localStorage.removeItem('anthropic_api_key');
     console.log('🧹 localStorage nettoyé (clés Anthropic obsolètes)');
 
-    // 1. Initialiser le gestionnaire de prompts
-    promptManager = new PromptManager();
-    console.log('📝 Gestionnaire de prompts initialisé');
+    // 1. Initialiser Supabase
+    const supabaseOk = await initSupabase();
+    console.log(supabaseOk ? '✅ Supabase connecté' : '⚠️ Supabase indisponible (mode localStorage)');
 
-    // 2. Initialiser le gestionnaire de provider
+    // 2. Initialiser le gestionnaire de prompts (sync = localStorage)
+    promptManager = new PromptManager();
+    console.log('📝 Gestionnaire de prompts initialisé (localStorage)');
+
+    // 3. Synchroniser les prompts avec Supabase (async)
+    if (supabaseOk) {
+        await promptManager.initializeAsync();
+    }
+
+    // 4. Initialiser le gestionnaire de provider
     providerManager = new ProviderManager();
 
-    // 3. Charger la configuration depuis config.json (prioritaire)
+    // 5. Charger la configuration depuis config.json (prioritaire)
     const configLoaded = await providerManager.loadConfigurationFromFile();
 
-    // 4. Si config.json n'est pas disponible, fallback sur localStorage
+    // 6. Si config.json n'est pas disponible, fallback sur localStorage
     if (!configLoaded) {
         providerManager.loadConfiguration();
         console.log('🔌 Configuration chargée depuis localStorage');
@@ -700,9 +852,17 @@ window.addEventListener('DOMContentLoaded', async () => {
     console.log(`   Provider: OpenRouter`);
     console.log(`   Modèle: ${providerManager.selectedModel}`);
 
-    // 5. Initialiser l'interface UI
+    // 7. Initialiser les gestionnaires articles, classification et test runs
+    articleManager = new ArticleManager();
+    classificationManager = new ClassificationManager();
+    testRunManager = new TestRunManager();
+    console.log('📰 Gestionnaires articles, classification et test runs initialisés');
+
+    // 8. Initialiser l'interface UI
     initializePromptUI();  // PROMPTS + LLM
     initializeProviderUI(); // Configuration provider
+    initializeArticlesUI(); // Articles panel
+    initializeTestsUI();    // Test Runs panel
 
     console.log('✅ Application initialisée');
 });
@@ -724,12 +884,11 @@ function stopAnalysisHandler() {
     addLog('🛑 Arrêt de l\'analyse demandé par l\'utilisateur...', 'error');
 }
 
-fileInput.addEventListener('change', handleFileUpload);
 clearBtn.addEventListener('click', clearTable);
 analyzeBtn.addEventListener('click', analyzeWithAI);
 stopBtn.addEventListener('click', stopAnalysisHandler);
 resetBtn.addEventListener('click', resetApplication);
-exportBtn.addEventListener('click', exportToExcel);
+exportBtn.addEventListener('click', exportToCSV);
 
 // Event listeners pour le modal de justification
 document.addEventListener('DOMContentLoaded', () => {
@@ -761,128 +920,13 @@ document.addEventListener('DOMContentLoaded', () => {
     checkServerHealth();
 });
 
-function handleFileUpload(event) {
-    const file = event.target.files[0];
-
-    if (!file) {
-        return;
-    }
-
-    // Vérifier l'extension du fichier
-    if (!file.name.endsWith('.xlsx')) {
-        showError('Veuillez sélectionner un fichier .xlsx');
-        return;
-    }
-
-    fileName.textContent = `Fichier sélectionné : ${file.name}`;
-    fileName.style.display = 'block';
-    hideError();
-
-    const reader = new FileReader();
-
-    reader.onload = function(e) {
-        try {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-
-            // Prendre la première feuille
-            const firstSheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheetName];
-
-            // Convertir en JSON
-            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-
-            if (jsonData.length === 0) {
-                showError('Le fichier est vide');
-                return;
-            }
-
-            displayTable(jsonData, firstSheetName);
-        } catch (error) {
-            showError('Erreur lors de la lecture du fichier : ' + error.message);
-        }
-    };
-
-    reader.onerror = function() {
-        showError('Erreur lors de la lecture du fichier');
-    };
-
-    reader.readAsArrayBuffer(file);
-}
-
-function displayTable(data, sheetName) {
-    // Sauvegarder les données pour l'analyse IA
-    currentData = data;
-
-    // Effacer le tableau précédent
-    tableHead.innerHTML = '';
-    tableBody.innerHTML = '';
-
-    if (data.length === 0) {
-        showError('Aucune donnée à afficher');
-        return;
-    }
-
-    // Créer l'en-tête du tableau avec seulement les colonnes visibles
-    const headers = data[0];
-    const headerRow = document.createElement('tr');
-
-    // Colonnes à afficher: Numéro, Titre, User ID attribué (A), Prédiction IA
-    const numeroTh = document.createElement('th');
-    numeroTh.textContent = 'Numéro';
-    headerRow.appendChild(numeroTh);
-
-    const titreTh = document.createElement('th');
-    titreTh.textContent = 'Titre de l\'article';
-    headerRow.appendChild(titreTh);
-
-    const userIdTh = document.createElement('th');
-    userIdTh.textContent = headers[0] || 'User Need attribué'; // Colonne A (index 0)
-    headerRow.appendChild(userIdTh);
-
-    const aiTh = document.createElement('th');
-    aiTh.textContent = 'Prédiction IA';
-    aiTh.classList.add('ai-column');
-    headerRow.appendChild(aiTh);
-
-    // NOUVELLE COLONNE: Justification IA
-    const justificationTh = document.createElement('th');
-    justificationTh.textContent = 'Justification IA';
-    justificationTh.classList.add('justification-column');
-    headerRow.appendChild(justificationTh);
-
-    // NOUVELLE COLONNE: Confiance
-    const confidenceTh = document.createElement('th');
-    confidenceTh.textContent = 'Confiance';
-    confidenceTh.classList.add('confidence-column');
-    headerRow.appendChild(confidenceTh);
-
-    tableHead.appendChild(headerRow);
-
-    // Le tableau reste vide, les lignes seront ajoutées au fur et à mesure de l'analyse
-
-    // Mettre à jour le titre et afficher le tableau
-    tableTitle.textContent = `Contenu du fichier : ${sheetName}`;
-    tableContainer.style.display = 'block';
-
-    // Afficher les boutons appropriés
-    analyzeBtn.style.display = 'inline-block';
-    resetBtn.style.display = 'inline-block';
-
-    // Faire défiler jusqu'au tableau
-    tableContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
 
 function resetApplication() {
-    fileInput.value = '';
-    fileName.textContent = '';
-    fileName.style.display = 'none';
     tableContainer.style.display = 'none';
     statsContainer.style.display = 'none';
     progressContainer.style.display = 'none';
     tableHead.innerHTML = '';
     tableBody.innerHTML = '';
-    currentData = null;
     articleResults = [];
 
     // Réinitialiser le filtre de confiance
@@ -1580,6 +1624,8 @@ function hideError() {
     errorDiv.textContent = '';
 }
 
+let currentTestRunId = null; // ID du test run en cours
+
 async function analyzeWithAI() {
     // Vérifier la configuration OpenRouter
     if (!providerManager.isConfigured()) {
@@ -1587,8 +1633,17 @@ async function analyzeWithAI() {
         return;
     }
 
-    if (!currentData || currentData.length < 2) {
-        showError('Aucune donnée à analyser');
+    // Charger les articles classifiés depuis Supabase
+    let classifiedArticles;
+    try {
+        classifiedArticles = await articleManager.loadClassifiedArticles();
+    } catch (e) {
+        showError('Erreur de chargement des articles: ' + e.message);
+        return;
+    }
+
+    if (!classifiedArticles || classifiedArticles.length === 0) {
+        showError('Aucun article classifié à analyser. Classifiez des articles dans le panneau 📰 Articles.');
         return;
     }
 
@@ -1596,16 +1651,12 @@ async function analyzeWithAI() {
     stopAnalysis = false;
     articleResults = [];
 
-    // Réinitialiser le filtre de la matrice avant une nouvelle analyse
+    // Réinitialiser les filtres
     clearMatrixFilter();
-
-    // Réinitialiser le filtre de confiance
     confidenceFilter = 'all';
     document.querySelectorAll('.confidence-filter-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.filter === 'all');
     });
-
-    // Réinitialiser le filtre de concordance
     concordanceFilter = 'all';
     document.querySelectorAll('.concordance-filter-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.filter === 'all');
@@ -1616,92 +1667,103 @@ async function analyzeWithAI() {
     stopBtn.style.display = 'inline-block';
     progressContainer.style.display = 'block';
     statsContainer.style.display = 'block';
+    tableContainer.style.display = 'block';
+
+    // Initialiser les en-têtes du tableau
+    tableHead.innerHTML = '';
+    tableBody.innerHTML = '';
+    const headerRow = document.createElement('tr');
+    ['Numéro', 'Titre de l\'article', 'User Need attribué', 'Prédiction IA', 'Justification IA', 'Confiance'].forEach((text, idx) => {
+        const th = document.createElement('th');
+        th.textContent = text;
+        if (idx === 3) th.classList.add('ai-column');
+        if (idx === 4) th.classList.add('justification-column');
+        if (idx === 5) th.classList.add('confidence-column');
+        headerRow.appendChild(th);
+    });
+    tableHead.appendChild(headerRow);
+    tableTitle.textContent = 'Articles analysés';
+
     clearLog();
     hideError();
     initConfusionMatrix();
 
     addLog('🚀 Démarrage de l\'analyse IA...', 'info');
-    addLog(`📊 Nombre total d'articles à analyser : ${currentData.length - 1}`, 'info');
+    addLog(`📊 Nombre total d'articles classifiés à analyser : ${classifiedArticles.length}`, 'info');
 
-    const headers = currentData[0];
-    const rows = currentData.slice(1);
+    const ARTICLE_DELAY_MS = 5000;
+    const apiKey = providerManager.getActiveApiKey();
 
-    // Identifier les indices des colonnes
-    const titreIndex = 3;  // Colonne D
-    const chapoIndex = 4;  // Colonne E
-    const corpsIndex = 5;  // Colonne F
-    const userIdIndex = 0; // Colonne A
+    if (!apiKey) {
+        showError('Veuillez configurer votre clé API dans le panneau LLM');
+        analyzeBtn.style.display = 'inline-block';
+        stopBtn.style.display = 'none';
+        progressContainer.style.display = 'none';
+        return;
+    }
+
+    // Créer un test run dans Supabase
+    const activePrompt = promptManager.getActivePrompt();
+    let testRun = null;
+    try {
+        testRun = await testRunManager.createRun(
+            `${providerManager.selectedModel} - ${activePrompt.name}`,
+            providerManager.selectedModel,
+            activePrompt.id,
+            typeof activePrompt.content === 'string' ? activePrompt.content : JSON.stringify(activePrompt.content),
+            classifiedArticles.length
+        );
+        currentTestRunId = testRun.id;
+        addLog(`📋 Test run créé: ${testRun.name}`, 'info');
+    } catch (e) {
+        console.warn('Impossible de créer le test run en DB:', e.message);
+    }
+
+    addLog(`🔄 Traitement séquentiel : 1 article à la fois`, 'info');
+    addLog(`⏱️ Délai entre articles : ${ARTICLE_DELAY_MS / 1000} secondes`, 'info');
 
     try {
-        // Traitement séquentiel article par article (plus fiable, moins de timeouts)
-        const ARTICLE_DELAY_MS = 5000; // Délai de 5 secondes entre chaque article (augmenté pour éviter rate limiting)
-
-        // Récupérer la clé API active selon le provider
-        const apiKey = providerManager.getActiveApiKey();
-
-        if (!apiKey) {
-            showError('Veuillez configurer votre clé API dans le panneau LLM');
-            analyzeBtn.style.display = 'inline-block';
-            stopBtn.style.display = 'none';
-            progressContainer.style.display = 'none';
-            return;
-        }
-
-        addLog(`🔄 Traitement séquentiel : 1 article à la fois`, 'info');
-        addLog(`📊 Nombre total d'articles : ${rows.length}`, 'info');
-        addLog(`⏱️ Délai entre articles : ${ARTICLE_DELAY_MS / 1000} secondes`, 'info');
-
-        // Boucle simple sur tous les articles
-        for (let i = 0; i < rows.length; i++) {
-            // Vérifier si l'utilisateur a demandé l'arrêt
+        for (let i = 0; i < classifiedArticles.length; i++) {
             if (stopAnalysis) {
-                addLog(`<br/>🛑 <strong>ANALYSE ARRÊTÉE</strong> par l'utilisateur à l'article ${i + 1}/${rows.length}`, 'error');
+                addLog(`🛑 ANALYSE ARRÊTÉE par l'utilisateur à l'article ${i + 1}/${classifiedArticles.length}`, 'error');
                 break;
             }
 
-            const row = rows[i];
-            const titre = row[titreIndex] || '';
-            const chapo = row[chapoIndex] || '';
-            const corps = row[corpsIndex] || '';
-            const expectedUserneed = row[userIdIndex] || '';
-            const urlValue = row[2]; // URL (colonne C)
+            const article = classifiedArticles[i];
+            const titre = article.titre || '';
+            const chapo = article.chapo || '';
+            const corps = article.corps || '';
+            const expectedUserneed = article.human_classifications[0].userneed;
+            const urlValue = article.url;
 
-            // Log de début de traitement
-            addLog(`<br/>📰 Article ${i + 1}/${rows.length} : ${titre.substring(0, 80)}${titre.length > 80 ? '...' : ''}`, 'info');
+            addLog(`📰 Article ${i + 1}/${classifiedArticles.length} : ${titre.substring(0, 80)}${titre.length > 80 ? '...' : ''}`, 'info');
 
             try {
-                // Appeler l'API pour analyser cet article
                 const parsed = await analyzeArticle(apiKey, titre, chapo, corps);
 
-                // Gérer le nouveau format avec predictions ou l'ancien format (fallback)
-                let userneed, justification, hasJustification, predictions;
+                let userneed, justification, hasJustification, predictions, rawResponse;
 
                 if (parsed && parsed.predictions && parsed.predictions.length > 0) {
-                    // Nouveau format: 3 userneeds avec scores
                     predictions = parsed.predictions;
-                    userneed = predictions[0].userneed; // Userneed principal
+                    userneed = predictions[0].userneed;
                     justification = parsed.justification;
                     hasJustification = parsed.hasJustification;
+                    rawResponse = parsed.rawResponse || '';
                 } else if (parsed) {
-                    // Ancien format: un seul userneed
                     userneed = parsed.userneed;
                     justification = parsed.justification;
                     hasJustification = parsed.hasJustification;
                     predictions = null;
+                    rawResponse = parsed.rawResponse || '';
                 } else {
-                    // Si le parsing a échoué complètement
-                    addLog(`⚠️ Impossible d'extraire un userneed valide de la réponse`, 'warning');
                     userneed = '❓ Non identifié';
                     justification = '';
                     hasJustification = false;
                     predictions = null;
+                    rawResponse = '';
                 }
 
-                // Vérifier la concordance avec normalisation
                 const isMatch = normalizeUserneed(userneed) === normalizeUserneed(expectedUserneed);
-
-                // Créer l'objet article
-                // Calculer le score de confiance
                 const confidence = calculateConfidence(predictions);
 
                 const articleData = {
@@ -1721,32 +1783,39 @@ async function analyzeWithAI() {
                     icpLevel: confidence.icpLevel
                 };
 
-                // Log du résultat
-                addLog(`✅ Résultat: <span class="log-result">${userneed}</span>`, 'success');
-
+                addLog(`✅ Résultat: ${userneed}`, 'success');
                 if (isMatch) {
-                    addLog(`✓ <span style="color: #10b981;">Concordant</span>`, 'success');
+                    addLog(`✓ Concordant`, 'success');
                 } else {
-                    addLog(`✗ <span style="color: #ef4444;">Différent</span> (attendu: ${expectedUserneed})`, 'error');
+                    addLog(`✗ Différent (attendu: ${expectedUserneed})`, 'error');
                 }
 
-                // Stocker le résultat
                 articleResults.push(articleData);
 
-                // Mettre à jour la matrice de confusion seulement si on a un userneed valide
-                // Ne pas comptabiliser les userneeds "Non identifié"
                 if (userneed && expectedUserneed && !userneed.includes('Non identifié')) {
                     updateConfusionMatrix(expectedUserneed, userneed);
                 }
 
-                // Rafraîchir l'affichage du tableau
                 filterTableByMatrix();
 
+                // Persister le résultat dans Supabase
+                if (testRun) {
+                    testRunManager.addAnalysis(testRun.id, article.id, {
+                        predictedUserneed: userneed,
+                        predictions: predictions,
+                        justification: justification,
+                        isMatch: isMatch,
+                        delta: confidence.delta,
+                        icp: confidence.icp,
+                        confidenceLevel: confidence.confidenceLevel,
+                        rawResponse: rawResponse,
+                        articleIndex: i
+                    });
+                }
+
             } catch (error) {
-                // Gestion d'erreur pour cet article
                 addLog(`❌ Erreur sur article ${i + 1} : ${error.message}`, 'error');
 
-                // Stocker un résultat avec erreur
                 articleResults.push({
                     index: i,
                     numero: i + 1,
@@ -1765,24 +1834,47 @@ async function analyzeWithAI() {
                 });
             }
 
-            // Mise à jour de la barre de progression
-            const progress = ((i + 1) / rows.length) * 100;
+            // Progression
+            const progress = ((i + 1) / classifiedArticles.length) * 100;
             progressFill.style.width = `${progress}%`;
-            progressText.textContent = `Analyse en cours... ${i + 1}/${rows.length} articles`;
+            progressText.textContent = `Analyse en cours... ${i + 1}/${classifiedArticles.length} articles`;
 
-            // Délai entre articles (sauf pour le dernier)
-            if (i < rows.length - 1 && !stopAnalysis) {
+            // Délai entre articles
+            if (i < classifiedArticles.length - 1 && !stopAnalysis) {
                 if (ARTICLE_DELAY_MS > 0) {
-                    addLog(`⏱️ Attente de ${ARTICLE_DELAY_MS / 1000} secondes avant le prochain article...`, 'info');
                     await new Promise(resolve => setTimeout(resolve, ARTICLE_DELAY_MS));
                 }
             }
         }
 
+        // Compléter le test run avec les stats finales
+        const concordantCount = articleResults.filter(r => r.isMatch).length;
+        const concordantPercent = articleResults.length > 0 ? (concordantCount / articleResults.length * 100).toFixed(2) : 0;
+        const finalStats = {
+            analyzedArticles: articleResults.length,
+            concordantCount: concordantCount,
+            concordantPercent: parseFloat(concordantPercent),
+            confusionMatrix: confusionMatrix,
+            statistics: {
+                sourceDistribution: sourceDistribution,
+                predictionDistribution: predictionDistribution,
+                articleResults: articleResults.length
+            }
+        };
+
+        if (testRun) {
+            if (stopAnalysis) {
+                await testRunManager.stopRun(testRun.id, finalStats);
+            } else {
+                await testRunManager.completeRun(testRun.id, finalStats);
+            }
+            addLog(`📋 Test run sauvegardé en DB`, 'info');
+        }
+
         if (!stopAnalysis) {
             progressText.textContent = 'Analyse terminée !';
             progressFill.style.width = '100%';
-            addLog(`<br/>🎉 <strong>ANALYSE TERMINÉE !</strong> Tous les articles ont été traités avec succès.`, 'success');
+            addLog(`🎉 ANALYSE TERMINÉE ! ${articleResults.length} articles traités. Concordance: ${concordantPercent}%`, 'success');
         }
 
         setTimeout(() => {
@@ -1798,6 +1890,7 @@ async function analyzeWithAI() {
     } finally {
         stopBtn.style.display = 'none';
         analyzeBtn.style.display = 'inline-block';
+        currentTestRunId = null;
     }
 }
 
@@ -1915,10 +2008,7 @@ async function analyzeArticle(apiKey, titre, chapo, corps) {
     }
 }
 
-function exportToExcel() {
-    // Créer un nouveau workbook
-    const wb = XLSX.utils.book_new();
-
+function exportToCSV() {
     // Calculer les statistiques globales
     let totalArticles = 0;
     let concordants = 0;
@@ -1926,235 +2016,806 @@ function exportToExcel() {
         totalArticles += sourceDistribution[source];
         concordants += confusionMatrix[source][source];
     });
-    const reclassified = totalArticles - concordants;
+
+    if (totalArticles === 0 && articleResults.length === 0) {
+        showToast('Aucune donnée à exporter', 'error');
+        return;
+    }
+
     const concordantPercent = totalArticles > 0 ? ((concordants / totalArticles) * 100).toFixed(1) : 0;
-    const reclassifiedPercent = totalArticles > 0 ? ((reclassified / totalArticles) * 100).toFixed(1) : 0;
 
-    // === FEUILLE 1 : STATISTIQUES GLOBALES ===
-    const statsData = [
-        ['STATISTIQUES GLOBALES - ANALYSE USERNEEDS FRANCEINFO'],
-        [''],
-        ['Résumé'],
-        ['Total d\'articles analysés', totalArticles],
-        ['Articles concordants', `${concordants} (${concordantPercent}%)`],
-        ['Articles reclassifiés', `${reclassified} (${reclassifiedPercent}%)`],
-        [''],
-        ['Distribution par catégorie source'],
-        ['Userneed', 'Nombre', 'Pourcentage']
-    ];
-
-    USERNEEDS.forEach(userneed => {
-        const count = sourceDistribution[userneed];
-        if (count > 0) {
-            const percent = totalArticles > 0 ? ((count / totalArticles) * 100).toFixed(1) : 0;
-            statsData.push([getShortName(userneed), count, `${percent}%`]);
+    // Helper CSV: escape and join
+    const csvEscape = (val) => {
+        const str = String(val ?? '');
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+            return '"' + str.replace(/"/g, '""') + '"';
         }
-    });
+        return str;
+    };
+    const csvRow = (cols) => cols.map(csvEscape).join(',');
 
-    statsData.push(['']);
-    statsData.push(['Distribution par prédiction IA']);
-    statsData.push(['Userneed', 'Nombre', 'Pourcentage']);
+    const lines = [];
 
-    USERNEEDS.forEach(userneed => {
-        const count = predictionDistribution[userneed];
-        if (count > 0) {
-            const percent = totalArticles > 0 ? ((count / totalArticles) * 100).toFixed(1) : 0;
-            statsData.push([getShortName(userneed), count, `${percent}%`]);
-        }
-    });
+    // Section 1: Stats
+    lines.push(csvRow(['STATISTIQUES GLOBALES']));
+    lines.push(csvRow(['Total articles', totalArticles]));
+    lines.push(csvRow(['Concordants', `${concordants} (${concordantPercent}%)`]));
+    lines.push('');
 
-    const wsStats = XLSX.utils.aoa_to_sheet(statsData);
-    XLSX.utils.book_append_sheet(wb, wsStats, 'Statistiques');
+    // Section 2: Matrice de confusion
+    lines.push(csvRow(['MATRICE DE CONFUSION']));
+    const matrixHeader = ['Source / Prediction'];
+    USERNEEDS.forEach(un => matrixHeader.push(getShortName(un)));
+    lines.push(csvRow(matrixHeader));
 
-    // === FEUILLE 2 : MATRICE DE CONFUSION ===
-    const matrixData = [
-        ['MATRICE DE CONFUSION'],
-        ['']
-    ];
-
-    // En-têtes de colonnes
-    const headerRow = ['Catégorie Source / Prédiction IA'];
-    USERNEEDS.forEach(un => headerRow.push(getShortName(un)));
-    matrixData.push(headerRow);
-
-    // Lignes de la matrice
-    USERNEEDS.forEach((source, i) => {
+    USERNEEDS.forEach(source => {
         const row = [getShortName(source)];
-        USERNEEDS.forEach((pred, j) => {
+        USERNEEDS.forEach(pred => {
             row.push(confusionMatrix[source][pred]);
         });
-        matrixData.push(row);
+        lines.push(csvRow(row));
+    });
+    lines.push('');
+
+    // Section 3: Détails articles
+    if (articleResults.length > 0) {
+        lines.push(csvRow(['DETAILS ARTICLES']));
+        lines.push(csvRow(['N°', 'Titre', 'User Need Attendu', 'Prediction IA', 'Concordant', 'Justification', 'Delta', 'ICP', 'Confiance']));
+
+        articleResults.forEach(article => {
+            let predText = article.predictedUserneed;
+            if (article.predictions && article.predictions.length === 3) {
+                predText = article.predictions.map(p => `${p.userneed}(${p.score}%)`).join(' | ');
+            }
+            lines.push(csvRow([
+                article.numero,
+                article.titre,
+                article.expectedUserneed,
+                predText,
+                article.isMatch ? 'OUI' : 'NON',
+                article.justification || '',
+                article.delta ?? '',
+                article.icp ?? '',
+                article.confidenceLevel || ''
+            ]));
+        });
+    }
+
+    // Download
+    const csvContent = '\uFEFF' + lines.join('\n'); // BOM for Excel UTF-8
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const date = new Date().toISOString().split('T')[0];
+    a.download = `Analyse_Userneeds_${date}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    console.log(`✅ Fichier CSV exporté`);
+}
+
+// ====================================
+// ARTICLES PANEL UI FUNCTIONS
+// ====================================
+
+function initializeArticlesUI() {
+    const articlesBtn = document.getElementById('articlesBtn');
+    const articlesPanel = document.getElementById('articlesPanel');
+
+    if (!articlesBtn || !articlesPanel) {
+        console.error('❌ Éléments Articles manquants');
+        return;
+    }
+
+    const closeArticlesPanelBtn = document.getElementById('closeArticlesPanelBtn');
+    const articlesPanelBackdrop = articlesPanel.querySelector('.articles-panel-backdrop');
+    const fetchLatestBtn = document.getElementById('fetchLatestBtn');
+    const articleSearchBtn = document.getElementById('articleSearchBtn');
+    const articleSearchInput = document.getElementById('articleSearchInput');
+    const pollingToggle = document.getElementById('pollingToggle');
+    const pollingInterval = document.getElementById('pollingInterval');
+    const loadMoreBtn = document.getElementById('loadMoreBtn');
+
+    // Ouvrir/Fermer le panneau
+    articlesBtn.addEventListener('click', openArticlesPanel);
+    closeArticlesPanelBtn.addEventListener('click', closeArticlesPanel);
+    articlesPanelBackdrop.addEventListener('click', closeArticlesPanel);
+
+    // Charger les derniers articles
+    fetchLatestBtn.addEventListener('click', async () => {
+        fetchLatestBtn.disabled = true;
+        fetchLatestBtn.textContent = '⏳ Chargement...';
+        try {
+            const articles = await articleManager.fetchAndSave(1, 30);
+            console.log(`✅ ${articles.length} articles récupérés et sauvegardés`);
+            await refreshArticlesList();
+            showToast(`${articles.length} articles chargés`);
+        } catch (error) {
+            console.error('Erreur fetch articles:', error);
+            showToast('Erreur: ' + error.message, 'error');
+        } finally {
+            fetchLatestBtn.disabled = false;
+            fetchLatestBtn.textContent = '🔄 Charger les derniers articles';
+        }
     });
 
-    const wsMatrix = XLSX.utils.aoa_to_sheet(matrixData);
-    XLSX.utils.book_append_sheet(wb, wsMatrix, 'Matrice de Confusion');
+    // Recherche par ID
+    articleSearchBtn.addEventListener('click', () => searchArticleById());
+    articleSearchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') searchArticleById();
+    });
 
-    // === FEUILLE 3 : TOP RECLASSIFICATIONS ===
-    const reclassifications = [];
-    USERNEEDS.forEach((source, i) => {
-        USERNEEDS.forEach((pred, j) => {
-            if (i !== j && confusionMatrix[source][pred] > 0) {
-                reclassifications.push({
-                    source: source,
-                    prediction: pred,
-                    count: confusionMatrix[source][pred]
-                });
+    // Polling
+    pollingToggle.addEventListener('change', () => {
+        const indicator = document.getElementById('pollingIndicator');
+        if (pollingToggle.checked) {
+            const interval = parseInt(pollingInterval.value);
+            articleManager.startPolling(interval);
+            indicator.classList.add('active');
+        } else {
+            articleManager.stopPolling();
+            indicator.classList.remove('active');
+        }
+    });
+
+    pollingInterval.addEventListener('change', () => {
+        if (pollingToggle.checked) {
+            const interval = parseInt(pollingInterval.value);
+            articleManager.startPolling(interval);
+        }
+    });
+
+    // Load more
+    if (loadMoreBtn) {
+        loadMoreBtn.addEventListener('click', async () => {
+            loadMoreBtn.disabled = true;
+            try {
+                const nextPage = articleManager.currentPage + 1;
+                const articles = await articleManager.fetchAndSave(nextPage, 30);
+                await refreshArticlesList();
+            } catch (error) {
+                showToast('Erreur: ' + error.message, 'error');
+            } finally {
+                loadMoreBtn.disabled = false;
             }
         });
+    }
+
+    // Écouter les mises à jour de polling
+    window.addEventListener('articles-updated', async () => {
+        await refreshArticlesList();
     });
 
-    reclassifications.sort((a, b) => b.count - a.count);
+    console.log('✅ Panneau Articles initialisé');
+}
 
-    const reclassData = [
-        ['TOP RECLASSIFICATIONS'],
-        [''],
-        ['Rang', 'Catégorie Source', 'Prédiction IA', 'Nombre']
-    ];
+function openArticlesPanel() {
+    const panel = document.getElementById('articlesPanel');
+    panel.classList.add('active');
+    refreshArticlesList();
+}
 
-    reclassifications.slice(0, 20).forEach((item, index) => {
-        reclassData.push([
-            index + 1,
-            getShortName(item.source),
-            getShortName(item.prediction),
-            item.count
-        ]);
+function closeArticlesPanel() {
+    const panel = document.getElementById('articlesPanel');
+    panel.classList.remove('active');
+}
+
+async function searchArticleById() {
+    const input = document.getElementById('articleSearchInput');
+    const id = input.value.trim();
+    if (!id) return;
+
+    const searchBtn = document.getElementById('articleSearchBtn');
+    searchBtn.disabled = true;
+    searchBtn.textContent = '⏳...';
+
+    try {
+        const article = await articleManager.fetchById(id);
+        // Sauvegarder dans Supabase
+        await articleManager.saveToSupabase([article]);
+        await refreshArticlesList();
+        showToast(`Article #${id} chargé`);
+        input.value = '';
+    } catch (error) {
+        showToast('Article non trouvé: ' + error.message, 'error');
+    } finally {
+        searchBtn.disabled = false;
+        searchBtn.textContent = '🔍 Chercher';
+    }
+}
+
+function setArticleFilter(filter) {
+    articleFilter = filter;
+    document.querySelectorAll('.article-filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === filter);
     });
+    refreshArticlesList();
+}
 
-    const wsReclass = XLSX.utils.aoa_to_sheet(reclassData);
-    XLSX.utils.book_append_sheet(wb, wsReclass, 'Top Reclassifications');
+async function refreshArticlesList() {
+    const listContainer = document.getElementById('articlesList');
+    const statsSpan = document.getElementById('articleStats');
 
-    // === FEUILLE 4 : CONCORDANCE PAR CATÉGORIE ===
-    const concordanceData = [
-        ['CONCORDANCE PAR CATÉGORIE'],
-        [''],
-        ['Catégorie', 'Total Articles', 'Concordants', 'Taux de Concordance']
-    ];
+    try {
+        const articles = await articleManager.loadFromSupabase({ limit: 100 });
 
-    USERNEEDS.forEach(userneed => {
-        const total = sourceDistribution[userneed];
-        if (total > 0) {
-            const correct = confusionMatrix[userneed][userneed];
-            const rate = ((correct / total) * 100).toFixed(1);
-            concordanceData.push([
-                getShortName(userneed),
-                total,
-                correct,
-                `${rate}%`
-            ]);
+        // Filtrer selon le filtre actif
+        let filtered = articles;
+        if (articleFilter === 'classified') {
+            filtered = articles.filter(a => a.human_classifications && a.human_classifications.length > 0);
+        } else if (articleFilter === 'unclassified') {
+            filtered = articles.filter(a => !a.human_classifications || a.human_classifications.length === 0);
         }
-    });
 
-    const wsConcordance = XLSX.utils.aoa_to_sheet(concordanceData);
-    XLSX.utils.book_append_sheet(wb, wsConcordance, 'Concordance par Catégorie');
-
-    // === FEUILLE 5 : DÉTAILS DES ARTICLES ===
-    const articlesData = [
-        ['DÉTAILS DES ARTICLES ANALYSÉS'],
-        [''],
-        ['N°', 'Titre', 'User Need Attendu', 'Prédiction IA', 'Justification', 'Delta P1-P2', 'ICP', 'Niveau de confiance']
-    ];
-
-    articleResults.forEach(article => {
-        // Construire la colonne prédiction : afficher les 3 userneeds ou juste le principal
-        let predictionText;
-        if (article.predictions && article.predictions.length === 3) {
-            predictionText = article.predictions
-                .map(p => `${p.userneed} (${p.score}%)`)
-                .join('\n');
-        } else {
-            predictionText = article.predictedUserneed;
+        // Mettre à jour les stats
+        const classifiedCount = articles.filter(a => a.human_classifications && a.human_classifications.length > 0).length;
+        if (statsSpan) {
+            statsSpan.textContent = `${classifiedCount}/${articles.length} classifiés`;
         }
 
-        articlesData.push([
-            article.numero,
-            article.titre,
-            article.expectedUserneed,
-            predictionText,
-            article.justification || 'N/A',
-            article.delta !== undefined ? article.delta : 'N/A',
-            article.icp !== undefined ? article.icp : 'N/A',
-            article.confidenceLevel || 'N/A'
-        ]);
-    });
+        // Stocker les articles pour l'analyse IA
+        currentArticles = articles;
 
-    const wsArticles = XLSX.utils.aoa_to_sheet(articlesData);
-    XLSX.utils.book_append_sheet(wb, wsArticles, 'Détails Articles');
-
-    // === FEUILLE 6 : ANALYSE DE CONFIANCE ===
-    const confidenceData = [
-        ['ANALYSE DE CONFIANCE'],
-        [''],
-        ['Distribution par niveau de confiance'],
-        ['Niveau', 'Nombre d\'articles', 'Pourcentage', 'Taux de concordance']
-    ];
-
-    const cCounts = { HAUTE: 0, MOYENNE: 0, BASSE: 0 };
-    const cConcordant = { HAUTE: 0, MOYENNE: 0, BASSE: 0 };
-
-    articleResults.forEach(a => {
-        const level = a.confidenceLevel || 'BASSE';
-        cCounts[level]++;
-        if (a.isMatch) cConcordant[level]++;
-    });
-
-    ['HAUTE', 'MOYENNE', 'BASSE'].forEach(level => {
-        const count = cCounts[level];
-        const pct = articleResults.length > 0 ? ((count / articleResults.length) * 100).toFixed(1) : 0;
-        const precision = count > 0 ? ((cConcordant[level] / count) * 100).toFixed(1) : 'N/A';
-        confidenceData.push([level, count, `${pct}%`, `${precision}%`]);
-    });
-
-    confidenceData.push(['']);
-    confidenceData.push(['Top confusions à basse confiance']);
-    confidenceData.push(['Source', 'Prédiction IA', 'Nombre', 'Delta moyen', 'ICP moyen']);
-
-    // Collecter les confusions à basse confiance
-    const lowConfConfusions = {};
-    articleResults.filter(a => a.confidenceLevel === 'BASSE' && !a.isMatch).forEach(a => {
-        const key = `${a.expectedUserneed}|${a.predictedUserneed}`;
-        if (!lowConfConfusions[key]) {
-            lowConfConfusions[key] = { source: a.expectedUserneed, pred: a.predictedUserneed, count: 0, deltaSum: 0, icpSum: 0 };
+        // Rendre la liste
+        if (filtered.length === 0) {
+            listContainer.innerHTML = '<p class="articles-empty">Aucun article trouvé.</p>';
+            return;
         }
-        lowConfConfusions[key].count++;
-        lowConfConfusions[key].deltaSum += a.delta || 0;
-        lowConfConfusions[key].icpSum += a.icp || 0;
-    });
 
-    Object.values(lowConfConfusions)
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10)
-        .forEach(item => {
-            confidenceData.push([
-                getShortName(item.source),
-                getShortName(item.pred),
-                item.count,
-                (item.deltaSum / item.count).toFixed(1),
-                (item.icpSum / item.count).toFixed(1)
-            ]);
+        listContainer.innerHTML = filtered.map(article => renderArticleCard(article)).join('');
+
+        // Montrer/cacher le bouton Analyse IA
+        if (classifiedCount > 0) {
+            analyzeBtn.style.display = 'inline-block';
+        }
+
+        // Afficher le load more si pertinent
+        const loadMore = document.getElementById('articlesLoadMore');
+        if (loadMore) {
+            loadMore.style.display = articleManager.hasNextPage ? 'block' : 'none';
+        }
+
+    } catch (error) {
+        console.error('Erreur refresh articles:', error);
+        listContainer.innerHTML = '<p class="articles-empty">Erreur de chargement.</p>';
+    }
+}
+
+function renderArticleCard(article) {
+    const classification = article.human_classifications && article.human_classifications.length > 0
+        ? article.human_classifications[0]
+        : null;
+    const selectedUserneed = classification ? classification.userneed : '';
+    const isClassified = !!selectedUserneed;
+    const contentType = article.metadata?.teams ? article.metadata.teams.join(', ') : '';
+
+    const dateStr = article.date_publication
+        ? new Date(article.date_publication).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+        : '';
+
+    const options = USERNEEDS.map(un => {
+        const selected = un === selectedUserneed ? 'selected' : '';
+        return `<option value="${un}" ${selected}>${un}</option>`;
+    }).join('');
+
+    return `
+        <div class="article-card" data-article-id="${article.id}">
+            <div class="article-card-header">
+                <span class="article-card-id">#${article.external_id}</span>
+                ${article.word_count ? `<span class="article-card-type">${article.word_count} mots</span>` : ''}
+            </div>
+            <div class="article-card-title">
+                <a href="${article.url}" target="_blank" title="Ouvrir l'article">${article.titre || 'Sans titre'}</a>
+            </div>
+            <div class="article-card-description">${article.chapo || ''}</div>
+            <div class="article-card-footer">
+                <div class="article-card-meta">
+                    ${dateStr ? `<span>${dateStr}</span>` : ''}
+                    ${article.auteur ? `<span>${article.auteur}</span>` : ''}
+                </div>
+                <select class="classification-select ${isClassified ? 'classified' : ''}"
+                        onchange="handleClassification('${article.id}', this.value)"
+                        title="Classifier cet article">
+                    <option value="">-- Classifier --</option>
+                    ${options}
+                </select>
+            </div>
+        </div>
+    `;
+}
+
+async function handleClassification(articleId, userneed) {
+    if (!userneed) return;
+
+    try {
+        await classificationManager.classify(articleId, userneed);
+
+        // Mettre à jour le visuel de la select
+        const card = document.querySelector(`[data-article-id="${articleId}"]`);
+        if (card) {
+            const select = card.querySelector('.classification-select');
+            if (select) select.classList.add('classified');
+        }
+
+        // Mettre à jour les stats
+        const stats = await classificationManager.getStats();
+        const statsSpan = document.getElementById('articleStats');
+        if (statsSpan) {
+            statsSpan.textContent = `${stats.classified}/${stats.total} classifiés`;
+        }
+
+        // Afficher le bouton Analyse IA si au moins 1 article classifié
+        if (stats.classified > 0) {
+            analyzeBtn.style.display = 'inline-block';
+        }
+
+        showToast(`Article classifié: ${userneed}`);
+    } catch (error) {
+        console.error('Erreur classification:', error);
+        showToast('Erreur de classification', 'error');
+    }
+}
+
+// ====================================
+// TEST RUNS UI FUNCTIONS
+// ====================================
+
+function initializeTestsUI() {
+    const testsBtn = document.getElementById('testsBtn');
+    const closeTestsPanelBtn = document.getElementById('closeTestsPanelBtn');
+    const testsPanelBackdrop = document.querySelector('.tests-panel-backdrop');
+    const refreshTestsBtn = document.getElementById('refreshTestsBtn');
+    const backToTestsListBtn = document.getElementById('backToTestsListBtn');
+    const compareTestsBtn = document.getElementById('compareTestsBtn');
+    const backFromCompareBtn = document.getElementById('backFromCompareBtn');
+    const runCompareBtn = document.getElementById('runCompareBtn');
+
+    if (!testsBtn) {
+        console.warn('⚠️ Bouton Tests non trouvé');
+        return;
+    }
+
+    testsBtn.addEventListener('click', openTestsPanel);
+    if (closeTestsPanelBtn) closeTestsPanelBtn.addEventListener('click', closeTestsPanel);
+    if (testsPanelBackdrop) testsPanelBackdrop.addEventListener('click', closeTestsPanel);
+    if (refreshTestsBtn) refreshTestsBtn.addEventListener('click', refreshTestsList);
+    if (backToTestsListBtn) backToTestsListBtn.addEventListener('click', showTestsListView);
+    if (compareTestsBtn) compareTestsBtn.addEventListener('click', openCompareView);
+    if (backFromCompareBtn) backFromCompareBtn.addEventListener('click', backFromCompare);
+    if (runCompareBtn) runCompareBtn.addEventListener('click', runComparison);
+}
+
+function openTestsPanel() {
+    const panel = document.getElementById('testsPanel');
+    panel.classList.add('active');
+    showTestsListView();
+    refreshTestsList();
+}
+
+function closeTestsPanel() {
+    const panel = document.getElementById('testsPanel');
+    panel.classList.remove('active');
+}
+
+function showTestsListView() {
+    document.getElementById('testsListView').style.display = 'block';
+    document.getElementById('testDetailView').style.display = 'none';
+    document.getElementById('testCompareView').style.display = 'none';
+}
+
+function showTestDetailView() {
+    document.getElementById('testsListView').style.display = 'none';
+    document.getElementById('testDetailView').style.display = 'flex';
+}
+
+async function refreshTestsList() {
+    const listContainer = document.getElementById('testsList');
+    listContainer.innerHTML = '<p class="tests-empty">Chargement...</p>';
+
+    try {
+        const runs = await testRunManager.listRuns();
+
+        if (!runs || runs.length === 0) {
+            listContainer.innerHTML = '<p class="tests-empty">Aucun test enregistré. Lancez une analyse IA pour créer un test.</p>';
+            return;
+        }
+
+        listContainer.innerHTML = runs.map(run => renderTestRunCard(run)).join('');
+    } catch (error) {
+        console.error('Erreur listing test runs:', error);
+        listContainer.innerHTML = '<p class="tests-empty">Erreur de chargement des tests.</p>';
+    }
+}
+
+function renderTestRunCard(run) {
+    const statusLabel = run.status === 'completed' ? 'Terminé' :
+                        run.status === 'running' ? 'En cours' : 'Arrêté';
+    const dateStr = run.started_at
+        ? new Date(run.started_at).toLocaleDateString('fr-FR', {
+            day: '2-digit', month: '2-digit', year: '2-digit',
+            hour: '2-digit', minute: '2-digit'
+        })
+        : '';
+    const promptName = run.prompts?.name || run.prompt_id || '—';
+    const concordance = run.concordant_percent != null ? `${run.concordant_percent}%` : '—';
+
+    return `
+        <div class="test-run-card" data-run-id="${run.id}">
+            <div class="test-run-card-header">
+                <span class="test-run-card-name">${run.name || 'Test sans nom'}</span>
+                <span class="test-run-card-status ${run.status}">${statusLabel}</span>
+            </div>
+            <div class="test-run-card-info">
+                <span>🤖 ${run.llm_model || '—'}</span>
+                <span>📝 ${promptName}</span>
+                <span>📅 ${dateStr}</span>
+            </div>
+            <div class="test-run-card-stats">
+                <span class="test-run-stat">${run.analyzed_articles || 0}/${run.total_articles || 0} articles</span>
+                <span class="test-run-stat concordance">Concordance: ${concordance}</span>
+            </div>
+            <div class="test-run-card-actions">
+                <button class="test-run-action-btn view" onclick="viewTestRun('${run.id}')">📊 Voir détail</button>
+                <button class="test-run-action-btn delete" onclick="deleteTestRun('${run.id}', event)">🗑️ Supprimer</button>
+            </div>
+        </div>
+    `;
+}
+
+async function viewTestRun(runId) {
+    showTestDetailView();
+
+    const headerContainer = document.getElementById('testDetailHeader');
+    const contentContainer = document.getElementById('testDetailContent');
+    headerContainer.innerHTML = '<p>Chargement...</p>';
+    contentContainer.innerHTML = '';
+
+    try {
+        const run = await testRunManager.getRun(runId);
+        if (!run) {
+            headerContainer.innerHTML = '<p class="tests-empty">Test non trouvé.</p>';
+            return;
+        }
+
+        const dateStr = run.started_at
+            ? new Date(run.started_at).toLocaleString('fr-FR')
+            : '—';
+        const statusLabel = run.status === 'completed' ? 'Terminé' :
+                            run.status === 'running' ? 'En cours' : 'Arrêté';
+        const promptName = run.prompts?.name || run.prompt_id || '—';
+
+        headerContainer.innerHTML = `
+            <h3>${run.name || 'Test sans nom'}</h3>
+            <div class="test-detail-meta">
+                <span>🤖 Modèle: <strong>${run.llm_model || '—'}</strong></span>
+                <span>📝 Prompt: <strong>${promptName}</strong></span>
+                <span>📅 Date: <strong>${dateStr}</strong></span>
+                <span>📊 Status: <strong>${statusLabel}</strong></span>
+                <span>✅ Concordance: <strong>${run.concordant_percent ?? '—'}%</strong> (${run.concordant_count ?? 0}/${run.analyzed_articles ?? 0})</span>
+            </div>
+        `;
+
+        // Charger la matrice de confusion depuis la DB et l'afficher dans la vue principale
+        loadMatrixFromTestRun(run);
+
+    } catch (error) {
+        console.error('Erreur chargement test run:', error);
+        headerContainer.innerHTML = '<p class="tests-empty">Erreur de chargement.</p>';
+    }
+}
+
+async function loadMatrixFromTestRun(run) {
+    // Réinitialiser la matrice en mémoire
+    initConfusionMatrix();
+    articleResults = [];
+
+    // Charger la matrice de confusion depuis le snapshot JSONB
+    if (run.confusion_matrix && typeof run.confusion_matrix === 'object') {
+        const matrix = run.confusion_matrix;
+        for (const source in matrix) {
+            for (const prediction in matrix[source]) {
+                const count = matrix[source][prediction];
+                if (count > 0) {
+                    const sourceNorm = normalizeUserneed(source);
+                    const predNorm = normalizeUserneed(prediction);
+                    if (confusionMatrix[sourceNorm] && confusionMatrix[sourceNorm][predNorm] !== undefined) {
+                        confusionMatrix[sourceNorm][predNorm] = count;
+                    }
+                }
+            }
+        }
+    }
+
+    // Recalculer les distributions
+    sourceDistribution = {};
+    predictionDistribution = {};
+    for (const source in confusionMatrix) {
+        for (const pred in confusionMatrix[source]) {
+            const count = confusionMatrix[source][pred];
+            if (count > 0) {
+                sourceDistribution[source] = (sourceDistribution[source] || 0) + count;
+                predictionDistribution[pred] = (predictionDistribution[pred] || 0) + count;
+            }
+        }
+    }
+
+    // Charger les analyses individuelles pour reconstruire articleResults
+    try {
+        const analyses = await testRunManager.getRunAnalyses(run.id);
+        if (analyses && analyses.length > 0) {
+            analyses.forEach((a, i) => {
+                const article = a.articles || {};
+                const humanClassif = article.human_classifications?.[0];
+                const expectedUserneed = humanClassif?.userneed || '—';
+
+                articleResults.push({
+                    index: i,
+                    numero: i + 1,
+                    url: article.url || '',
+                    titre: article.titre || 'Sans titre',
+                    expectedUserneed: expectedUserneed,
+                    predictedUserneed: a.predicted_userneed || '—',
+                    predictions: a.predictions || null,
+                    justification: a.justification || '',
+                    isMatch: a.is_match || false,
+                    hasJustification: !!a.justification,
+                    delta: a.delta || 0,
+                    icp: a.icp || 0,
+                    confidenceLevel: a.confidence_level || 'BASSE',
+                    icpLevel: a.confidence_level || 'BASSE'
+                });
+            });
+        }
+    } catch (e) {
+        console.warn('Impossible de charger les analyses détaillées:', e.message);
+    }
+
+    // Mettre à jour les affichages
+    updateConfusionMatrixDisplay();
+    updateStatisticsDisplay();
+
+    // Initialiser et remplir le tableau d'articles si on a des résultats
+    if (articleResults.length > 0) {
+        tableHead.innerHTML = '';
+        tableBody.innerHTML = '';
+        const headerRow = document.createElement('tr');
+        ['Numéro', 'Titre de l\'article', 'User Need attribué', 'Prédiction IA', 'Justification IA', 'Confiance'].forEach((text, idx) => {
+            const th = document.createElement('th');
+            th.textContent = text;
+            if (idx === 3) th.classList.add('ai-column');
+            if (idx === 4) th.classList.add('justification-column');
+            if (idx === 5) th.classList.add('confidence-column');
+            headerRow.appendChild(th);
         });
+        tableHead.appendChild(headerRow);
+        tableTitle.textContent = `Résultats : ${run.name || 'Test'}`;
+        tableContainer.style.display = 'block';
+        filterTableByMatrix();
 
-    confidenceData.push(['']);
-    confidenceData.push(['Recommandation seuil automatisation']);
-    const hauteRate = cCounts.HAUTE > 0 ? ((cConcordant.HAUTE / cCounts.HAUTE) * 100).toFixed(1) : 0;
-    const hautePct = articleResults.length > 0 ? ((cCounts.HAUTE / articleResults.length) * 100).toFixed(1) : 0;
-    const hauteMoyCount = cCounts.HAUTE + cCounts.MOYENNE;
-    const hauteMoyPct = articleResults.length > 0 ? ((hauteMoyCount / articleResults.length) * 100).toFixed(1) : 0;
-    const hauteMoyCorrect = cConcordant.HAUTE + cConcordant.MOYENNE;
-    const hauteMoyRate = hauteMoyCount > 0 ? ((hauteMoyCorrect / hauteMoyCount) * 100).toFixed(1) : 0;
+        // Mettre à jour les stats de confiance
+        updateConfidenceStats();
+    }
 
-    confidenceData.push([`Confiance HAUTE : ${cCounts.HAUTE} articles (${hautePct}%) avec ${hauteRate}% de concordance`]);
-    confidenceData.push([`Confiance HAUTE + MOYENNE : ${hauteMoyCount} articles (${hauteMoyPct}%) avec ${hauteMoyRate}% de concordance`]);
-    confidenceData.push([`Seuil recommandé : Delta >= 30 pour validation automatique (précision ${hauteRate}%)`]);
+    // Afficher la zone stats
+    statsContainer.style.display = 'block';
 
-    const wsConfidence = XLSX.utils.aoa_to_sheet(confidenceData);
-    XLSX.utils.book_append_sheet(wb, wsConfidence, 'Analyse de Confiance');
+    // Fermer le panneau Tests pour voir la matrice
+    closeTestsPanel();
+}
 
-    // Générer le fichier et le télécharger
-    const date = new Date().toISOString().split('T')[0];
-    const filename = `Analyse_Userneeds_${date}.xlsx`;
-    XLSX.writeFile(wb, filename);
+// ---- Comparison ----
 
-    console.log(`✅ Fichier Excel exporté : ${filename}`);
+async function openCompareView() {
+    document.getElementById('testsListView').style.display = 'none';
+    document.getElementById('testDetailView').style.display = 'none';
+    document.getElementById('testCompareView').style.display = 'flex';
+    document.getElementById('compareResults').innerHTML = '';
+
+    // Populate dropdowns with completed/stopped tests
+    const runs = await testRunManager.listRuns();
+    const completedRuns = runs.filter(r => r.status === 'completed' || r.status === 'stopped');
+
+    const buildOptions = (selectId) => {
+        const select = document.getElementById(selectId);
+        select.innerHTML = '<option value="">-- Sélectionner --</option>';
+        completedRuns.forEach(run => {
+            const dateStr = run.started_at
+                ? new Date(run.started_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' })
+                : '';
+            const opt = document.createElement('option');
+            opt.value = run.id;
+            opt.textContent = `${run.name || run.llm_model} (${run.concordant_percent ?? '?'}%) — ${dateStr}`;
+            select.appendChild(opt);
+        });
+    };
+
+    buildOptions('compareTestA');
+    buildOptions('compareTestB');
+}
+
+function backFromCompare() {
+    document.getElementById('testCompareView').style.display = 'none';
+    showTestsListView();
+}
+
+async function runComparison() {
+    const idA = document.getElementById('compareTestA').value;
+    const idB = document.getElementById('compareTestB').value;
+    const resultsContainer = document.getElementById('compareResults');
+
+    if (!idA || !idB) {
+        resultsContainer.innerHTML = '<p class="tests-empty">Veuillez sélectionner 2 tests.</p>';
+        return;
+    }
+
+    if (idA === idB) {
+        resultsContainer.innerHTML = '<p class="tests-empty">Veuillez sélectionner 2 tests différents.</p>';
+        return;
+    }
+
+    resultsContainer.innerHTML = '<p class="tests-empty">Calcul en cours...</p>';
+
+    try {
+        const [runA, runB] = await Promise.all([
+            testRunManager.getRun(idA),
+            testRunManager.getRun(idB)
+        ]);
+
+        if (!runA || !runB) {
+            resultsContainer.innerHTML = '<p class="tests-empty">Impossible de charger les tests.</p>';
+            return;
+        }
+
+        // Build comparison HTML
+        const html = buildComparisonHTML(runA, runB);
+        resultsContainer.innerHTML = html;
+
+    } catch (error) {
+        console.error('Erreur comparaison:', error);
+        resultsContainer.innerHTML = '<p class="tests-empty">Erreur de comparaison.</p>';
+    }
+}
+
+function buildComparisonHTML(runA, runB) {
+    const promptNameA = runA.prompts?.name || runA.prompt_id || '—';
+    const promptNameB = runB.prompts?.name || runB.prompt_id || '—';
+    const concA = parseFloat(runA.concordant_percent) || 0;
+    const concB = parseFloat(runB.concordant_percent) || 0;
+    const globalDelta = (concB - concA).toFixed(1);
+    const winnerA = concA > concB;
+    const winnerB = concB > concA;
+
+    // Summary cards
+    let html = `
+        <div class="compare-summary">
+            <div class="compare-summary-card ${winnerA ? 'winner' : ''}">
+                <h4>Test A ${winnerA ? '🏆' : ''}</h4>
+                <div class="meta">🤖 ${runA.llm_model || '—'} • 📝 ${promptNameA}</div>
+                <div class="meta">${runA.analyzed_articles || 0} articles</div>
+                <div class="big-stat">${concA}%</div>
+            </div>
+            <div class="compare-summary-card ${winnerB ? 'winner' : ''}">
+                <h4>Test B ${winnerB ? '🏆' : ''}</h4>
+                <div class="meta">🤖 ${runB.llm_model || '—'} • 📝 ${promptNameB}</div>
+                <div class="meta">${runB.analyzed_articles || 0} articles</div>
+                <div class="big-stat">${concB}%</div>
+            </div>
+        </div>
+        <div style="text-align: center; margin-bottom: 20px;">
+            <span style="font-size: 1.1rem; font-weight: 700;">
+                Delta global: <span class="${parseFloat(globalDelta) > 0 ? 'delta-positive' : parseFloat(globalDelta) < 0 ? 'delta-negative' : 'delta-neutral'}">${parseFloat(globalDelta) > 0 ? '+' : ''}${globalDelta}%</span>
+            </span>
+        </div>
+    `;
+
+    // Per-userneed metrics table
+    const matrixA = runA.confusion_matrix || {};
+    const matrixB = runB.confusion_matrix || {};
+
+    html += `<table class="compare-delta-table">
+        <thead>
+            <tr>
+                <th>User Need</th>
+                <th>Précision A</th>
+                <th>Précision B</th>
+                <th>Delta Préc.</th>
+                <th>Rappel A</th>
+                <th>Rappel B</th>
+                <th>Delta Rappel</th>
+            </tr>
+        </thead>
+        <tbody>`;
+
+    USERNEEDS.forEach(un => {
+        const precA = calcPrecision(matrixA, un);
+        const precB = calcPrecision(matrixB, un);
+        const recA = calcRecall(matrixA, un);
+        const recB = calcRecall(matrixB, un);
+
+        const deltaPrecision = (precB - precA).toFixed(1);
+        const deltaRecall = (recB - recA).toFixed(1);
+
+        html += `<tr>
+            <td>${getShortName(un)}</td>
+            <td>${precA.toFixed(1)}%</td>
+            <td>${precB.toFixed(1)}%</td>
+            <td class="${formatDeltaClass(deltaPrecision)}">${formatDelta(deltaPrecision)}</td>
+            <td>${recA.toFixed(1)}%</td>
+            <td>${recB.toFixed(1)}%</td>
+            <td class="${formatDeltaClass(deltaRecall)}">${formatDelta(deltaRecall)}</td>
+        </tr>`;
+    });
+
+    html += `</tbody></table>`;
+    return html;
+}
+
+function calcPrecision(matrix, userneed) {
+    // Precision = TP / (TP + FP) — of all predicted as this UN, how many were correct
+    let tp = 0, totalPredicted = 0;
+    const un = normalizeUserneed(userneed);
+
+    for (const source in matrix) {
+        const sourceNorm = normalizeUserneed(source);
+        for (const pred in matrix[source]) {
+            const predNorm = normalizeUserneed(pred);
+            const count = matrix[source][pred] || 0;
+            if (predNorm === un) {
+                totalPredicted += count;
+                if (sourceNorm === un) tp += count;
+            }
+        }
+    }
+    return totalPredicted > 0 ? (tp / totalPredicted) * 100 : 0;
+}
+
+function calcRecall(matrix, userneed) {
+    // Recall = TP / (TP + FN) — of all actual this UN, how many were correctly predicted
+    let tp = 0, totalActual = 0;
+    const un = normalizeUserneed(userneed);
+
+    for (const source in matrix) {
+        const sourceNorm = normalizeUserneed(source);
+        for (const pred in matrix[source]) {
+            const predNorm = normalizeUserneed(pred);
+            const count = matrix[source][pred] || 0;
+            if (sourceNorm === un) {
+                totalActual += count;
+                if (predNorm === un) tp += count;
+            }
+        }
+    }
+    return totalActual > 0 ? (tp / totalActual) * 100 : 0;
+}
+
+function formatDelta(val) {
+    const num = parseFloat(val);
+    if (num > 0) return `+${val}%`;
+    if (num < 0) return `${val}%`;
+    return `${val}%`;
+}
+
+function formatDeltaClass(val) {
+    const num = parseFloat(val);
+    if (num > 0) return 'delta-positive';
+    if (num < 0) return 'delta-negative';
+    return 'delta-neutral';
+}
+
+async function deleteTestRun(runId, event) {
+    event.stopPropagation();
+
+    if (!confirm('Supprimer ce test et toutes ses analyses ?')) return;
+
+    try {
+        await testRunManager.deleteRun(runId);
+        showToast('Test supprimé');
+        refreshTestsList();
+    } catch (error) {
+        console.error('Erreur suppression test:', error);
+        showToast('Erreur de suppression', 'error');
+    }
 }
 
 // ====================================

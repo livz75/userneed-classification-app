@@ -4,7 +4,9 @@ import socketserver
 import json
 import urllib.request
 from urllib.parse import urlparse, parse_qs
+from html.parser import HTMLParser
 import os
+import re
 
 PORT = int(os.environ.get('PORT', 8000))
 
@@ -19,8 +21,80 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_response(200)
         self.end_headers()
 
+    def _strip_html(self, html_text):
+        """Nettoie le HTML et retourne du texte brut"""
+        if not html_text:
+            return ''
+
+        class HTMLTextExtractor(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.result = []
+                self.skip_tags = {'script', 'style', 'iframe'}
+                self.current_skip = False
+
+            def handle_starttag(self, tag, attrs):
+                if tag in self.skip_tags:
+                    self.current_skip = True
+                elif tag in ('p', 'br', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li'):
+                    self.result.append('\n')
+
+            def handle_endtag(self, tag):
+                if tag in self.skip_tags:
+                    self.current_skip = False
+
+            def handle_data(self, data):
+                if not self.current_skip:
+                    self.result.append(data)
+
+        extractor = HTMLTextExtractor()
+        extractor.feed(html_text)
+        text = ''.join(extractor.result)
+        # Nettoyer les espaces multiples et lignes vides
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        return text.strip()
+
+    def _normalize_article(self, raw):
+        """Normalise un article de l'API franceinfo en format standard"""
+        path = raw.get('path', '')
+        url_page = raw.get('urlPage', '')
+        public_url = f"https://www.franceinfo.fr/{path}/{url_page}.html" if path and url_page else raw.get('url', '')
+
+        return {
+            'external_id': str(raw.get('id', '')),
+            'titre': raw.get('title', ''),
+            'chapo': raw.get('description', ''),
+            'corps': self._strip_html(raw.get('text', '')),
+            'url': public_url,
+            'auteur': raw.get('author', None),
+            'path': path,
+            'word_count': raw.get('wordCount', 0),
+            'date_publication': raw.get('firstPublicationDate', None),
+            'date_modification': raw.get('lastUpdateDate', None),
+            'content_type': raw.get('class', raw.get('@type', 'Unknown')),
+            'metadata': {
+                'teams': raw.get('teams', []),
+                'source': raw.get('source', None),
+                'pushed': raw.get('pushed', False),
+                'breakingNews': raw.get('breakingNews', False),
+            }
+        }
+
+    def _fetch_franceinfo_api(self, api_path):
+        """Appelle l'API franceinfo et retourne le JSON"""
+        base_url = 'https://api-front.publish.franceinfo.francetvinfo.fr'
+        url = f'{base_url}{api_path}'
+        req = urllib.request.Request(url)
+        req.add_header('Accept', 'application/ld+json')
+        with urllib.request.urlopen(req, timeout=15) as response:
+            return json.loads(response.read())
+
     def do_GET(self):
-        if self.path == '/api/health':
+        parsed = urlparse(self.path)
+        path = parsed.path
+        params = parse_qs(parsed.query)
+
+        if path == '/api/health':
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
@@ -31,6 +105,62 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 'default_model': 'anthropic/claude-3.5-haiku'
             }).encode('utf-8'))
             return
+
+        elif path == '/api/articles/latest':
+            try:
+                page = params.get('page', ['1'])[0]
+                items_per_page = params.get('itemsPerPage', ['30'])[0]
+                api_path = f'/contents.jsonld?itemsPerPage={items_per_page}&page={page}'
+                data = self._fetch_franceinfo_api(api_path)
+
+                members = data.get('hydra:member', [])
+                articles = [self._normalize_article(m) for m in members]
+
+                # Pagination info
+                view = data.get('hydra:view', {})
+                result = {
+                    'articles': articles,
+                    'pagination': {
+                        'current_page': int(page),
+                        'items_per_page': int(items_per_page),
+                        'has_next': 'hydra:next' in view
+                    }
+                }
+
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps(result, ensure_ascii=False).encode('utf-8'))
+            except Exception as e:
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': str(e)}).encode('utf-8'))
+            return
+
+        elif re.match(r'^/api/articles/\d+$', path):
+            try:
+                article_id = path.split('/')[-1]
+                api_path = f'/contents/{article_id}.jsonld'
+                data = self._fetch_franceinfo_api(api_path)
+                article = self._normalize_article(data)
+
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps(article, ensure_ascii=False).encode('utf-8'))
+            except urllib.error.HTTPError as e:
+                self.send_response(e.code)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': f'Article {article_id} non trouvé'}).encode('utf-8'))
+            except Exception as e:
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': str(e)}).encode('utf-8'))
+            return
+
         else:
             super().do_GET()
 
@@ -131,12 +261,18 @@ Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
     def log_message(self, format, *args):
         print(f"{self.address_string()} - {format % args}")
 
+class ReusableTCPServer(socketserver.TCPServer):
+    allow_reuse_address = True
+
 if __name__ == '__main__':
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-    with socketserver.TCPServer(("", PORT), ProxyHTTPRequestHandler) as httpd:
+    with ReusableTCPServer(("", PORT), ProxyHTTPRequestHandler) as httpd:
         print(f"✅ Serveur démarré sur http://localhost:{PORT}")
-        print(f"📡 API Analyze activée (OpenRouter uniquement)")
-        print(f"   - /api/analyze (tous modèles via OpenRouter)")
+        print(f"📡 API endpoints actifs :")
+        print(f"   - /api/health")
+        print(f"   - /api/analyze (OpenRouter LLM)")
+        print(f"   - /api/articles/latest (proxy franceinfo)")
+        print(f"   - /api/articles/{{id}} (proxy franceinfo)")
         print("Appuyez sur Ctrl+C pour arrêter le serveur")
         httpd.serve_forever()

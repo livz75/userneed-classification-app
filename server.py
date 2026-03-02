@@ -7,6 +7,11 @@ from urllib.parse import urlparse, parse_qs
 from html.parser import HTMLParser
 import os
 import re
+try:
+    import requests as req_lib
+    USE_REQUESTS = True
+except ImportError:
+    USE_REQUESTS = False
 
 PORT = int(os.environ.get('PORT', 8000))
 
@@ -58,10 +63,11 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         """Normalise un article de l'API franceinfo en format standard"""
         path = raw.get('path', '')
         url_page = raw.get('urlPage', '')
-        public_url = f"https://www.franceinfo.fr/{path}/{url_page}.html" if path and url_page else raw.get('url', '')
+        article_id = str(raw.get('id', ''))
+        public_url = raw.get('url') or (f"https://www.franceinfo.fr/{path}/{url_page}_{article_id}.html" if path and url_page and article_id else '')
 
         return {
-            'external_id': str(raw.get('id', '')),
+            'external_id': article_id,
             'titre': raw.get('title', ''),
             'chapo': raw.get('description', ''),
             'corps': self._strip_html(raw.get('text', '')),
@@ -84,10 +90,29 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         """Appelle l'API franceinfo et retourne le JSON"""
         base_url = 'https://api-front.publish.franceinfo.francetvinfo.fr'
         url = f'{base_url}{api_path}'
-        req = urllib.request.Request(url)
-        req.add_header('Accept', 'application/ld+json')
-        with urllib.request.urlopen(req, timeout=15) as response:
-            return json.loads(response.read())
+        headers = {
+            'Accept': 'application/ld+json',
+            'User-Agent': 'Mozilla/5.0 (compatible; FranceTVUserneeds/1.0; +https://franceinfo.fr)',
+        }
+        try:
+            if USE_REQUESTS:
+                response = req_lib.get(url, headers=headers, timeout=10)
+                response.raise_for_status()
+                return response.json()
+            else:
+                request = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(request, timeout=10) as resp:
+                    return json.loads(resp.read())
+        except Exception as e:
+            err_type = type(e).__name__
+            err_msg = str(e)
+            if 'timed out' in err_msg or 'Timeout' in err_type or 'timeout' in err_msg:
+                raise Exception(
+                    "API franceinfo inaccessible depuis ce serveur (timeout). "
+                    "L'API est probablement restreinte aux IP France TV / réseau France. "
+                    "Utilisez le serveur en local pour récupérer de nouveaux articles."
+                )
+            raise
 
     def do_GET(self):
         parsed = urlparse(self.path)

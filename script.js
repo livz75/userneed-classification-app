@@ -2133,7 +2133,18 @@ function initializeArticlesUI() {
             showToast(`${articles.length} articles chargés`);
         } catch (error) {
             console.error('Erreur fetch articles:', error);
-            showToast('Erreur: ' + error.message, 'error');
+            const isApiUnavailable = error.message && (
+                error.message.includes('inaccessible') ||
+                error.message.includes('timeout') ||
+                error.message.includes('timed out') ||
+                error.message.includes('500')
+            );
+            if (isApiUnavailable) {
+                showToast('API franceinfo inaccessible (serveur cloud). Articles Supabase affichés.', 'error');
+                await refreshArticlesList();
+            } else {
+                showToast('Erreur: ' + error.message, 'error');
+            }
         } finally {
             fetchLatestBtn.disabled = false;
             fetchLatestBtn.textContent = '🔄 Charger les derniers articles';
@@ -2175,7 +2186,15 @@ function initializeArticlesUI() {
                 const articles = await articleManager.fetchAndSave(nextPage, 30);
                 await refreshArticlesList();
             } catch (error) {
-                showToast('Erreur: ' + error.message, 'error');
+                const isApiUnavailable = error.message && (
+                    error.message.includes('inaccessible') ||
+                    error.message.includes('timeout') ||
+                    error.message.includes('timed out') ||
+                    error.message.includes('500')
+                );
+                showToast(isApiUnavailable
+                    ? 'API franceinfo inaccessible depuis le serveur cloud.'
+                    : 'Erreur: ' + error.message, 'error');
             } finally {
                 loadMoreBtn.disabled = false;
             }

@@ -1,6 +1,7 @@
 services:
   - type: web
     name: userneed-classification-app
+    region: frankfurt
     env: python
     buildCommand: "pip install -r requirements.txt"
     startCommand: "python server.py"

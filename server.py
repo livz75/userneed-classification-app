@@ -3,6 +3,7 @@ import http.server
 import socketserver
 import json
 import urllib.request
+import urllib.parse
 from urllib.parse import urlparse, parse_qs
 from html.parser import HTMLParser
 import os
@@ -14,6 +15,7 @@ except ImportError:
     USE_REQUESTS = False
 
 PORT = int(os.environ.get('PORT', 8000))
+FRANCEINFO_PROXY_URL = os.environ.get('FRANCEINFO_PROXY_URL', '')
 
 class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
@@ -87,21 +89,28 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         }
 
     def _fetch_franceinfo_api(self, api_path):
-        """Appelle l'API franceinfo et retourne le JSON"""
-        base_url = 'https://api-front.publish.franceinfo.francetvinfo.fr'
-        url = f'{base_url}{api_path}'
+        """Appelle l'API franceinfo (via proxy Vercel si configuré, sinon en direct)"""
+        if FRANCEINFO_PROXY_URL:
+            # Passer par le proxy Vercel (IP française) pour contourner la géo-restriction
+            url = f'{FRANCEINFO_PROXY_URL}/api/franceinfo_proxy?path={urllib.parse.quote(api_path)}'
+        else:
+            # Appel direct (fonctionne en local / IP française)
+            url = f'https://api-front.publish.franceinfo.francetvinfo.fr{api_path}'
         headers = {
             'Accept': 'application/ld+json',
-            'User-Agent': 'Mozilla/5.0 (compatible; FranceTVUserneeds/1.0; +https://franceinfo.fr)',
+            'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.5',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Referer': 'https://www.francetvinfo.fr/',
+            'Origin': 'https://www.francetvinfo.fr',
         }
         try:
             if USE_REQUESTS:
-                response = req_lib.get(url, headers=headers, timeout=10)
+                response = req_lib.get(url, headers=headers, timeout=20)
                 response.raise_for_status()
                 return response.json()
             else:
                 request = urllib.request.Request(url, headers=headers)
-                with urllib.request.urlopen(request, timeout=10) as resp:
+                with urllib.request.urlopen(request, timeout=20) as resp:
                     return json.loads(resp.read())
         except Exception as e:
             err_type = type(e).__name__
@@ -110,7 +119,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 raise Exception(
                     "API franceinfo inaccessible depuis ce serveur (timeout). "
                     "L'API est probablement restreinte aux IP France TV / réseau France. "
-                    "Utilisez le serveur en local pour récupérer de nouveaux articles."
+                    "Configurez FRANCEINFO_PROXY_URL avec un proxy Vercel en région cdg1."
                 )
             raise
 

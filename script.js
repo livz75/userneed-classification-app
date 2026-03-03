@@ -2187,11 +2187,18 @@ async function refreshArticlesList() {
 }
 
 function getArticleCategory(article) {
-    const path = article.path || '';
-    if (path) return path.split('/')[0];
+    // Extraire depuis l'URL en priorité (plus fiable)
     if (article.url) {
         const m = article.url.match(/francetvinfo\.fr\/([^\/]+)\//);
-        return m ? m[1] : null;
+        if (m) return m[1];
+    }
+    // Fallback sur le champ path, en vérifiant que c'est bien un segment valide
+    const path = article.path || '';
+    if (path) {
+        const segment = path.split('/')[0];
+        if (segment && !segment.includes(':') && !segment.startsWith('www')) {
+            return segment;
+        }
     }
     return null;
 }

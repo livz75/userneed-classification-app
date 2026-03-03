@@ -2195,7 +2195,7 @@ function renderArticleCard(article) {
     const contentType = article.metadata?.teams ? article.metadata.teams.join(', ') : '';
 
     const dateStr = article.date_publication
-        ? new Date(article.date_publication).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+        ? new Date(article.date_publication).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
         : '';
 
     const options = USERNEEDS.map(un => {
@@ -2215,7 +2215,7 @@ function renderArticleCard(article) {
             <div class="article-card-description">${article.chapo || ''}</div>
             <div class="article-card-footer">
                 <div class="article-card-meta">
-                    ${dateStr ? `<span>${dateStr}</span>` : ''}
+                    ${dateStr ? `<span>Publié le ${dateStr}</span>` : ''}
                     ${article.auteur ? `<span>${article.auteur}</span>` : ''}
                 </div>
                 <select class="classification-select ${isClassified ? 'classified' : ''}"

@@ -2186,6 +2186,16 @@ async function refreshArticlesList() {
     }
 }
 
+function getArticleCategory(article) {
+    const path = article.path || '';
+    if (path) return path.split('/')[0];
+    if (article.url) {
+        const m = article.url.match(/francetvinfo\.fr\/([^\/]+)\//);
+        return m ? m[1] : null;
+    }
+    return null;
+}
+
 function renderArticleCard(article) {
     const classification = article.human_classifications && article.human_classifications.length > 0
         ? article.human_classifications[0]
@@ -2198,6 +2208,8 @@ function renderArticleCard(article) {
         ? new Date(article.date_publication).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
         : '';
 
+    const category = getArticleCategory(article);
+
     const options = USERNEEDS.map(un => {
         const selected = un === selectedUserneed ? 'selected' : '';
         return `<option value="${un}" ${selected}>${un}</option>`;
@@ -2206,7 +2218,10 @@ function renderArticleCard(article) {
     return `
         <div class="article-card" data-article-id="${article.id}">
             <div class="article-card-header">
-                <span class="article-card-id">#${article.external_id}</span>
+                <div class="article-card-header-left">
+                    <span class="article-card-id">#${article.external_id}</span>
+                    ${category ? `<span class="article-card-category cat-${category}">${category}</span>` : ''}
+                </div>
                 ${article.word_count ? `<span class="article-card-type">${article.word_count} mots</span>` : ''}
             </div>
             <div class="article-card-title">

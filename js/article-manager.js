@@ -21,7 +21,7 @@ class ArticleManager {
                 *,
                 human_classifications (id, userneed, classified_at)
             `)
-            .order('fetched_at', { ascending: false });
+            .order('date_publication', { ascending: false });
 
         if (options.limit) query = query.limit(options.limit);
         if (options.offset) query = query.range(options.offset, options.offset + (options.limit || 30) - 1);
@@ -51,7 +51,7 @@ class ArticleManager {
                 *,
                 human_classifications!inner (id, userneed, classified_at, classified_by)
             `)
-            .order('fetched_at', { ascending: false });
+            .order('date_publication', { ascending: false });
 
         if (error) {
             console.error('Erreur chargement articles classifiés:', error);

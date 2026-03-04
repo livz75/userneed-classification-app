@@ -17,7 +17,7 @@ const themeToggle = document.getElementById('themeToggle');
 let currentArticles = []; // Articles chargés depuis Supabase (avec classifications)
 let stopAnalysis = false;
 let articleResults = []; // Stockage global des résultats d'analyse
-let articleFilter = 'all'; // 'all' | 'classified' | 'unclassified'
+let articleFilter = 'unclassified'; // 'all' | 'classified' | 'unclassified'
 
 // Variables pour le filtrage de la matrice
 let matrixFilter = {

@@ -2670,10 +2670,8 @@ function buildComparisonHTML(runA, runB) {
                 <th>User Need</th>
                 <th>Précision A</th>
                 <th>Précision B</th>
-                <th>Delta Préc.</th>
                 <th>Rappel A</th>
                 <th>Rappel B</th>
-                <th>Delta Rappel</th>
             </tr>
         </thead>
         <tbody>`;
@@ -2684,17 +2682,17 @@ function buildComparisonHTML(runA, runB) {
         const recA = calcRecall(matrixA, un);
         const recB = calcRecall(matrixB, un);
 
-        const deltaPrecision = (precB - precA).toFixed(1);
-        const deltaRecall = (recB - recA).toFixed(1);
+        const precAClass = precA > precB ? 'cell-best' : precA < precB ? 'cell-worst' : '';
+        const precBClass = precB > precA ? 'cell-best' : precB < precA ? 'cell-worst' : '';
+        const recAClass  = recA  > recB  ? 'cell-best' : recA  < recB  ? 'cell-worst' : '';
+        const recBClass  = recB  > recA  ? 'cell-best' : recB  < recA  ? 'cell-worst' : '';
 
         html += `<tr>
             <td>${getShortName(un)}</td>
-            <td>${precA.toFixed(1)}%</td>
-            <td>${precB.toFixed(1)}%</td>
-            <td class="${formatDeltaClass(deltaPrecision)}">${formatDelta(deltaPrecision)}</td>
-            <td>${recA.toFixed(1)}%</td>
-            <td>${recB.toFixed(1)}%</td>
-            <td class="${formatDeltaClass(deltaRecall)}">${formatDelta(deltaRecall)}</td>
+            <td class="${precAClass}">${precA.toFixed(1)}%</td>
+            <td class="${precBClass}">${precB.toFixed(1)}%</td>
+            <td class="${recAClass}">${recA.toFixed(1)}%</td>
+            <td class="${recBClass}">${recB.toFixed(1)}%</td>
         </tr>`;
     });
 

@@ -946,6 +946,7 @@ function resetApplication() {
     resetBtn.style.display = 'none';
     stopBtn.style.display = 'none';
 
+    showArticlesSection();
     hideError();
 }
 
@@ -1668,6 +1669,7 @@ async function analyzeWithAI() {
     progressContainer.style.display = 'block';
     statsContainer.style.display = 'block';
     tableContainer.style.display = 'block';
+    hideArticlesSection();
 
     // Initialiser les en-têtes du tableau
     tableHead.innerHTML = '';
@@ -2100,33 +2102,18 @@ function exportToCSV() {
 // ====================================
 
 function initializeArticlesUI() {
-    const articlesBtn = document.getElementById('articlesBtn');
-    const articlesPanel = document.getElementById('articlesPanel');
-
-    if (!articlesBtn || !articlesPanel) {
-        console.error('❌ Éléments Articles manquants');
-        return;
-    }
-
-    const closeArticlesPanelBtn = document.getElementById('closeArticlesPanelBtn');
-    const articlesPanelBackdrop = articlesPanel.querySelector('.articles-panel-backdrop');
-    // Ouvrir/Fermer le panneau
-    articlesBtn.addEventListener('click', openArticlesPanel);
-    closeArticlesPanelBtn.addEventListener('click', closeArticlesPanel);
-    articlesPanelBackdrop.addEventListener('click', closeArticlesPanel);
-
-    console.log('✅ Panneau Articles initialisé');
-}
-
-function openArticlesPanel() {
-    const panel = document.getElementById('articlesPanel');
-    panel.classList.add('active');
     refreshArticlesList();
+    console.log('✅ Section Articles initialisée');
 }
 
-function closeArticlesPanel() {
-    const panel = document.getElementById('articlesPanel');
-    panel.classList.remove('active');
+function showArticlesSection() {
+    const section = document.getElementById('articlesSection');
+    if (section) section.classList.remove('hidden');
+}
+
+function hideArticlesSection() {
+    const section = document.getElementById('articlesSection');
+    if (section) section.classList.add('hidden');
 }
 
 function setArticleFilter(filter) {
@@ -2516,6 +2503,7 @@ async function loadMatrixFromTestRun(run) {
 
     // Afficher la zone stats
     statsContainer.style.display = 'block';
+    hideArticlesSection();
 
     // Fermer le panneau Tests pour voir la matrice
     closeTestsPanel();

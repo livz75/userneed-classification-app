@@ -20,9 +20,6 @@
                 <button id="themeToggle" class="header-btn theme-btn" title="Changer de thème">
                     <span class="theme-icon">🌙</span>
                 </button>
-                <button id="articlesBtn" class="header-btn articles-btn" title="Gestion des articles">
-                    📰 Articles
-                </button>
                 <button id="resetBtn" class="header-btn reset-btn" title="Réinitialiser" style="display: none;">🔄 Réinitialiser</button>
                 <button id="llmBtn" class="header-btn llm-btn" title="Configuration des modèles LLM">🤖 LLM</button>
                 <button id="settingsBtn" class="header-btn prompts-btn" title="Gérer les prompts">📝 PROMPTS</button>
@@ -31,6 +28,24 @@
                 <button id="stopBtn" class="header-btn stop-btn" style="display: none;">⏹ Stop</button>
             </div>
         </header>
+
+        <!-- Section articles inline (accueil) -->
+        <div id="articlesSection" class="articles-section">
+            <div class="articles-section-toolbar">
+                <div class="articles-filter-group">
+                    <span class="filter-label">Filtrer :</span>
+                    <button class="article-filter-btn active" data-filter="all" onclick="setArticleFilter('all')">Tous</button>
+                    <button class="article-filter-btn" data-filter="classified" onclick="setArticleFilter('classified')">Classifiés</button>
+                    <button class="article-filter-btn" data-filter="unclassified" onclick="setArticleFilter('unclassified')">Non classifiés</button>
+                    <span id="articleStats" class="article-stats"></span>
+                </div>
+            </div>
+            <div id="articlesListContainer" class="articles-list-container">
+                <div id="articlesList" class="articles-list">
+                    <p class="articles-empty">Chargement des articles...</p>
+                </div>
+            </div>
+        </div>
 
         <div id="statsContainer" class="stats-container" style="display: none;">
             <div class="confusion-matrix-wrapper">
@@ -127,33 +142,6 @@
         </div>
 
         <div id="error" class="error" style="display: none;"></div>
-    </div>
-
-    <!-- Panneau des articles -->
-    <div id="articlesPanel" class="articles-panel">
-        <div class="articles-panel-backdrop"></div>
-        <div class="articles-panel-content">
-            <div class="articles-panel-header">
-                <h2>📰 Articles franceinfo</h2>
-                <button id="closeArticlesPanelBtn" class="close-panel-btn">✕</button>
-            </div>
-
-            <div class="articles-panel-toolbar">
-                <div class="articles-filter-group">
-                    <span class="filter-label">Filtrer :</span>
-                    <button class="article-filter-btn active" data-filter="all" onclick="setArticleFilter('all')">Tous</button>
-                    <button class="article-filter-btn" data-filter="classified" onclick="setArticleFilter('classified')">Classifiés</button>
-                    <button class="article-filter-btn" data-filter="unclassified" onclick="setArticleFilter('unclassified')">Non classifiés</button>
-                    <span id="articleStats" class="article-stats"></span>
-                </div>
-            </div>
-
-            <div id="articlesListContainer" class="articles-list-container">
-                <div id="articlesList" class="articles-list">
-                    <p class="articles-empty">Aucun article.</p>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- Panneau des Test Runs -->

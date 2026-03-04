@@ -87,6 +87,22 @@ python3 server.py</pre>
 }
 
 // Les 8 userneeds dans l'ordre
+const MODELS = [
+    { group: 'Anthropic', id: 'anthropic/claude-3.5-haiku',                   name: 'Claude 3.5 Haiku',        badge: '⚡ Rapide',       input: 0.80,  output: 4.00  },
+    { group: 'Anthropic', id: 'anthropic/claude-3.5-sonnet',                  name: 'Claude 3.5 Sonnet',       badge: null,             input: 3.00,  output: 15.00 },
+    { group: 'Anthropic', id: 'anthropic/claude-3-opus',                      name: 'Claude 3 Opus',           badge: '🏆 Puissant',    input: 15.00, output: 75.00 },
+    { group: 'OpenAI',    id: 'openai/gpt-4o-mini',                           name: 'GPT-4o Mini',             badge: '⚡ Rapide',       input: 0.15,  output: 0.60  },
+    { group: 'OpenAI',    id: 'openai/gpt-4o',                                name: 'GPT-4o',                  badge: null,             input: 2.50,  output: 10.00 },
+    { group: 'Google',    id: 'google/gemini-2.5-flash-lite',                  name: 'Gemini 2.5 Flash Lite',   badge: '⚡⚡ Très rapide', input: 0.10,  output: 0.40  },
+    { group: 'Google',    id: 'google/gemini-flash-1.5',                      name: 'Gemini Flash 1.5',        badge: '⚡ Rapide',       input: 0.075, output: 0.30  },
+    { group: 'Google',    id: 'google/gemini-pro-1.5',                        name: 'Gemini Pro 1.5',          badge: null,             input: 1.25,  output: 5.00  },
+    { group: 'Meta',      id: 'meta-llama/llama-3.1-8b-instruct',             name: 'Llama 3.1 8B',            badge: '🆓 Gratuit',     input: 0,     output: 0     },
+    { group: 'Meta',      id: 'meta-llama/llama-3.3-70b-instruct',            name: 'Llama 3.3 70B',           badge: null,             input: 0.13,  output: 0.40  },
+    { group: 'Mistral',   id: 'mistralai/mistral-small-24b-instruct-2501',    name: 'Mistral Small',           badge: null,             input: 0.10,  output: 0.30  },
+    { group: 'Mistral',   id: 'mistralai/mistral-medium',                     name: 'Mistral Medium',          badge: null,             input: 0.40,  output: 1.20  },
+    { group: 'Alibaba',   id: 'qwen/qwen-2.5-72b-instruct',                   name: 'Qwen 2.5 72B',            badge: null,             input: 0.40,  output: 0.40  },
+];
+
 const USERNEEDS = [
     'UPDATE ME',
     'EXPLAIN ME',
@@ -2937,28 +2953,53 @@ function initializePromptUI() {
 // PROVIDER MANAGEMENT UI FUNCTIONS
 // ====================================
 
+function renderModelPicker() {
+    const picker = document.getElementById('modelPicker');
+    if (!picker) return;
+
+    const groups = [...new Set(MODELS.map(m => m.group))];
+    picker.innerHTML = groups.map(group => {
+        const models = MODELS.filter(m => m.group === group);
+        return `
+            <div class="model-group">
+                <div class="model-group-label">${group}</div>
+                ${models.map(m => {
+                    const isSelected = m.id === providerManager.selectedModel;
+                    const priceStr = m.input === 0 && m.output === 0
+                        ? '<span class="model-price free">Gratuit</span>'
+                        : `<span class="model-price">$${m.input} / $${m.output} /M*</span>`;
+                    const badgeStr = m.badge ? `<span class="model-badge">${m.badge}</span>` : '';
+                    return `
+                        <div class="model-option ${isSelected ? 'selected' : ''}" data-model-id="${m.id}">
+                            <div class="model-option-left">
+                                <span class="model-option-radio">${isSelected ? '●' : '○'}</span>
+                                <span class="model-option-name">${m.name}</span>
+                                ${badgeStr}
+                            </div>
+                            ${priceStr}
+                        </div>`;
+                }).join('')}
+            </div>`;
+    }).join('');
+
+    picker.querySelectorAll('.model-option').forEach(el => {
+        el.addEventListener('click', () => {
+            providerManager.selectedModel = el.dataset.modelId;
+            console.log(`✅ Modèle sélectionné: ${providerManager.selectedModel}`);
+            renderModelPicker(); // re-render to update selection
+        });
+    });
+}
+
 function initializeProviderUI() {
-    const modelSelect = document.getElementById('modelSelect');
     const openrouterApiKeyInput = document.getElementById('openrouterApiKey');
     const saveProviderConfigBtn = document.getElementById('saveProviderConfigBtn');
 
-    // CRITIQUE : Vérifier que les éléments existent
-    if (!modelSelect) {
-        console.error('⚠️ Élément modelSelect manquant - UI provider non initialisée');
-        return;
-    }
+    renderModelPicker();
 
-    // Charger la configuration
-    modelSelect.value = providerManager.selectedModel;
     if (openrouterApiKeyInput) {
         openrouterApiKeyInput.value = providerManager.openrouterApiKey || '';
     }
-
-    // Event: changement de modèle
-    modelSelect.addEventListener('change', (e) => {
-        providerManager.selectedModel = e.target.value;
-        console.log(`✅ Modèle sélectionné: ${providerManager.selectedModel}`);
-    });
 
     // Event listener for OpenRouter API key
     if (openrouterApiKeyInput) {
@@ -2999,7 +3040,7 @@ function initializeProviderUI() {
             await providerManager.loadConfigurationFromFile();
 
             // Rafraîchir l'UI
-            modelSelect.value = providerManager.selectedModel;
+            renderModelPicker();
             if (openrouterApiKeyInput) {
                 openrouterApiKeyInput.value = providerManager.openrouterApiKey || '';
             }

@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=26">
+    <link rel="stylesheet" href="style.css?v=27">
 </head>
 <body>
     <div class="container">
@@ -216,34 +216,9 @@
                 <h3>⚙️ Sélection du Modèle</h3>
 
                 <div class="form-group">
-                    <label for="modelSelect">Choisissez votre modèle LLM :</label>
-                    <select id="modelSelect" class="model-select">
-                        <optgroup label="🟣 Anthropic (via OpenRouter)">
-                            <option value="anthropic/claude-3.5-haiku">Claude 3.5 Haiku ⚡</option>
-                            <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
-                            <option value="anthropic/claude-3-opus">Claude 3 Opus</option>
-                        </optgroup>
-                        <optgroup label="🟣 OpenAI (via OpenRouter)">
-                            <option value="openai/gpt-4o-mini">GPT-4o Mini ⚡</option>
-                            <option value="openai/gpt-4o">GPT-4o</option>
-                        </optgroup>
-                        <optgroup label="🟣 Google (via OpenRouter)">
-                            <option value="google/gemini-2.5-flash-lite">Gemini 2.5 Flash Lite ⚡⚡⚡</option>
-                            <option value="google/gemini-flash-1.5">Gemini Flash 1.5 ⚡⚡</option>
-                            <option value="google/gemini-pro-1.5">Gemini Pro 1.5</option>
-                        </optgroup>
-                        <optgroup label="🟣 Meta Llama (via OpenRouter)">
-                            <option value="meta-llama/llama-3.1-8b-instruct">Llama 3.1 8B 🆓</option>
-                            <option value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B</option>
-                        </optgroup>
-                        <optgroup label="🟣 Mistral AI (via OpenRouter)">
-                            <option value="mistralai/mistral-small-24b-instruct-2501">Mistral Small</option>
-                            <option value="mistralai/mistral-medium">Mistral Medium</option>
-                        </optgroup>
-                        <optgroup label="🟣 Alibaba (via OpenRouter)">
-                            <option value="qwen/qwen-2.5-72b-instruct">Qwen 2.5 72B</option>
-                        </optgroup>
-                    </select>
+                    <label>Choisissez votre modèle LLM :</label>
+                    <div id="modelPicker" class="model-picker"></div>
+                    <p class="input-help-text" style="margin-top:6px;">* Prix indicatifs OpenRouter par million de tokens (entrée / sortie)</p>
                 </div>
 
                 <div class="provider-api-config">
@@ -487,6 +462,6 @@ Analyse cet article..."></textarea>
     <script src="js/article-manager.js?v=1"></script>
     <script src="js/classification-manager.js?v=1"></script>
     <script src="js/test-run-manager.js?v=1"></script>
-    <script src="script.js?v=22"></script>
+    <script src="script.js?v=23"></script>
 </body>
 </html>

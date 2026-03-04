@@ -2704,12 +2704,12 @@ input[type="file"] {
     color: var(--text-secondary);
 }
 
-.cell-best {
+.compare-delta-table td.cell-best {
     color: #10b981;
     font-weight: 700;
 }
 
-.cell-worst {
+.compare-delta-table td.cell-worst {
     color: #ef4444;
     font-weight: 600;
 }

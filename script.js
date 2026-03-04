@@ -2648,6 +2648,19 @@ function buildComparisonHTML(runA, runB) {
     const matrixA = runA.confusion_matrix || {};
     const matrixB = runB.confusion_matrix || {};
 
+    html += `
+        <div class="metrics-explainer">
+            <div class="metrics-explainer-item">
+                <span class="metrics-explainer-term">Précision</span>
+                <span class="metrics-explainer-def">Quand l'IA prédit ce User Need, a-t-elle raison ? <em>Ex : 80% = 8 fois sur 10, sa prédiction est juste.</em></span>
+            </div>
+            <div class="metrics-explainer-item">
+                <span class="metrics-explainer-term">Rappel</span>
+                <span class="metrics-explainer-def">Parmi tous les articles de ce User Need, combien l'IA en a-t-elle détecté ? <em>Ex : 60% = elle en a raté 4 sur 10.</em></span>
+            </div>
+        </div>
+    `;
+
     html += `<table class="compare-delta-table">
         <thead>
             <tr>

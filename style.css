@@ -2531,6 +2531,42 @@ input[type="file"] {
     box-shadow: 0 0 0 1px var(--accent-green);
 }
 
+/* Metrics explainer */
+.metrics-explainer {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--bg-darker);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    font-size: 0.82rem;
+}
+
+.metrics-explainer-item {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+
+.metrics-explainer-term {
+    font-weight: 700;
+    color: var(--accent-blue);
+    min-width: 70px;
+    flex-shrink: 0;
+}
+
+.metrics-explainer-def {
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.metrics-explainer-def em {
+    color: var(--text-primary);
+    font-style: normal;
+}
+
 /* Comparison delta table */
 .compare-delta-table {
     width: 100%;

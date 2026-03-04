@@ -12,7 +12,6 @@ const progressText = document.getElementById('progressText');
 const stopBtn = document.getElementById('stopBtn');
 const statsContainer = document.getElementById('statsContainer');
 const exportBtn = document.getElementById('exportBtn');
-const themeToggle = document.getElementById('themeToggle');
 
 let currentArticles = []; // Articles chargés depuis Supabase (avec classifications)
 let stopAnalysis = false;
@@ -915,7 +914,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Initialiser le thème
-    initTheme();
 
     // Vérifier que le serveur proxy est actif
     checkServerHealth();
@@ -3311,47 +3309,3 @@ function showToast(message, type = 'success') {
 /**
  * Initialise le thème au chargement de la page
  */
-function initTheme() {
-    // Récupérer le thème sauvegardé dans localStorage (par défaut: 'dark')
-    const savedTheme = localStorage.getItem('theme') || 'dark';
-
-    // Appliquer le thème
-    setTheme(savedTheme);
-
-    // Ajouter l'event listener sur le bouton
-    if (themeToggle) {
-        themeToggle.addEventListener('click', toggleTheme);
-    }
-}
-
-/**
- * Applique un thème spécifique
- */
-function setTheme(theme) {
-    const root = document.documentElement;
-    const themeIcon = document.querySelector('.theme-icon');
-
-    if (theme === 'light') {
-        root.setAttribute('data-theme', 'light');
-        if (themeIcon) themeIcon.textContent = '☀️';
-        localStorage.setItem('theme', 'light');
-    } else {
-        root.removeAttribute('data-theme');
-        if (themeIcon) themeIcon.textContent = '🌙';
-        localStorage.setItem('theme', 'dark');
-    }
-}
-
-/**
- * Bascule entre les thèmes clair et sombre
- */
-function toggleTheme() {
-    const root = document.documentElement;
-    const currentTheme = root.getAttribute('data-theme');
-
-    if (currentTheme === 'light') {
-        setTheme('dark');
-    } else {
-        setTheme('light');
-    }
-}

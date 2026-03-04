@@ -1,35 +1,18 @@
 /* =========================== */
-/* DARK THEME - VERSION ORIGINALE */
+/* THÈME SOMBRE UNIQUE         */
 /* =========================== */
 
 :root {
-    --bg-dark: #1a1a2e;
-    --bg-card: #16213e;
-    --bg-darker: #0f1419;
+    --bg-dark: #232b42;
+    --bg-card: #2a3450;
+    --bg-darker: #1a2035;
     --text-primary: #eaeaea;
     --text-secondary: #a0a0a0;
     --accent-purple: #8b5cf6;
     --accent-blue: #3b82f6;
     --accent-green: #10b981;
     --accent-red: #ef4444;
-    --border-color: #2d3748;
-}
-
-/* =========================== */
-/* LIGHT THEME */
-/* =========================== */
-
-[data-theme="light"] {
-    --bg-dark: #f5f7fa;
-    --bg-card: #ffffff;
-    --bg-darker: #e9ecef;
-    --text-primary: #1a1a2e;
-    --text-secondary: #374151;
-    --accent-purple: #7c3aed;
-    --accent-blue: #2563eb;
-    --accent-green: #059669;
-    --accent-red: #dc2626;
-    --border-color: #dee2e6;
+    --border-color: #364060;
 }
 
 * {
@@ -183,32 +166,6 @@ header p {
 }
 
 /* Theme toggle button */
-.header-btn.theme-btn {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    padding: 10px;
-    width: 40px;
-}
-
-[data-theme="light"] .header-btn.theme-btn {
-    background: rgba(0, 0, 0, 0.05);
-    border: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-.header-btn.theme-btn:hover {
-    background: rgba(255, 255, 255, 0.15);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
-}
-
-[data-theme="light"] .header-btn.theme-btn:hover {
-    background: rgba(0, 0, 0, 0.08);
-}
-
-.theme-icon {
-    font-size: 1.2rem;
-    transition: transform 0.3s ease;
-}
 
 /* =========================== */
 /* UPLOAD SECTION */
@@ -433,9 +390,6 @@ input[type="file"] {
     line-height: 1.5;
 }
 
-[data-theme="light"] .justification-text {
-    color: var(--text-primary);
-}
 
 /* Open URL Button */
 .open-url-btn {
@@ -560,9 +514,6 @@ input[type="file"] {
     padding-right: 10px;
 }
 
-[data-theme="light"] .y-label {
-    color: var(--text-primary);
-}
 
 .matrix-grid-wrapper {
     display: flex;
@@ -637,9 +588,6 @@ input[type="file"] {
     height: 90px;
 }
 
-[data-theme="light"] .x-label {
-    color: var(--text-primary);
-}
 
 .label-title-x {
     font-size: 0.7rem;
@@ -843,14 +791,6 @@ input[type="file"] {
     text-align: right;
 }
 
-/* Mode clair */
-[data-theme="light"] .prediction-row {
-    background: rgba(139, 92, 246, 0.08);
-}
-
-[data-theme="light"] .prediction-row.prediction-principal {
-    background: rgba(139, 92, 246, 0.15);
-}
 
 /* Distribution bars */
 .distribution-item {

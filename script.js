@@ -863,6 +863,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     initializeProviderUI(); // Configuration provider
     initializeArticlesUI(); // Articles panel
     initializeTestsUI();    // Test Runs panel
+    initializeHelpModal();  // Aide
 
     console.log('✅ Application initialisée');
 });
@@ -2100,6 +2101,20 @@ function exportToCSV() {
 // ====================================
 // ARTICLES PANEL UI FUNCTIONS
 // ====================================
+
+function initializeHelpModal() {
+    const helpBtn = document.getElementById('helpBtn');
+    const helpModal = document.getElementById('helpModal');
+    const closeHelpBtn = document.getElementById('closeHelpModalBtn');
+    const backdrop = helpModal.querySelector('.help-modal-backdrop');
+
+    helpBtn.addEventListener('click', () => helpModal.classList.add('active'));
+    closeHelpBtn.addEventListener('click', () => helpModal.classList.remove('active'));
+    backdrop.addEventListener('click', () => helpModal.classList.remove('active'));
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') helpModal.classList.remove('active');
+    });
+}
 
 function initializeArticlesUI() {
     refreshArticlesList();

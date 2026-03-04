@@ -17,6 +17,7 @@
                 Analyse IA des Userneeds
             </h1>
             <div class="header-actions">
+                <button id="helpBtn" class="header-btn help-btn" title="Aide">❓ Aide</button>
                 <button id="themeToggle" class="header-btn theme-btn" title="Changer de thème">
                     <span class="theme-icon">🌙</span>
                 </button>
@@ -381,6 +382,95 @@ Analyse cet article..."></textarea>
 
     <!-- Toast notification container -->
     <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Modale d'aide -->
+    <div id="helpModal" class="help-modal">
+        <div class="help-modal-backdrop"></div>
+        <div class="help-modal-content">
+            <div class="help-modal-header">
+                <h2>❓ Guide utilisateur</h2>
+                <button id="closeHelpModalBtn" class="close-modal-btn">✕</button>
+            </div>
+            <div class="help-modal-body">
+
+                <section class="help-section">
+                    <h3>À quoi sert cette application ?</h3>
+                    <p>Cette application permet de <strong>tester si une intelligence artificielle est capable de classer des articles franceinfo</strong> selon les 8 "User Needs" — c'est-à-dire le besoin auquel répond un article pour le lecteur.</p>
+                    <p>Pour cela, vous classifiez vous-même des articles, puis vous lancez une analyse IA et comparez vos résultats avec ceux de l'IA.</p>
+                </section>
+
+                <section class="help-section">
+                    <h3>Les 8 User Needs</h3>
+                    <table class="help-table">
+                        <thead><tr><th>User Need</th><th>Ce que ça signifie</th></tr></thead>
+                        <tbody>
+                            <tr><td><strong>UPDATE ME</strong></td><td>L'article tient informé sur une actu en cours</td></tr>
+                            <tr><td><strong>EXPLAIN ME</strong></td><td>L'article explique un sujet ou un contexte</td></tr>
+                            <tr><td><strong>GIVE ME PERSPECTIVE</strong></td><td>L'article offre une analyse ou une mise en recul</td></tr>
+                            <tr><td><strong>GIVE ME A BREAK</strong></td><td>L'article est léger ou divertissant</td></tr>
+                            <tr><td><strong>GIVE ME CONCERNING NEWS</strong></td><td>L'article alerte sur quelque chose de préoccupant</td></tr>
+                            <tr><td><strong>INSPIRE ME</strong></td><td>L'article raconte une histoire positive</td></tr>
+                            <tr><td><strong>MAKE ME FEEL THE NEWS</strong></td><td>L'article est émotionnel, immersif, un témoignage</td></tr>
+                            <tr><td><strong>REVEAL NEWS</strong></td><td>L'article révèle une enquête ou une info exclusive</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <section class="help-section">
+                    <h3>Étape 1 — Classifier des articles</h3>
+                    <p>La liste des articles franceinfo s'affiche directement sur la page d'accueil, filtrée par défaut sur les <strong>articles non classifiés</strong>.</p>
+                    <ol>
+                        <li>Pour chaque article, lisez le titre et le chapô</li>
+                        <li>Choisissez le User Need qui correspond le mieux dans le menu déroulant</li>
+                        <li>Répétez pour autant d'articles que vous le souhaitez — plus vous en classifiez, plus les résultats seront fiables</li>
+                    </ol>
+                    <p>Vous pouvez basculer entre <strong>Tous</strong>, <strong>Classifiés</strong> et <strong>Non classifiés</strong> via les boutons de filtre.</p>
+                    <p class="help-tip">💡 Cliquez sur le titre d'un article pour l'ouvrir dans un nouvel onglet et lire son contenu complet avant de le classifier.</p>
+                </section>
+
+                <section class="help-section">
+                    <h3>Étape 2 — Lancer une analyse IA</h3>
+                    <ol>
+                        <li>Sélectionnez un modèle d'IA via le bouton <strong>"LLM"</strong> dans le menu</li>
+                        <li>Vérifiez ou modifiez le prompt via le bouton <strong>"PROMPTS"</strong></li>
+                        <li>Cliquez sur <strong>"Analyse IA"</strong> pour démarrer</li>
+                    </ol>
+                    <p class="help-tip">⏱ L'analyse prend une dizaine de minutes selon le nombre d'articles et le modèle choisi.</p>
+                </section>
+
+                <section class="help-section">
+                    <h3>Étape 3 — Consulter les résultats</h3>
+                    <p>Les résultats apparaissent automatiquement à la fin de l'analyse :</p>
+                    <ul>
+                        <li><strong>Taux de concordance global</strong> : % d'articles où l'IA a prédit le même User Need que vous</li>
+                        <li><strong>Matrice de confusion</strong> : tableau 8×8 montrant les accords (diagonale) et désaccords</li>
+                        <li><strong>Statistiques de confiance</strong> : indicateur de certitude de l'IA pour chaque article</li>
+                    </ul>
+                    <p>Filtrez par niveau de confiance ou cliquez sur une case de la matrice pour isoler un type de désaccord.</p>
+                </section>
+
+                <section class="help-section">
+                    <h3>Étape 4 — Comparer plusieurs analyses</h3>
+                    <p>Via le bouton <strong>"Tests"</strong>, accédez à l'historique de vos analyses et comparez deux Test Runs côte à côte — utile pour évaluer l'impact d'un changement de modèle ou de prompt.</p>
+                </section>
+
+                <section class="help-section">
+                    <h3>Questions fréquentes</h3>
+                    <dl class="help-faq">
+                        <dt>Combien d'articles dois-je classifier pour avoir des résultats fiables ?</dt>
+                        <dd>Une cinquantaine d'articles est un bon point de départ. L'idéal est d'avoir au moins 5 à 10 exemples par User Need.</dd>
+                        <dt>Puis-je modifier une classification ?</dt>
+                        <dd>Oui, retrouvez l'article dans la liste (filtre "Classifiés") et modifiez le menu déroulant.</dd>
+                        <dt>Que signifie le score de confiance ?</dt>
+                        <dd>L'IA donne trois prédictions par ordre de certitude avec un score sur 100. Un score élevé sur la prédiction principale indique que l'IA est confiante.</dd>
+                        <dt>Les articles se mettent-ils à jour automatiquement ?</dt>
+                        <dd>Oui, de nouveaux articles franceinfo sont importés toutes les 30 minutes.</dd>
+                    </dl>
+                </section>
+
+            </div>
+        </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/supabase-client.js?v=1"></script>

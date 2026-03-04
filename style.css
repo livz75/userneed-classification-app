@@ -2400,15 +2400,38 @@ input[type="file"] {
     overflow-y: auto;
 }
 
-.back-btn {
-    align-self: flex-start;
-    background: var(--border-color) !important;
-    color: var(--text-primary) !important;
+.back-btn-small {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 12px;
 }
 
-.back-btn:hover {
+.back-btn-small:hover {
+    border-color: var(--accent-blue);
+    color: var(--accent-blue);
+    background: rgba(59, 130, 246, 0.08);
+}
+
+/* Fetch/Refresh button */
+.fetch-btn {
     background: var(--accent-blue) !important;
     color: white !important;
+    border: none !important;
+}
+
+.fetch-btn:hover {
+    background: #2563eb !important;
 }
 
 /* Compare button */

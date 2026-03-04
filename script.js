@@ -2606,6 +2606,9 @@ async function runComparison() {
         const html = buildComparisonHTML(runA, runB);
         resultsContainer.innerHTML = html;
 
+        // Generate AI summary asynchronously
+        generateComparisonSummary(runA, runB);
+
     } catch (error) {
         console.error('Erreur comparaison:', error);
         resultsContainer.innerHTML = '<p class="tests-empty">Erreur de comparaison.</p>';
@@ -2696,7 +2699,94 @@ function buildComparisonHTML(runA, runB) {
     });
 
     html += `</tbody></table>`;
+
+    // Placeholder for AI summary (filled asynchronously)
+    html += `
+        <div id="comparisonAISummary" class="comparison-ai-summary">
+            <div class="comparison-ai-summary-header">
+                <span class="comparison-ai-summary-title">🤖 Analyse & recommandation IA</span>
+            </div>
+            <div class="comparison-ai-summary-body loading">
+                <span class="ai-summary-spinner"></span> Analyse en cours…
+            </div>
+        </div>
+    `;
+
     return html;
+}
+
+async function generateComparisonSummary(runA, runB) {
+    if (!providerManager || !providerManager.isConfigured()) {
+        const el = document.getElementById('comparisonAISummary');
+        if (el) el.querySelector('.comparison-ai-summary-body').textContent = 'Clé API non configurée.';
+        return;
+    }
+
+    const promptNameA = runA.prompts?.name || runA.prompt_id || '—';
+    const promptNameB = runB.prompts?.name || runB.prompt_id || '—';
+    const concA = parseFloat(runA.concordant_percent) || 0;
+    const concB = parseFloat(runB.concordant_percent) || 0;
+    const matrixA = runA.confusion_matrix || {};
+    const matrixB = runB.confusion_matrix || {};
+
+    // Build per-userneed metrics text
+    const metricsLines = USERNEEDS.map(un => {
+        const precA = calcPrecision(matrixA, un).toFixed(1);
+        const precB = calcPrecision(matrixB, un).toFixed(1);
+        const recA = calcRecall(matrixA, un).toFixed(1);
+        const recB = calcRecall(matrixB, un).toFixed(1);
+        return `  - ${getShortName(un)}: Prec A=${precA}% B=${precB}% | Rappel A=${recA}% B=${recB}%`;
+    }).join('\n');
+
+    const prompt = `Tu es expert en évaluation de modèles de classification NLP. Voici les résultats d'une comparaison entre deux configurations d'IA pour classifier des articles de presse selon des "User Needs".
+
+TEST A : Modèle = ${runA.llm_model || '—'} | Prompt = "${promptNameA}" | Concordance globale = ${concA}%
+TEST B : Modèle = ${runB.llm_model || '—'} | Prompt = "${promptNameB}" | Concordance globale = ${concB}%
+Delta global : ${(concB - concA).toFixed(1)}%
+
+Métriques par User Need (Précision = quand l'IA prédit ce UN, a-t-elle raison | Rappel = parmi tous les articles de ce UN, combien détectés) :
+${metricsLines}
+
+Rédige en français :
+1. Un bref constat (3-4 phrases max) sur les points forts et faibles de chaque configuration.
+2. Une recommandation claire et justifiée sur le combo prompt/modèle à privilégier.
+3. Si pertinent, un point d'attention sur les User Needs les plus problématiques.
+
+Sois direct, concis, et parle comme un expert qui s'adresse à une équipe éditoriale non technique.`;
+
+    try {
+        const payload = providerManager.getRequestPayload(prompt);
+        // Use a smart model for this analysis
+        payload.model = 'anthropic/claude-3.5-sonnet';
+
+        const response = await fetch('/api/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        const text = data.content || data.choices?.[0]?.message?.content || 'Aucune réponse.';
+
+        const el = document.getElementById('comparisonAISummary');
+        if (el) {
+            const body = el.querySelector('.comparison-ai-summary-body');
+            body.classList.remove('loading');
+            // Render paragraphs
+            body.innerHTML = text
+                .split('\n')
+                .filter(l => l.trim())
+                .map(l => `<p>${l.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}</p>`)
+                .join('');
+        }
+    } catch (err) {
+        const el = document.getElementById('comparisonAISummary');
+        if (el) {
+            const body = el.querySelector('.comparison-ai-summary-body');
+            body.classList.remove('loading');
+            body.textContent = 'Erreur lors de la génération de l\'analyse.';
+        }
+    }
 }
 
 function calcPrecision(matrix, userneed) {

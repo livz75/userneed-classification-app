@@ -613,6 +613,10 @@ input[type="file"] {
     animation: pulse-border 2s infinite;
 }
 
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
 @keyframes pulse-border {
     0%, 100% {
         outline-color: var(--accent-blue);
@@ -2552,6 +2556,60 @@ input[type="file"] {
 .compare-summary-card.winner {
     border-color: var(--accent-green);
     box-shadow: 0 0 0 1px var(--accent-green);
+}
+
+/* AI Comparison Summary */
+.comparison-ai-summary {
+    margin-top: 24px;
+    border: 1px solid #6366f1;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.comparison-ai-summary-header {
+    background: rgba(99, 102, 241, 0.15);
+    padding: 10px 16px;
+    border-bottom: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.comparison-ai-summary-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #a5b4fc;
+    letter-spacing: 0.03em;
+}
+
+.comparison-ai-summary-body {
+    padding: 16px;
+    font-size: 0.85rem;
+    line-height: 1.7;
+    color: var(--text-primary);
+}
+
+.comparison-ai-summary-body p {
+    margin: 0 0 10px;
+}
+
+.comparison-ai-summary-body p:last-child {
+    margin-bottom: 0;
+}
+
+.comparison-ai-summary-body.loading {
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ai-summary-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(99, 102, 241, 0.3);
+    border-top-color: #6366f1;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
 }
 
 /* Metrics explainer */

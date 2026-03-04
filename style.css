@@ -1974,6 +1974,24 @@ input[type="file"] {
     color: var(--text-primary);
 }
 
+.category-filter-select {
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-darker);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    outline: none;
+}
+
+.category-filter-select:hover,
+.category-filter-select:focus {
+    border-color: var(--accent-blue);
+    color: var(--text-primary);
+}
+
 .article-stats {
     font-size: 0.8rem;
     color: var(--text-secondary);

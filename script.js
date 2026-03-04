@@ -17,6 +17,7 @@ let currentArticles = []; // Articles chargés depuis Supabase (avec classificat
 let stopAnalysis = false;
 let articleResults = []; // Stockage global des résultats d'analyse
 let articleFilter = 'unclassified'; // 'all' | 'classified' | 'unclassified'
+let articleCategoryFilter = 'all'; // 'all' | '<category>'
 
 // Variables pour le filtrage de la matrice
 let matrixFilter = {
@@ -2137,6 +2138,11 @@ function setArticleFilter(filter) {
     refreshArticlesList();
 }
 
+function setCategoryFilter(cat) {
+    articleCategoryFilter = cat;
+    refreshArticlesList();
+}
+
 async function refreshArticlesList() {
     const listContainer = document.getElementById('articlesList');
     const statsSpan = document.getElementById('articleStats');
@@ -2150,6 +2156,20 @@ async function refreshArticlesList() {
             filtered = articles.filter(a => a.human_classifications && a.human_classifications.length > 0);
         } else if (articleFilter === 'unclassified') {
             filtered = articles.filter(a => !a.human_classifications || a.human_classifications.length === 0);
+        }
+
+        // Peupler le sélecteur de catégories
+        const categorySelect = document.getElementById('categoryFilter');
+        if (categorySelect) {
+            const allCats = [...new Set(articles.map(a => getArticleCategory(a)).filter(Boolean))].sort();
+            const currentVal = categorySelect.value;
+            categorySelect.innerHTML = '<option value="all">Toutes catégories</option>' +
+                allCats.map(c => `<option value="${c}" ${c === currentVal ? 'selected' : ''}>${c}</option>`).join('');
+        }
+
+        // Appliquer le filtre catégorie
+        if (articleCategoryFilter !== 'all') {
+            filtered = filtered.filter(a => getArticleCategory(a) === articleCategoryFilter);
         }
 
         // Mettre à jour les stats

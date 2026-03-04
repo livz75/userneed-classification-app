@@ -87,20 +87,28 @@ python3 server.py</pre>
 }
 
 // Les 8 userneeds dans l'ordre
+// MODELS — triés du meilleur au moins bon pour cette application
+// Coût estimé pour 50 articles : 50 × (400 tokens entrée + 120 tokens sortie)
+// = 20 000 tokens entrée + 6 000 tokens sortie
+const INPUT_TOKENS_50 = 20000;
+const OUTPUT_TOKENS_50 = 6000;
+
 const MODELS = [
-    { group: 'Anthropic', id: 'anthropic/claude-3.5-haiku',                   name: 'Claude 3.5 Haiku',        badge: '⚡ Rapide',       input: 0.80,  output: 4.00  },
-    { group: 'Anthropic', id: 'anthropic/claude-3.5-sonnet',                  name: 'Claude 3.5 Sonnet',       badge: null,             input: 3.00,  output: 15.00 },
-    { group: 'Anthropic', id: 'anthropic/claude-3-opus',                      name: 'Claude 3 Opus',           badge: '🏆 Puissant',    input: 15.00, output: 75.00 },
-    { group: 'OpenAI',    id: 'openai/gpt-4o-mini',                           name: 'GPT-4o Mini',             badge: '⚡ Rapide',       input: 0.15,  output: 0.60  },
-    { group: 'OpenAI',    id: 'openai/gpt-4o',                                name: 'GPT-4o',                  badge: null,             input: 2.50,  output: 10.00 },
-    { group: 'Google',    id: 'google/gemini-2.5-flash-lite',                  name: 'Gemini 2.5 Flash Lite',   badge: '⚡⚡ Très rapide', input: 0.10,  output: 0.40  },
-    { group: 'Google',    id: 'google/gemini-flash-1.5',                      name: 'Gemini Flash 1.5',        badge: '⚡ Rapide',       input: 0.075, output: 0.30  },
-    { group: 'Google',    id: 'google/gemini-pro-1.5',                        name: 'Gemini Pro 1.5',          badge: null,             input: 1.25,  output: 5.00  },
-    { group: 'Meta',      id: 'meta-llama/llama-3.1-8b-instruct',             name: 'Llama 3.1 8B',            badge: '🆓 Gratuit',     input: 0,     output: 0     },
-    { group: 'Meta',      id: 'meta-llama/llama-3.3-70b-instruct',            name: 'Llama 3.3 70B',           badge: null,             input: 0.13,  output: 0.40  },
-    { group: 'Mistral',   id: 'mistralai/mistral-small-24b-instruct-2501',    name: 'Mistral Small',           badge: null,             input: 0.10,  output: 0.30  },
-    { group: 'Mistral',   id: 'mistralai/mistral-medium',                     name: 'Mistral Medium',          badge: null,             input: 0.40,  output: 1.20  },
-    { group: 'Alibaba',   id: 'qwen/qwen-2.5-72b-instruct',                   name: 'Qwen 2.5 72B',            badge: null,             input: 0.40,  output: 0.40  },
+    // id, provider, name, speedLabel, speedStars(1-5), input$/M, output$/M, qualityStars, french(1-3), recommended, note
+    { id: 'anthropic/claude-3.5-haiku',                 provider: 'Anthropic', name: 'Claude 3.5 Haiku',       speed: '⚡⚡⚡ Très rapide', input: 0.80,  output: 4.00,  quality: 5, french: 3, recommended: true,  note: 'Meilleur équilibre vitesse/qualité/français' },
+    { id: 'openai/gpt-4o-mini',                         provider: 'OpenAI',    name: 'GPT-4o Mini',            speed: '⚡⚡⚡ Très rapide', input: 0.15,  output: 0.60,  quality: 4, french: 3, recommended: true,  note: 'Excellent rapport qualité/prix' },
+    { id: 'mistralai/mistral-small-24b-instruct-2501',  provider: 'Mistral',   name: 'Mistral Small 3.1',      speed: '⚡⚡ Rapide',        input: 0.10,  output: 0.30,  quality: 4, french: 3, recommended: true,  note: 'Modèle européen, excellent en français' },
+    { id: 'google/gemini-2.5-flash-lite',               provider: 'Google',    name: 'Gemini 2.5 Flash Lite',  speed: '⚡⚡⚡ Très rapide', input: 0.10,  output: 0.40,  quality: 4, french: 2, recommended: true,  note: 'Ultra rapide, très économique' },
+    { id: 'google/gemini-flash-1.5',                    provider: 'Google',    name: 'Gemini Flash 1.5',       speed: '⚡⚡⚡ Très rapide', input: 0.075, output: 0.30,  quality: 3, french: 2, recommended: false, note: 'Le moins cher du marché' },
+    { id: 'deepseek/deepseek-chat',                     provider: 'DeepSeek',  name: 'DeepSeek V3',            speed: '⚡⚡ Rapide',        input: 0.14,  output: 0.28,  quality: 4, french: 2, recommended: false, note: 'Surprise : très bon pour le prix' },
+    { id: 'meta-llama/llama-3.3-70b-instruct',          provider: 'Meta',      name: 'Llama 3.3 70B',          speed: '⚡⚡ Rapide',        input: 0.13,  output: 0.40,  quality: 4, french: 2, recommended: false, note: 'Open source, bonne qualité' },
+    { id: 'anthropic/claude-3.5-sonnet',                provider: 'Anthropic', name: 'Claude 3.5 Sonnet',      speed: '⚡ Modéré',         input: 3.00,  output: 15.00, quality: 5, french: 3, recommended: false, note: 'Qualité maximale, idéal pour valider' },
+    { id: 'openai/gpt-4o',                              provider: 'OpenAI',    name: 'GPT-4o',                 speed: '⚡ Modéré',         input: 2.50,  output: 10.00, quality: 5, french: 3, recommended: false, note: 'Très bonne qualité, coût élevé' },
+    { id: 'google/gemini-pro-1.5',                      provider: 'Google',    name: 'Gemini Pro 1.5',         speed: '⚡ Modéré',         input: 1.25,  output: 5.00,  quality: 4, french: 2, recommended: false, note: 'Bon compromis qualité/prix' },
+    { id: 'qwen/qwen-2.5-72b-instruct',                 provider: 'Alibaba',   name: 'Qwen 2.5 72B',           speed: '⚡ Modéré',         input: 0.40,  output: 0.40,  quality: 3, french: 2, recommended: false, note: 'Alternatif économique' },
+    { id: 'mistralai/mistral-medium',                   provider: 'Mistral',   name: 'Mistral Medium',         speed: '⚡ Modéré',         input: 0.40,  output: 1.20,  quality: 3, french: 3, recommended: false, note: 'Bon français, moins récent' },
+    { id: 'meta-llama/llama-3.1-8b-instruct',           provider: 'Meta',      name: 'Llama 3.1 8B',           speed: '⚡⚡⚡ Très rapide', input: 0,     output: 0,     quality: 2, french: 1, recommended: false, note: 'Gratuit, qualité limitée' },
+    { id: 'anthropic/claude-3-opus',                    provider: 'Anthropic', name: 'Claude 3 Opus',          speed: '🐢 Lent',           input: 15.00, output: 75.00, quality: 5, french: 3, recommended: false, note: 'Le plus puissant, très coûteux' },
 ];
 
 const USERNEEDS = [
@@ -2957,36 +2965,99 @@ function renderModelPicker() {
     const picker = document.getElementById('modelPicker');
     if (!picker) return;
 
-    const groups = [...new Set(MODELS.map(m => m.group))];
-    picker.innerHTML = groups.map(group => {
-        const models = MODELS.filter(m => m.group === group);
-        return `
-            <div class="model-group">
-                <div class="model-group-label">${group}</div>
-                ${models.map(m => {
-                    const isSelected = m.id === providerManager.selectedModel;
-                    const priceStr = m.input === 0 && m.output === 0
-                        ? '<span class="model-price free">Gratuit</span>'
-                        : `<span class="model-price">$${m.input} / $${m.output} /M*</span>`;
-                    const badgeStr = m.badge ? `<span class="model-badge">${m.badge}</span>` : '';
-                    return `
-                        <div class="model-option ${isSelected ? 'selected' : ''}" data-model-id="${m.id}">
-                            <div class="model-option-left">
-                                <span class="model-option-radio">${isSelected ? '●' : '○'}</span>
-                                <span class="model-option-name">${m.name}</span>
-                                ${badgeStr}
-                            </div>
-                            ${priceStr}
-                        </div>`;
-                }).join('')}
-            </div>`;
+    function estimatedCost(m) {
+        if (m.input === 0 && m.output === 0) return null; // free
+        return (INPUT_TOKENS_50 * m.input + OUTPUT_TOKENS_50 * m.output) / 1_000_000;
+    }
+
+    function costClass(cost) {
+        if (cost === null) return 'free';
+        if (cost < 0.02) return 'cheap';
+        if (cost < 0.15) return 'mid';
+        return 'pricey';
+    }
+
+    function stars(n, max = 5) {
+        return '★'.repeat(n) + '☆'.repeat(max - n);
+    }
+
+    function frenchLabel(n) {
+        if (n === 3) return '🇫🇷 Excellent';
+        if (n === 2) return '✓ Bon';
+        return '~ Correct';
+    }
+
+    const legend = `
+        <div class="model-legend">
+            <div class="model-legend-item">
+                <span class="model-legend-term">Prix entrée /M</span>
+                <span class="model-legend-def">Coût des tokens envoyés à l'IA (titre + chapô de l'article). Payé à chaque article analysé.</span>
+            </div>
+            <div class="model-legend-item">
+                <span class="model-legend-term">Prix sortie /M</span>
+                <span class="model-legend-def">Coût des tokens générés par l'IA (sa réponse de classification). Généralement plus cher.</span>
+            </div>
+            <div class="model-legend-item">
+                <span class="model-legend-term">≈ Coût / 50 articles</span>
+                <span class="model-legend-def">Estimation pour une analyse de 50 articles (~400 tokens entrée + 120 tokens sortie par article).</span>
+            </div>
+            <div class="model-legend-item">
+                <span class="model-legend-term">Français</span>
+                <span class="model-legend-def">Niveau de maîtrise du français — critère clé pour cette application.</span>
+            </div>
+        </div>`;
+
+    const rows = MODELS.map((m, i) => {
+        const isSelected = m.id === providerManager.selectedModel;
+        const cost = estimatedCost(m);
+        const costStr = cost === null ? '<span class="mt-cost free">Gratuit</span>'
+            : `<span class="mt-cost ${costClass(cost)}">$${cost < 0.01 ? cost.toFixed(4) : cost.toFixed(3)}</span>`;
+        const inputStr = m.input === 0 ? '<span class="mt-price free">—</span>' : `<span class="mt-price">$${m.input}</span>`;
+        const outputStr = m.output === 0 ? '<span class="mt-price free">—</span>' : `<span class="mt-price">$${m.output}</span>`;
+        const recBadge = m.recommended ? '<span class="mt-rec-badge">✦ Recommandé</span>' : '';
+        const rankEmoji = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+
+        return `<tr class="${isSelected ? 'selected' : ''}" data-model-id="${m.id}" title="${m.note}">
+            <td class="mt-rank">${rankEmoji}</td>
+            <td class="mt-name-cell">
+                <span class="mt-radio">${isSelected ? '●' : '○'}</span>
+                <span class="mt-name">${m.name}${recBadge}</span>
+                <span class="mt-provider">${m.provider}</span>
+            </td>
+            <td class="mt-speed">${m.speed}</td>
+            <td>${inputStr}</td>
+            <td>${outputStr}</td>
+            <td>${costStr}</td>
+            <td class="mt-stars">${stars(m.quality)}</td>
+            <td class="mt-fr">${frenchLabel(m.french)}</td>
+        </tr>`;
     }).join('');
 
-    picker.querySelectorAll('.model-option').forEach(el => {
-        el.addEventListener('click', () => {
-            providerManager.selectedModel = el.dataset.modelId;
+    picker.innerHTML = legend + `
+        <table class="model-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th style="text-align:left">Modèle</th>
+                    <th>Vitesse</th>
+                    <th>Prix entrée /M</th>
+                    <th>Prix sortie /M</th>
+                    <th>≈ Coût / 50 art.</th>
+                    <th>Qualité</th>
+                    <th>Français</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+        <p style="font-size:0.72rem; color:var(--text-secondary); margin-top:8px;">
+            * Prix indicatifs OpenRouter ($/million de tokens). Survolez une ligne pour voir le détail du modèle.
+        </p>`;
+
+    picker.querySelectorAll('tr[data-model-id]').forEach(row => {
+        row.addEventListener('click', () => {
+            providerManager.selectedModel = row.dataset.modelId;
             console.log(`✅ Modèle sélectionné: ${providerManager.selectedModel}`);
-            renderModelPicker(); // re-render to update selection
+            renderModelPicker();
         });
     });
 }

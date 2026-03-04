@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=27">
+    <link rel="stylesheet" href="style.css?v=28">
 </head>
 <body>
     <div class="container">
@@ -207,21 +207,18 @@
     <div id="llmPanel" class="llm-panel">
         <div class="llm-panel-backdrop"></div>
         <div class="llm-panel-content">
-            <div class="llm-panel-header">
-                <h2>🤖 Configuration OpenRouter</h2>
-                <button id="closeLlmPanelBtn" class="close-panel-btn">✕</button>
-            </div>
-
-            <div class="provider-config-section">
-                <h3>⚙️ Sélection du Modèle</h3>
-
-                <div class="form-group">
-                    <label>Choisissez votre modèle LLM :</label>
-                    <div id="modelPicker" class="model-picker"></div>
-                    <p class="input-help-text" style="margin-top:6px;">* Prix indicatifs OpenRouter par million de tokens (entrée / sortie)</p>
+            <div class="llm-panel-inner">
+                <div class="llm-panel-header">
+                    <h2>🤖 Configuration OpenRouter</h2>
+                    <button id="closeLlmPanelBtn" class="close-panel-btn">✕</button>
                 </div>
 
-                <div class="provider-api-config">
+                <div class="provider-config-section">
+                    <h3>⚙️ Sélection du Modèle</h3>
+                    <div id="modelPicker" class="model-picker"></div>
+                </div>
+
+                <div class="provider-api-config" style="margin-top:24px;">
                     <div class="form-group">
                         <label for="openrouterApiKey">Clé API OpenRouter :</label>
                         <input type="password" id="openrouterApiKey" class="api-key-input" placeholder="sk-or-...">
@@ -230,12 +227,7 @@
                     <button id="saveProviderConfigBtn" class="btn-save-provider">💾 Enregistrer la configuration</button>
                 </div>
 
-                <p class="provider-help-text">
-                    💡 Tous les modèles utilisent <strong>OpenRouter</strong> comme provider unifié<br>
-                    💡 Vous pouvez configurer la clé API dans <code>config.json</code> ou la saisir ci-dessus
-                </p>
-
-                <div class="reset-config-section">
+                <div class="reset-config-section" style="margin-top:16px;">
                     <button id="resetConfigBtn" class="btn-reset-config">
                         🔄 Recharger depuis config.json
                     </button>
@@ -462,6 +454,6 @@ Analyse cet article..."></textarea>
     <script src="js/article-manager.js?v=1"></script>
     <script src="js/classification-manager.js?v=1"></script>
     <script src="js/test-run-manager.js?v=1"></script>
-    <script src="script.js?v=23"></script>
+    <script src="script.js?v=24"></script>
 </body>
 </html>

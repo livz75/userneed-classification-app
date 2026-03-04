@@ -2565,14 +2565,14 @@ input[type="file"] {
    ============================================ */
 
 .help-btn {
-    background: rgba(99, 102, 241, 0.15);
-    color: #818cf8;
-    border-color: rgba(99, 102, 241, 0.3);
+    background: #6366f1;
+    color: #ffffff;
+    border: 1px solid #818cf8;
 }
 
 .help-btn:hover {
-    background: rgba(99, 102, 241, 0.25);
-    color: #a5b4fc;
+    background: #4f46e5;
+    color: #ffffff;
 }
 
 .help-modal-content {

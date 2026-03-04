@@ -2158,17 +2158,14 @@ async function refreshArticlesList() {
             filtered = articles.filter(a => !a.human_classifications || a.human_classifications.length === 0);
         }
 
-        // Peupler le sélecteur de catégories
-        const categorySelect = document.getElementById('categoryFilter');
-        if (categorySelect) {
-            const allCats = [...new Set(articles.map(a => getArticleCategory(a)).filter(Boolean))].sort();
-            const currentVal = categorySelect.value;
-            categorySelect.innerHTML = '<option value="all">Toutes catégories</option>' +
-                allCats.map(c => `<option value="${c}" ${c === currentVal ? 'selected' : ''}>${c}</option>`).join('');
-        }
-
         // Appliquer le filtre catégorie
-        if (articleCategoryFilter !== 'all') {
+        const KNOWN_CATEGORIES = ['monde', 'culture', 'economie', 'sport', 'france', 'faits-divers', 'politique'];
+        if (articleCategoryFilter === 'autres') {
+            filtered = filtered.filter(a => {
+                const cat = getArticleCategory(a);
+                return !cat || !KNOWN_CATEGORIES.includes(cat);
+            });
+        } else if (articleCategoryFilter !== 'all') {
             filtered = filtered.filter(a => getArticleCategory(a) === articleCategoryFilter);
         }
 

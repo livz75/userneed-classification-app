@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=19">
+    <link rel="stylesheet" href="style.css?v=20">
 </head>
 <body>
     <div class="container">
@@ -37,6 +37,14 @@
                     <button class="article-filter-btn active" data-filter="unclassified" onclick="setArticleFilter('unclassified')">Non classifiés</button>
                     <select id="categoryFilter" class="category-filter-select" onchange="setCategoryFilter(this.value)">
                         <option value="all">Toutes catégories</option>
+                        <option value="monde">Monde</option>
+                        <option value="culture">Culture</option>
+                        <option value="economie">Économie</option>
+                        <option value="sport">Sport</option>
+                        <option value="france">France</option>
+                        <option value="faits-divers">Faits-divers</option>
+                        <option value="politique">Politique</option>
+                        <option value="autres">Autres</option>
                     </select>
                     <span id="articleStats" class="article-stats"></span>
                 </div>
@@ -477,6 +485,6 @@ Analyse cet article..."></textarea>
     <script src="js/article-manager.js?v=1"></script>
     <script src="js/classification-manager.js?v=1"></script>
     <script src="js/test-run-manager.js?v=1"></script>
-    <script src="script.js?v=18"></script>
+    <script src="script.js?v=19"></script>
 </body>
 </html>

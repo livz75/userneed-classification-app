@@ -265,9 +265,95 @@ def upsert_to_supabase(articles, config):
         return e.code
 
 
+# ── Mise à jour du media_type pour les articles existants ────────────
+def update_missing_media_types(config):
+    """Scrape les articles existants sans media_type et met à jour Supabase."""
+    import time
+    url_base = config['supabase_url']
+    key = config['supabase_anon_key']
+    headers_sb = {
+        'apikey': key,
+        'Authorization': f'Bearer {key}',
+        'Accept': 'application/json',
+    }
+
+    # Récupérer tous les articles par pages de 500
+    all_articles = []
+    offset = 0
+    page_size = 500
+    while True:
+        req = urllib.request.Request(
+            f'{url_base}/rest/v1/articles?select=id,url,metadata'
+            f'&limit={page_size}&offset={offset}',
+            headers=headers_sb
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                page = json.loads(resp.read())
+        except Exception as e:
+            print(f'  ❌ Erreur lecture Supabase: {e}')
+            break
+        if not page:
+            break
+        all_articles.extend(page)
+        if len(page) < page_size:
+            break
+        offset += page_size
+
+    # Filtrer ceux sans media_type
+    to_update = [
+        a for a in all_articles
+        if not (a.get('metadata') or {}).get('media_type') and a.get('url')
+    ]
+    print(f'  📊 {len(to_update)} articles sans media_type (sur {len(all_articles)} en base)')
+
+    if not to_update:
+        print('  ✅ Tous les articles ont déjà un media_type.')
+        return
+
+    updated = 0
+    failed = 0
+    for i, a in enumerate(to_update):
+        print(f'  [{i+1}/{len(to_update)}] ', end='', flush=True)
+        _, media_type = scrape_article_body(a['url'])
+        if not media_type:
+            media_type = 'article'  # fallback
+
+        new_metadata = {**(a.get('metadata') or {}), 'media_type': media_type}
+        patch_data = json.dumps({'metadata': new_metadata}).encode('utf-8')
+        patch_req = urllib.request.Request(
+            f'{url_base}/rest/v1/articles?id=eq.{a["id"]}',
+            data=patch_data,
+            method='PATCH',
+            headers={
+                **headers_sb,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal',
+            }
+        )
+        try:
+            with urllib.request.urlopen(patch_req, timeout=30):
+                updated += 1
+                print(f'{media_type} ✅')
+        except Exception as e:
+            failed += 1
+            print(f'❌ {e}')
+
+        time.sleep(SCRAPE_DELAY)
+
+    print(f'\n  ✅ {updated} articles mis à jour, {failed} échecs.')
+
+
 # ── Main ─────────────────────────────────────────────────────────────
 def main():
     import time
+
+    # Mode mise à jour du media_type uniquement
+    if '--update-metadata' in sys.argv:
+        config = load_config()
+        print('🔄 Mise à jour du media_type pour les articles existants...')
+        update_missing_media_types(config)
+        return
 
     no_scrape = '--no-scrape' in sys.argv
 

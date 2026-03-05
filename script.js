@@ -18,6 +18,7 @@ let stopAnalysis = false;
 let articleResults = []; // Stockage global des résultats d'analyse
 let articleFilter = 'unclassified'; // 'all' | 'classified' | 'unclassified'
 let articleCategoryFilter = 'all'; // 'all' | '<category>'
+let articleMediaTypeFilter = 'all'; // 'all' | 'article' | 'video' | 'autre'
 
 // Variables pour le filtrage de la matrice
 let matrixFilter = {
@@ -2167,6 +2168,11 @@ function setCategoryFilter(cat) {
     refreshArticlesList();
 }
 
+function setMediaTypeFilter(type) {
+    articleMediaTypeFilter = type;
+    refreshArticlesList();
+}
+
 async function refreshArticlesList() {
     const listContainer = document.getElementById('articlesList');
     const statsSpan = document.getElementById('articleStats');
@@ -2191,6 +2197,11 @@ async function refreshArticlesList() {
             });
         } else if (articleCategoryFilter !== 'all') {
             filtered = filtered.filter(a => getArticleCategory(a) === articleCategoryFilter);
+        }
+
+        // Appliquer le filtre type de média
+        if (articleMediaTypeFilter !== 'all') {
+            filtered = filtered.filter(a => (a.metadata?.media_type || 'article') === articleMediaTypeFilter);
         }
 
         // Mettre à jour les stats

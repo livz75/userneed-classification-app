@@ -49,11 +49,25 @@ def load_config():
 
 
 # ── Scraping du corps ────────────────────────────────────────────────
+def normalize_media_type(raw_type):
+    """Normalise le @type JSON-LD en valeur simple : 'video', 'article', ou 'autre'."""
+    if not raw_type:
+        return None
+    if isinstance(raw_type, list):
+        raw_type = raw_type[0]
+    t = raw_type.lower()
+    if 'video' in t:
+        return 'video'
+    if 'article' in t or 'reportage' in t or 'news' in t:
+        return 'article'
+    return 'autre'
+
+
 def scrape_article_body(url):
     """
-    Récupère le corps complet d'un article depuis son URL.
-    Extrait le champ 'articleBody' du JSON-LD embarqué dans la page.
-    Retourne une chaîne vide si indisponible.
+    Récupère le corps complet d'un article et son type de média depuis son URL.
+    Extrait 'articleBody' et '@type' du JSON-LD embarqué dans la page.
+    Retourne un tuple (corps: str, media_type: str|None).
     """
     try:
         req = urllib.request.Request(url, headers=HEADERS_HTML)
@@ -81,19 +95,27 @@ def scrape_article_body(url):
                         return r
             return None
 
+        body = ''
+        media_type = None
+
         for block in jsonld_blocks:
             try:
                 data = json.loads(block)
-                body = find_key(data, 'articleBody')
-                if body and len(body) > 50:
-                    return body.strip()
+                if not body:
+                    b = find_key(data, 'articleBody')
+                    if b and len(b) > 50:
+                        body = b.strip()
+                if not media_type:
+                    t = find_key(data, '@type')
+                    media_type = normalize_media_type(t)
             except Exception:
                 continue
 
     except Exception as e:
         print(f'    ⚠️  Scraping échoué ({url[:60]}...): {e}')
+        return '', None
 
-    return ''
+    return body, media_type
 
 
 # ── RSS parsing ──────────────────────────────────────────────────────
@@ -289,11 +311,13 @@ def main():
         print(f'  📝 Scraping du corps ({len(to_scrape)} articles)...')
         scraped = 0
         for a in to_scrape:
-            body = scrape_article_body(a['url'])
+            body, media_type = scrape_article_body(a['url'])
             if body:
                 a['corps'] = body
                 a['word_count'] = len(body.split())
                 scraped += 1
+            if media_type:
+                a.setdefault('metadata', {})['media_type'] = media_type
             time.sleep(SCRAPE_DELAY)
         print(f'  ✅ Corps récupéré pour {scraped}/{len(to_scrape)} articles')
 

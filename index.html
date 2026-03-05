@@ -47,6 +47,12 @@
                         <option value="politique">Politique</option>
                         <option value="autres">Autres</option>
                     </select>
+                    <select id="mediaTypeFilter" class="category-filter-select" onchange="setMediaTypeFilter(this.value)">
+                        <option value="all">Tous types</option>
+                        <option value="article">📄 Article</option>
+                        <option value="video">🎥 Vidéo</option>
+                        <option value="autre">📎 Autre</option>
+                    </select>
                     <span id="articleStats" class="article-stats"></span>
                 </div>
             </div>
@@ -468,6 +474,6 @@ Analyse cet article..."></textarea>
     <script src="js/article-manager.js?v=1"></script>
     <script src="js/classification-manager.js?v=1"></script>
     <script src="js/test-run-manager.js?v=1"></script>
-    <script src="script.js?v=24"></script>
+    <script src="script.js?v=25"></script>
 </body>
 </html>

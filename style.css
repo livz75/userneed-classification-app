@@ -154,6 +154,17 @@ header p {
     box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
 }
 
+/* Articles button - teal */
+.header-btn.articles-btn {
+    background: #0d9488;
+}
+
+.header-btn.articles-btn:hover {
+    background: #0f766e;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(13, 148, 136, 0.4);
+}
+
 /* Reset button - orange */
 .header-btn.reset-btn {
     background: #f97316;

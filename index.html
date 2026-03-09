@@ -31,6 +31,13 @@
         <!-- Section articles inline (accueil) -->
         <div id="articlesSection" class="articles-section">
             <div class="articles-section-toolbar">
+                <div class="articles-search-bar">
+                    <span class="articles-search-icon">🔍</span>
+                    <input type="text" id="articleTitleSearchInput" class="articles-search-input"
+                           placeholder="Rechercher dans les titres…"
+                           oninput="applyTitleFilter(this.value)">
+                    <button id="articleTitleSearchClear" class="articles-search-clear" onclick="clearTitleSearch()" style="display:none">✕</button>
+                </div>
                 <div class="articles-filter-group">
                     <span class="filter-label">Filtrer :</span>
                     <button class="article-filter-btn" data-filter="all" onclick="setArticleFilter('all')">Tous</button>

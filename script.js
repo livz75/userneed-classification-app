@@ -19,6 +19,7 @@ let articleResults = []; // Stockage global des résultats d'analyse
 let articleFilter = 'unclassified'; // 'all' | 'classified' | 'unclassified'
 let articleCategoryFilter = 'all'; // 'all' | '<category>'
 let articleMediaTypeFilter = 'all'; // 'all' | 'article' | 'video' | 'autre'
+let articleTitleSearch = ''; // recherche libre sur le titre
 
 // Variables pour le filtrage de la matrice
 let matrixFilter = {
@@ -2163,82 +2164,96 @@ function setArticleFilter(filter) {
     document.querySelectorAll('.article-filter-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.filter === filter);
     });
-    refreshArticlesList();
+    renderFilteredArticles();
 }
 
 function setCategoryFilter(cat) {
     articleCategoryFilter = cat;
-    refreshArticlesList();
+    renderFilteredArticles();
 }
 
 function setMediaTypeFilter(type) {
     articleMediaTypeFilter = type;
-    refreshArticlesList();
+    renderFilteredArticles();
 }
 
 async function refreshArticlesList() {
     const listContainer = document.getElementById('articlesList');
-    const statsSpan = document.getElementById('articleStats');
+    listContainer.innerHTML = '<p class="articles-empty">Chargement…</p>';
 
     try {
         const articles = await articleManager.loadFromSupabase({ limit: 500 });
-
-        // Filtrer selon le filtre actif
-        let filtered = articles;
-        if (articleFilter === 'classified') {
-            filtered = articles.filter(a => a.human_classifications && a.human_classifications.length > 0);
-        } else if (articleFilter === 'unclassified') {
-            filtered = articles.filter(a => !a.human_classifications || a.human_classifications.length === 0);
-        }
-
-        // Appliquer le filtre catégorie
-        const KNOWN_CATEGORIES = ['monde', 'culture', 'economie', 'sport', 'france', 'faits-divers', 'politique'];
-        if (articleCategoryFilter === 'autres') {
-            filtered = filtered.filter(a => {
-                const cat = getArticleCategory(a);
-                return !cat || !KNOWN_CATEGORIES.includes(cat);
-            });
-        } else if (articleCategoryFilter !== 'all') {
-            filtered = filtered.filter(a => getArticleCategory(a) === articleCategoryFilter);
-        }
-
-        // Appliquer le filtre type de média
-        if (articleMediaTypeFilter !== 'all') {
-            filtered = filtered.filter(a => (a.metadata?.media_type || 'article') === articleMediaTypeFilter);
-        }
-
-        // Mettre à jour les stats
-        const classifiedCount = articles.filter(a => a.human_classifications && a.human_classifications.length > 0).length;
-        if (statsSpan) {
-            statsSpan.textContent = `${classifiedCount}/${articles.length} classifiés`;
-        }
-
-        // Stocker les articles pour l'analyse IA
         currentArticles = articles;
-
-        // Rendre la liste
-        if (filtered.length === 0) {
-            listContainer.innerHTML = '<p class="articles-empty">Aucun article trouvé.</p>';
-            return;
-        }
-
-        listContainer.innerHTML = filtered.map(article => renderArticleCard(article)).join('');
-
-        // Montrer/cacher le bouton Analyse IA
-        if (classifiedCount > 0) {
-            analyzeBtn.style.display = 'inline-block';
-        }
-
-        // Afficher le load more si pertinent
-        const loadMore = document.getElementById('articlesLoadMore');
-        if (loadMore) {
-            loadMore.style.display = articleManager.hasNextPage ? 'block' : 'none';
-        }
-
+        renderFilteredArticles();
     } catch (error) {
         console.error('Erreur refresh articles:', error);
-        listContainer.innerHTML = '<p class="articles-empty">Erreur de chargement.</p>';
+        document.getElementById('articlesList').innerHTML = '<p class="articles-empty">Erreur de chargement.</p>';
     }
+}
+
+function renderFilteredArticles() {
+    const listContainer = document.getElementById('articlesList');
+    const statsSpan = document.getElementById('articleStats');
+    const articles = currentArticles;
+
+    // Filtre statut
+    let filtered = articles;
+    if (articleFilter === 'classified') {
+        filtered = articles.filter(a => a.human_classifications && a.human_classifications.length > 0);
+    } else if (articleFilter === 'unclassified') {
+        filtered = articles.filter(a => !a.human_classifications || a.human_classifications.length === 0);
+    }
+
+    // Filtre catégorie
+    const KNOWN_CATEGORIES = ['monde', 'culture', 'economie', 'sport', 'france', 'faits-divers', 'politique'];
+    if (articleCategoryFilter === 'autres') {
+        filtered = filtered.filter(a => { const cat = getArticleCategory(a); return !cat || !KNOWN_CATEGORIES.includes(cat); });
+    } else if (articleCategoryFilter !== 'all') {
+        filtered = filtered.filter(a => getArticleCategory(a) === articleCategoryFilter);
+    }
+
+    // Filtre type de média
+    if (articleMediaTypeFilter !== 'all') {
+        filtered = filtered.filter(a => (a.metadata?.media_type || 'article') === articleMediaTypeFilter);
+    }
+
+    // Filtre titre (recherche libre)
+    if (articleTitleSearch.trim()) {
+        const q = articleTitleSearch.trim().toLowerCase();
+        filtered = filtered.filter(a => (a.titre || '').toLowerCase().includes(q));
+    }
+
+    // Stats
+    const classifiedCount = articles.filter(a => a.human_classifications && a.human_classifications.length > 0).length;
+    if (statsSpan) statsSpan.textContent = `${classifiedCount}/${articles.length} classifiés`;
+
+    // Rendu
+    if (filtered.length === 0) {
+        listContainer.innerHTML = '<p class="articles-empty">Aucun article trouvé.</p>';
+        return;
+    }
+    listContainer.innerHTML = filtered.map(article => renderArticleCard(article)).join('');
+
+    if (classifiedCount > 0) analyzeBtn.style.display = 'inline-block';
+
+    const loadMore = document.getElementById('articlesLoadMore');
+    if (loadMore) loadMore.style.display = articleManager.hasNextPage ? 'block' : 'none';
+}
+
+function applyTitleFilter(value) {
+    articleTitleSearch = value;
+    const clearBtn = document.getElementById('articleTitleSearchClear');
+    if (clearBtn) clearBtn.style.display = value ? 'flex' : 'none';
+    renderFilteredArticles();
+}
+
+function clearTitleSearch() {
+    articleTitleSearch = '';
+    const input = document.getElementById('articleTitleSearchInput');
+    if (input) input.value = '';
+    const clearBtn = document.getElementById('articleTitleSearchClear');
+    if (clearBtn) clearBtn.style.display = 'none';
+    renderFilteredArticles();
 }
 
 function getArticleCategory(article) {

@@ -171,8 +171,7 @@
             </div>
 
             <div class="tests-panel-toolbar">
-                <button id="refreshTestsBtn" class="action-btn fetch-btn">🔄 Actualiser</button>
-                <button id="compareTestsBtn" class="action-btn compare-btn">⚖️ Comparer 2 tests</button>
+                <button id="compareFromSelectionBtn" class="action-btn compare-btn" disabled>⚖️ Comparer <span id="compareSelectionCount">(0/2)</span></button>
             </div>
 
             <!-- Vue liste des test runs -->
@@ -192,18 +191,6 @@
             <!-- Vue comparaison de 2 tests -->
             <div id="testCompareView" class="test-compare-view" style="display: none;">
                 <button id="backFromCompareBtn" class="back-btn-small">← Retour à la liste</button>
-                <div class="compare-selectors">
-                    <div class="compare-selector">
-                        <label>Test A :</label>
-                        <select id="compareTestA" class="compare-select"></select>
-                    </div>
-                    <div class="compare-vs">VS</div>
-                    <div class="compare-selector">
-                        <label>Test B :</label>
-                        <select id="compareTestB" class="compare-select"></select>
-                    </div>
-                    <button id="runCompareBtn" class="action-btn compare-run-btn">📊 Comparer</button>
-                </div>
                 <div id="compareResults" class="compare-results"></div>
             </div>
             </div><!-- /.tests-panel-inner -->

@@ -34,6 +34,9 @@ let confidenceFilter = 'all'; // 'all' | 'haute' | 'haute+moyenne' | 'basse'
 // Variable pour le filtrage par concordance
 let concordanceFilter = 'all'; // 'all' | 'concordant' | 'non-concordant'
 
+// Sélection pour la comparaison (max 2 IDs)
+let selectedRunIds = [];
+
 // ===================================
 // HEALTH CHECK DU SERVEUR
 // ===================================
@@ -2334,11 +2337,9 @@ function initializeTestsUI() {
     const testsBtn = document.getElementById('testsBtn');
     const closeTestsPanelBtn = document.getElementById('closeTestsPanelBtn');
     const testsPanelBackdrop = document.querySelector('.tests-panel-backdrop');
-    const refreshTestsBtn = document.getElementById('refreshTestsBtn');
     const backToTestsListBtn = document.getElementById('backToTestsListBtn');
-    const compareTestsBtn = document.getElementById('compareTestsBtn');
     const backFromCompareBtn = document.getElementById('backFromCompareBtn');
-    const runCompareBtn = document.getElementById('runCompareBtn');
+    const compareFromSelectionBtn = document.getElementById('compareFromSelectionBtn');
 
     if (!testsBtn) {
         console.warn('⚠️ Bouton Tests non trouvé');
@@ -2348,11 +2349,9 @@ function initializeTestsUI() {
     testsBtn.addEventListener('click', openTestsPanel);
     if (closeTestsPanelBtn) closeTestsPanelBtn.addEventListener('click', closeTestsPanel);
     if (testsPanelBackdrop) testsPanelBackdrop.addEventListener('click', closeTestsPanel);
-    if (refreshTestsBtn) refreshTestsBtn.addEventListener('click', refreshTestsList);
     if (backToTestsListBtn) backToTestsListBtn.addEventListener('click', showTestsListView);
-    if (compareTestsBtn) compareTestsBtn.addEventListener('click', openCompareView);
     if (backFromCompareBtn) backFromCompareBtn.addEventListener('click', backFromCompare);
-    if (runCompareBtn) runCompareBtn.addEventListener('click', runComparison);
+    if (compareFromSelectionBtn) compareFromSelectionBtn.addEventListener('click', runComparisonFromSelection);
 }
 
 function openTestsPanel() {
@@ -2391,6 +2390,17 @@ async function refreshTestsList() {
         }
 
         listContainer.innerHTML = runs.map(run => renderTestRunCard(run)).join('');
+
+        // Restaurer les cases cochées
+        selectedRunIds.forEach(id => {
+            const cb = document.getElementById(`check-${id}`);
+            if (cb) {
+                cb.checked = true;
+                cb.closest('.test-run-card').classList.add('selected');
+            }
+        });
+        updateCompareButton();
+
     } catch (error) {
         console.error('Erreur listing test runs:', error);
         listContainer.innerHTML = '<p class="tests-empty">Erreur de chargement des tests.</p>';
@@ -2412,6 +2422,11 @@ function renderTestRunCard(run) {
     return `
         <div class="test-run-card" data-run-id="${run.id}">
             <div class="test-run-card-header">
+                <label class="test-run-select-wrap" onclick="event.stopPropagation()">
+                    <input type="checkbox" class="test-run-checkbox" id="check-${run.id}"
+                           onchange="toggleRunSelection('${run.id}', this)">
+                    <span class="test-run-checkmark"></span>
+                </label>
                 <span class="test-run-card-name">${run.name || 'Test sans nom'}</span>
                 <span class="test-run-card-status ${run.status}">${statusLabel}</span>
             </div>
@@ -2575,6 +2590,62 @@ async function loadMatrixFromTestRun(run) {
 }
 
 // ---- Comparison ----
+
+function toggleRunSelection(runId, checkbox) {
+    const card = checkbox.closest('.test-run-card');
+    if (checkbox.checked) {
+        if (selectedRunIds.length >= 2) {
+            // Décocher le plus ancien
+            const firstId = selectedRunIds[0];
+            const firstCb = document.getElementById(`check-${firstId}`);
+            if (firstCb) firstCb.checked = false;
+            document.querySelector(`.test-run-card[data-run-id="${firstId}"]`)?.classList.remove('selected');
+            selectedRunIds.shift();
+        }
+        selectedRunIds.push(runId);
+        card.classList.add('selected');
+    } else {
+        selectedRunIds = selectedRunIds.filter(id => id !== runId);
+        card.classList.remove('selected');
+    }
+    updateCompareButton();
+}
+
+function updateCompareButton() {
+    const btn = document.getElementById('compareFromSelectionBtn');
+    const countEl = document.getElementById('compareSelectionCount');
+    if (!btn) return;
+    const n = selectedRunIds.length;
+    if (countEl) countEl.textContent = `(${n}/2)`;
+    btn.disabled = n !== 2;
+    btn.classList.toggle('compare-btn-ready', n === 2);
+}
+
+async function runComparisonFromSelection() {
+    if (selectedRunIds.length !== 2) return;
+    const [idA, idB] = selectedRunIds;
+
+    document.getElementById('testsListView').style.display = 'none';
+    document.getElementById('testDetailView').style.display = 'none';
+    document.getElementById('testCompareView').style.display = 'flex';
+    document.getElementById('compareResults').innerHTML = '<p class="tests-empty">Calcul en cours...</p>';
+
+    try {
+        const [runA, runB] = await Promise.all([
+            testRunManager.getRun(idA),
+            testRunManager.getRun(idB)
+        ]);
+        if (!runA || !runB) {
+            document.getElementById('compareResults').innerHTML = '<p class="tests-empty">Impossible de charger les tests.</p>';
+            return;
+        }
+        document.getElementById('compareResults').innerHTML = buildComparisonHTML(runA, runB);
+        generateComparisonSummary(runA, runB);
+    } catch (error) {
+        console.error('Erreur comparaison:', error);
+        document.getElementById('compareResults').innerHTML = '<p class="tests-empty">Erreur de comparaison.</p>';
+    }
+}
 
 async function openCompareView() {
     document.getElementById('testsListView').style.display = 'none';

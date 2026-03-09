@@ -2988,7 +2988,7 @@ input[type="file"] {
     inset: 0;
     background: rgba(0, 0, 0, 0.72);
     backdrop-filter: blur(5px);
-    z-index: 2000;
+    z-index: 20000;
     align-items: center;
     justify-content: center;
     opacity: 0;

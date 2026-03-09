@@ -2753,13 +2753,16 @@ function openPRModal() {
         modal.addEventListener('click', (e) => { if (e.target === modal) closePRModal(); });
         document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePRModal(); });
     }
-    modal.classList.add('pr-modal-visible');
+    modal.style.display = 'flex';
+    requestAnimationFrame(() => modal.classList.add('pr-modal-visible'));
     document.body.style.overflow = 'hidden';
 }
 
 function closePRModal() {
     const modal = document.getElementById('prExplainerModal');
-    if (modal) modal.classList.remove('pr-modal-visible');
+    if (!modal) return;
+    modal.classList.remove('pr-modal-visible');
+    setTimeout(() => { modal.style.display = 'none'; }, 240);
     document.body.style.overflow = '';
 }
 

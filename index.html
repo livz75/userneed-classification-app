@@ -31,29 +31,21 @@
         <!-- Section articles inline (accueil) -->
         <div id="articlesSection" class="articles-section">
             <div class="articles-section-toolbar">
-                <div class="articles-search-bar">
-                    <span class="articles-search-icon">🔍</span>
-                    <input type="text" id="articleTitleSearchInput" class="articles-search-input"
-                           placeholder="Rechercher dans les titres…"
-                           oninput="applyTitleFilter(this.value)">
-                    <button id="articleTitleSearchClear" class="articles-search-clear" onclick="clearTitleSearch()" style="display:none">✕</button>
+                <div class="articles-search-block">
+                    <label class="articles-search-label">Recherche par titre</label>
+                    <div class="articles-search-bar">
+                        <span class="articles-search-icon">🔍</span>
+                        <input type="text" id="articleTitleSearchInput" class="articles-search-input"
+                               placeholder="Saisir un mot-clé…"
+                               oninput="applyTitleFilter(this.value)">
+                        <button id="articleTitleSearchClear" class="articles-search-clear" onclick="clearTitleSearch()" style="display:none">✕</button>
+                    </div>
                 </div>
                 <div class="articles-filter-group">
                     <span class="filter-label">Filtrer :</span>
                     <button class="article-filter-btn" data-filter="all" onclick="setArticleFilter('all')">Tous</button>
                     <button class="article-filter-btn" data-filter="classified" onclick="setArticleFilter('classified')">Classifiés</button>
                     <button class="article-filter-btn active" data-filter="unclassified" onclick="setArticleFilter('unclassified')">Non classifiés</button>
-                    <select id="categoryFilter" class="category-filter-select" onchange="setCategoryFilter(this.value)">
-                        <option value="all">Toutes catégories</option>
-                        <option value="monde">Monde</option>
-                        <option value="culture">Culture</option>
-                        <option value="economie">Économie</option>
-                        <option value="sport">Sport</option>
-                        <option value="france">France</option>
-                        <option value="faits-divers">Faits-divers</option>
-                        <option value="politique">Politique</option>
-                        <option value="autres">Autres</option>
-                    </select>
                     <span id="articleStats" class="article-stats"></span>
                 </div>
             </div>

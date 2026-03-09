@@ -2687,16 +2687,9 @@ function buildComparisonHTML(runA, runB) {
     const matrixB = runB.confusion_matrix || {};
 
     html += `
-        <div class="metrics-explainer">
-            <div class="metrics-explainer-item">
-                <span class="metrics-explainer-term">Précision</span>
-                <span class="metrics-explainer-def">Quand l'IA prédit ce User Need, a-t-elle raison ? <em>Ex : 80% = 8 fois sur 10, sa prédiction est juste.</em></span>
-            </div>
-            <div class="metrics-explainer-item">
-                <span class="metrics-explainer-term">Rappel</span>
-                <span class="metrics-explainer-def">Parmi tous les articles de ce User Need, combien l'IA en a-t-elle détecté ? <em>Ex : 60% = elle en a raté 4 sur 10.</em></span>
-            </div>
-        </div>
+        <button class="pr-explain-btn" onclick="openPRModal()">
+            📊 C'est quoi la Précision et le Rappel ?
+        </button>
     `;
 
     html += `<table class="compare-delta-table">
@@ -2746,6 +2739,123 @@ function buildComparisonHTML(runA, runB) {
     `;
 
     return html;
+}
+
+// ===================================
+// MODAL PRÉCISION / RAPPEL
+// ===================================
+
+function openPRModal() {
+    let modal = document.getElementById('prExplainerModal');
+    if (!modal) {
+        modal = createPRModal();
+        document.body.appendChild(modal);
+        modal.addEventListener('click', (e) => { if (e.target === modal) closePRModal(); });
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePRModal(); });
+    }
+    modal.classList.add('pr-modal-visible');
+    document.body.style.overflow = 'hidden';
+}
+
+function closePRModal() {
+    const modal = document.getElementById('prExplainerModal');
+    if (modal) modal.classList.remove('pr-modal-visible');
+    document.body.style.overflow = '';
+}
+
+function createPRModal() {
+    const div = document.createElement('div');
+    div.id = 'prExplainerModal';
+    div.className = 'pr-modal-overlay';
+
+    const precDots = Array.from({length: 10}, (_, i) =>
+        `<div class="pr-dot ${i < 7 ? 'pr-dot-correct' : 'pr-dot-wrong'}">${i < 7 ? '✓' : '✗'}</div>`
+    ).join('');
+
+    const recallDots = Array.from({length: 10}, (_, i) =>
+        `<div class="pr-dot ${i < 6 ? 'pr-dot-found' : 'pr-dot-missed'}">${i < 6 ? '🤖' : '?'}</div>`
+    ).join('');
+
+    div.innerHTML = `
+        <div class="pr-modal">
+            <div class="pr-modal-header">
+                <div class="pr-modal-title">📊 Précision & Rappel — Guide visuel</div>
+                <button class="pr-close-btn" onclick="closePRModal()">✕</button>
+            </div>
+            <div class="pr-modal-body">
+
+                <p class="pr-intro">L'IA classe des articles selon leur User Need. Mais comment savoir si elle le fait <em>bien</em> ? Deux métriques complémentaires permettent de le mesurer.</p>
+
+                <div class="pr-scenario">
+                    Exemple : l'IA classe des articles en <strong>"UPDATE ME"</strong>
+                </div>
+
+                <div class="pr-card pr-card-precision">
+                    <div class="pr-card-header">
+                        <span class="pr-card-icon">🎯</span>
+                        <span class="pr-card-label">Précision</span>
+                    </div>
+                    <div class="pr-card-question">"Quand l'IA dit <em>UPDATE ME</em>, a-t-elle raison ?"</div>
+                    <div class="pr-visual-label">L'IA a prédit <strong>UPDATE ME</strong> pour 10 articles :</div>
+                    <div class="pr-dots-grid">${precDots}</div>
+                    <div class="pr-dots-legend">
+                        <span class="pr-legend-item pr-legend-correct"><span class="pr-legend-dot pr-legend-dot-correct">✓</span> Prédiction juste (7)</span>
+                        <span class="pr-legend-item pr-legend-wrong"><span class="pr-legend-dot pr-legend-dot-wrong">✗</span> Fausse alerte (3)</span>
+                    </div>
+                    <div class="pr-formula-row">
+                        <span class="pr-formula-frac">
+                            <span class="pr-formula-num">7 justes</span>
+                            <span class="pr-formula-line"></span>
+                            <span class="pr-formula-den">10 prédictions</span>
+                        </span>
+                        <span class="pr-formula-eq">= <strong class="pr-score precision-score">70 %</strong></span>
+                    </div>
+                    <div class="pr-plain">Sur 10 articles classés UPDATE ME par l'IA, <strong>7 l'étaient vraiment</strong>. Les 3 autres ? D'autres User Needs classifiés à tort.</div>
+                </div>
+
+                <div class="pr-card pr-card-recall">
+                    <div class="pr-card-header">
+                        <span class="pr-card-icon">🔍</span>
+                        <span class="pr-card-label">Rappel</span>
+                    </div>
+                    <div class="pr-card-question">"Parmi tous les vrais <em>UPDATE ME</em>, combien l'IA en a-t-elle trouvé ?"</div>
+                    <div class="pr-visual-label">Les humains ont classifié <strong>10 articles</strong> UPDATE ME :</div>
+                    <div class="pr-dots-grid">${recallDots}</div>
+                    <div class="pr-dots-legend">
+                        <span class="pr-legend-item pr-legend-found"><span class="pr-legend-dot pr-legend-dot-found">🤖</span> Détecté par l'IA (6)</span>
+                        <span class="pr-legend-item pr-legend-missed"><span class="pr-legend-dot pr-legend-dot-missed">?</span> Raté par l'IA (4)</span>
+                    </div>
+                    <div class="pr-formula-row">
+                        <span class="pr-formula-frac">
+                            <span class="pr-formula-num">6 détectés</span>
+                            <span class="pr-formula-line"></span>
+                            <span class="pr-formula-den">10 articles réels</span>
+                        </span>
+                        <span class="pr-formula-eq">= <strong class="pr-score recall-score">60 %</strong></span>
+                    </div>
+                    <div class="pr-plain">Sur 10 vrais articles UPDATE ME, l'IA en a <strong>manqué 4</strong>. Ils ont été classés dans un autre User Need.</div>
+                </div>
+
+                <div class="pr-tradeoff">
+                    <div class="pr-tradeoff-title">⚖️ Le compromis à connaître</div>
+                    <div class="pr-tradeoff-grid">
+                        <div class="pr-tradeoff-item">
+                            <div class="pr-tradeoff-arrow arrow-precision">🎯 Précision haute</div>
+                            <div class="pr-tradeoff-desc">L'IA est <strong>sélective</strong> — elle prédit peu, mais juste.<br>Risque : elle rate des articles (rappel ↓)</div>
+                        </div>
+                        <div class="pr-tradeoff-vs">VS</div>
+                        <div class="pr-tradeoff-item">
+                            <div class="pr-tradeoff-arrow arrow-recall">🔍 Rappel haut</div>
+                            <div class="pr-tradeoff-desc">L'IA est <strong>généreuse</strong> — elle détecte tout, mais fait des erreurs.<br>Risque : plus de fausses alertes (précision ↓)</div>
+                        </div>
+                    </div>
+                    <div class="pr-tradeoff-ideal">✨ <strong>L'idéal :</strong> maximiser les deux. Un bon modèle + un prompt précis permettent d'atteindre >70% dans les deux métriques.</div>
+                </div>
+
+            </div>
+        </div>
+    `;
+    return div;
 }
 
 async function generateComparisonSummary(runA, runB) {

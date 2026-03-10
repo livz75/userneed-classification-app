@@ -3099,19 +3099,7 @@ Sois direct, concis, et parle comme un expert qui s'adresse à une équipe édit
 
 // ─── Suggest prompt adaptation ───────────────────────────────────────────────
 
-async function suggestPromptAdaptation() {
-    const run = currentViewedRun;
-    if (!run) return;
-
-    if (!providerManager || !providerManager.isConfigured()) {
-        showToast('Clé API non configurée', 'error');
-        return;
-    }
-
-    // Ouvrir le modal en état "chargement"
-    openSuggestModal(null, run);
-
-    // Extraire les principales confusions depuis la matrice
+function _buildConfusionContext(run) {
     const matrix = run.confusion_matrix || {};
     const confusions = [];
     for (const humanLabel in matrix) {
@@ -3123,98 +3111,167 @@ async function suggestPromptAdaptation() {
         }
     }
     confusions.sort((a, b) => b.count - a.count);
-    const topConfusions = confusions.slice(0, 6);
+    return confusions.slice(0, 6)
+        .map(c => `  • IA a prédit "${c.ai}" au lieu de "${c.human}" : ${c.count} fois`)
+        .join('\n') || '  (aucune confusion significative)';
+}
+
+async function suggestPromptAdaptation() {
+    const run = currentViewedRun;
+    if (!run) return;
+    if (!providerManager || !providerManager.isConfigured()) {
+        showToast('Clé API non configurée', 'error');
+        return;
+    }
 
     const activePrompt = promptManager.getActivePrompt();
-    const promptSnapshot = (activePrompt?.content) || run.prompt_snapshot || '(prompt non disponible)';
+    const currentContent = activePrompt?.content || run.prompt_snapshot || '';
+    const promptName = activePrompt?.name || run.prompts?.name || 'prompt';
     const concordance = run.concordant_percent ?? '?';
     const total = run.analyzed_articles ?? '?';
-    const promptName = activePrompt?.name || run.prompts?.name || run.prompt_id || '—';
+    const confusionLines = _buildConfusionContext(run);
 
-    const confusionLines = topConfusions.length > 0
-        ? topConfusions.map(c => `  • L'IA a prédit "${c.ai}" alors que la classification humaine était "${c.human}" : ${c.count} fois`).join('\n')
-        : '  (aucune confusion significative détectée)';
+    // Ouvrir la page avec step 1 (propositions en chargement)
+    openAdaptPage(currentContent, null, null, run, promptName);
 
-    const metaPrompt = `Tu es expert en prompt engineering pour un système de classification éditoriale.
+    // Étape 1 : générer les propositions d'adaptation (lisibles)
+    const proposalPrompt = `Tu es expert en prompt engineering pour un système de classification éditoriale.
 
-Voici le prompt actif à améliorer :
-
----
-${promptSnapshot}
----
-
-Résultats du dernier test (${total} articles, concordance : ${concordance}%) :
-Principales confusions détectées (IA a prédit X alors que la classification humaine était Y) :
+Voici les résultats d'un test de classification (${total} articles, concordance : ${concordance}%) :
+Principales confusions :
 ${confusionLines}
 
-INSTRUCTIONS ABSOLUES :
-- Retourne le prompt COMPLET et INTÉGRAL, prêt à l'emploi
-- INTERDIT d'utiliser des raccourcis comme "[Reste du prompt identique]", "[...]", "[suite inchangée]" ou toute autre abréviation — recopie mot pour mot les parties non modifiées
-- Intègre directement les améliorations dans le texte du prompt, sans commentaires séparés
-- Ne pose aucune question, ne demande aucune confirmation
-- Conserve exactement la structure et le format de réponse (USERNEED PRINCIPAL, SECONDAIRE, TERTIAIRE, SCORE, JUSTIFICATION)
-- Commence ta réponse par la première ligne du prompt, sans aucune introduction
+Voici le prompt actuellement utilisé :
+---
+${currentContent}
+---
 
-PROMPT COMPLET AMÉLIORÉ :`;
+Liste en 5 à 8 points concis les adaptations précises à apporter à ce prompt pour corriger les confusions observées.
+Chaque point doit indiquer : quelle section modifier, et comment la reformuler.
+Ne génère pas encore le prompt complet. Sois direct et actionnable.`;
 
     try {
-        const payload = providerManager.getRequestPayload(metaPrompt);
+        const payload = providerManager.getRequestPayload(proposalPrompt);
         payload.model = 'anthropic/claude-3.5-sonnet';
-        payload.system = '';  // Pas de system message de classification — rôle neutre
-
-        const response = await fetch('/api/analyze', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        const data = await response.json();
-        let suggestedPrompt = data.content || data.choices?.[0]?.message?.content || null;
-        // Supprimer un éventuel préfixe "PROMPT AMÉLIORÉ :" laissé par le modèle
-        if (suggestedPrompt) {
-            suggestedPrompt = suggestedPrompt.replace(/^PROMPT\s+(COMPLET\s+)?AM[EÉ]LIOR[EÉ]\s*:?\s*/i, '').trim();
-        }
-
-        openSuggestModal(suggestedPrompt, run);
+        payload.system = '';
+        const res = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const data = await res.json();
+        const proposals = (data.content || '').trim();
+        openAdaptPage(currentContent, proposals, null, run, promptName);
     } catch (err) {
-        openSuggestModal('Erreur lors de la génération : ' + err.message, run);
+        openAdaptPage(currentContent, `Erreur : ${err.message}`, null, run, promptName);
     }
 }
 
-function openSuggestModal(suggestedPrompt, run) {
-    // Supprimer modal existant
+async function applyProposals() {
+    const run = currentViewedRun;
+    const activePrompt = promptManager.getActivePrompt();
+    const currentContent = activePrompt?.content || run?.prompt_snapshot || '';
+    const proposalsEl = document.getElementById('adaptProposals');
+    const proposals = proposalsEl ? proposalsEl.innerText : '';
+
+    // Passer droite en chargement
+    const rightPanel = document.getElementById('adaptRightPanel');
+    if (rightPanel) rightPanel.innerHTML = '<div class="suggest-loading"><span class="suggest-spinner"></span> Génération du prompt adapté…</div>';
+
+    const finalPrompt = `Tu es expert en prompt engineering pour un système de classification éditoriale.
+
+Voici le prompt original :
+---
+${currentContent}
+---
+
+Voici les adaptations à intégrer :
+---
+${proposals}
+---
+
+INSTRUCTIONS ABSOLUES :
+- Génère le prompt COMPLET et INTÉGRAL en intégrant ces adaptations
+- INTERDIT d'utiliser "[Reste du prompt identique]", "[...]" ou tout raccourci — recopie intégralement les parties inchangées
+- Conserve exactement le format de réponse (USERNEED PRINCIPAL, SECONDAIRE, TERTIAIRE, SCORE, JUSTIFICATION)
+- Ne pose aucune question, commence directement par la première ligne du prompt
+
+PROMPT COMPLET :`;
+
+    try {
+        const payload = providerManager.getRequestPayload(finalPrompt);
+        payload.model = 'anthropic/claude-3.5-sonnet';
+        payload.system = '';
+        const res = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        const data = await res.json();
+        let adapted = (data.content || '').trim().replace(/^PROMPT\s+(COMPLET\s*)?:?\s*/i, '').trim();
+
+        if (rightPanel) {
+            const promptName = activePrompt?.name || 'prompt';
+            rightPanel.innerHTML = `
+                <div class="adapt-panel-label">Prompt adapté — prêt à l'emploi</div>
+                <textarea class="suggest-prompt-textarea" id="adaptedPromptText" style="flex:1;min-height:0;">${adapted.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+                <div class="adapt-save-row">
+                    <span class="suggest-modal-hint">Modifiable avant enregistrement</span>
+                    <button class="suggest-save-btn" onclick="saveAdaptedPrompt('${encodeURIComponent(promptName)}')">✅ Créer ce prompt</button>
+                </div>`;
+        }
+    } catch (err) {
+        if (rightPanel) rightPanel.innerHTML = `<p style="color:#ef4444">Erreur : ${err.message}</p>`;
+    }
+}
+
+function saveAdaptedPrompt(encodedName) {
+    const textarea = document.getElementById('adaptedPromptText');
+    if (!textarea) return;
+    const content = textarea.value.trim();
+    if (!content) return;
+    const baseName = decodeURIComponent(encodedName);
+    const newName = `${baseName} (adapté)`;
+    try {
+        promptManager.createPrompt({ name: newName, description: 'Prompt adapté automatiquement', content, userneeds: [...USERNEEDS], tags: [] });
+        closeSuggestModal();
+        showToast(`Prompt "${newName}" créé`);
+        refreshPromptList();
+    } catch (err) {
+        showToast('Erreur : ' + err.message, 'error');
+    }
+}
+
+function openAdaptPage(currentContent, proposals, adaptedPrompt, run, promptName) {
     const existing = document.getElementById('suggestPromptModal');
     if (existing) existing.remove();
 
-    const isLoading = suggestedPrompt === null;
-    const promptName = run.prompts?.name || run.prompt_id || 'prompt';
+    const proposalsLoading = proposals === null;
 
     const modal = document.createElement('div');
     modal.id = 'suggestPromptModal';
     modal.className = 'suggest-modal-overlay';
     modal.innerHTML = `
-        <div class="suggest-modal">
+        <div class="suggest-modal adapt-layout">
             <div class="suggest-modal-header">
-                <h3>💡 Proposition d'adaptation du prompt</h3>
+                <div>
+                    <h3>💡 Adapter le prompt</h3>
+                    <span class="suggest-modal-subheader-inline">Test : <strong>${run.name || '—'}</strong> — Concordance : <strong>${run.concordant_percent ?? '?'}%</strong></span>
+                </div>
                 <button class="suggest-modal-close" onclick="closeSuggestModal()">✕</button>
             </div>
-            <div class="suggest-modal-subheader">
-                Basée sur les résultats de <strong>${run.name || 'ce test'}</strong>
-                — Concordance : <strong>${run.concordant_percent ?? '?'}%</strong>
+            <div class="adapt-body">
+                <!-- Colonne gauche : prompt actuel -->
+                <div class="adapt-col adapt-col-left">
+                    <div class="adapt-panel-label">Prompt actif — <em>${promptName}</em></div>
+                    <div class="adapt-prompt-readonly">${(currentContent || '').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+                </div>
+                <!-- Colonne droite : propositions → prompt adapté -->
+                <div class="adapt-col adapt-col-right" id="adaptRightPanel">
+                    ${proposalsLoading ? `
+                        <div class="adapt-panel-label">Analyse des résultats…</div>
+                        <div class="suggest-loading"><span class="suggest-spinner"></span> Génération des propositions…</div>
+                    ` : `
+                        <div class="adapt-panel-label">Propositions d'adaptation</div>
+                        <div class="adapt-proposals" id="adaptProposals">${(proposals || '').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+                        <div class="adapt-apply-row">
+                            <button class="adapt-apply-btn" onclick="applyProposals()">✅ Appliquer ces adaptations</button>
+                        </div>
+                    `}
+                </div>
             </div>
-            <div class="suggest-modal-body" id="suggestModalBody">
-                ${isLoading
-                    ? '<div class="suggest-loading"><span class="suggest-spinner"></span> Analyse des confusions et génération en cours…</div>'
-                    : `<textarea class="suggest-prompt-textarea" id="suggestedPromptText">${suggestedPrompt}</textarea>`
-                }
-            </div>
-            ${!isLoading ? `
-            <div class="suggest-modal-footer">
-                <span class="suggest-modal-hint">Vous pouvez modifier le texte avant de l'enregistrer.</span>
-                <button class="suggest-save-btn" onclick="createPromptFromSuggestion('${encodeURIComponent(promptName)}')">
-                    ✅ Créer ce prompt
-                </button>
-            </div>` : ''}
         </div>
     `;
 
@@ -3227,31 +3284,6 @@ function closeSuggestModal() {
     if (!modal) return;
     modal.classList.remove('suggest-modal-visible');
     setTimeout(() => modal.remove(), 250);
-}
-
-async function createPromptFromSuggestion(encodedPromptName) {
-    const textarea = document.getElementById('suggestedPromptText');
-    if (!textarea) return;
-    const content = textarea.value.trim();
-    if (!content) return;
-
-    const baseName = decodeURIComponent(encodedPromptName);
-    const newName = `${baseName} (adapté)`;
-
-    try {
-        promptManager.createPrompt({
-            name: newName,
-            description: 'Prompt adapté automatiquement à partir des résultats de test',
-            content: content,
-            userneeds: [...USERNEEDS],
-            tags: []
-        });
-        closeSuggestModal();
-        showToast(`Prompt "${newName}" créé avec succès`);
-        refreshPromptList();
-    } catch (err) {
-        showToast('Erreur lors de la création du prompt : ' + err.message, 'error');
-    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

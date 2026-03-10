@@ -5,21 +5,67 @@ import json
 import urllib.request
 from urllib.parse import urlparse, parse_qs
 import os
+import base64
 
 PORT = int(os.environ.get('PORT', 8000))
 
+# Basic Auth credentials (depuis les variables d'environnement)
+BASIC_AUTH_USER = os.environ.get('BASIC_AUTH_USER', '')
+BASIC_AUTH_PASSWORD = os.environ.get('BASIC_AUTH_PASSWORD', '')
+
+def is_auth_enabled():
+    """Auth activée uniquement si les deux variables sont définies."""
+    return bool(BASIC_AUTH_USER and BASIC_AUTH_PASSWORD)
+
 class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
+
+    def _check_auth(self):
+        """Vérifie le header Authorization. Retourne True si OK, False sinon."""
+        if not is_auth_enabled():
+            return True
+
+        auth_header = self.headers.get('Authorization', '')
+
+        if not auth_header.startswith('Basic '):
+            self._send_auth_required()
+            return False
+
+        try:
+            encoded_credentials = auth_header.split(' ', 1)[1]
+            decoded = base64.b64decode(encoded_credentials).decode('utf-8')
+            username, password = decoded.split(':', 1)
+
+            if username == BASIC_AUTH_USER and password == BASIC_AUTH_PASSWORD:
+                return True
+        except Exception:
+            pass
+
+        self._send_auth_required()
+        return False
+
+    def _send_auth_required(self):
+        """Envoie une réponse 401 avec le challenge Basic Auth."""
+        self.send_response(401)
+        self.send_header('WWW-Authenticate', 'Basic realm="Accès protégé - Qualification Userneeds"')
+        self.send_header('Content-Type', 'text/html; charset=utf-8')
+        self.end_headers()
+        self.wfile.write(b'<h1>401 - Authentification requise</h1>')
+
     def end_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
         super().end_headers()
 
     def do_OPTIONS(self):
+        """OPTIONS ne nécessite pas d'auth (preflight CORS)."""
         self.send_response(200)
         self.end_headers()
 
     def do_GET(self):
+        if not self._check_auth():
+            return
+
         parsed = urlparse(self.path)
         path = parsed.path
         params = parse_qs(parsed.query)
@@ -116,6 +162,9 @@ Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
             return json.dumps(transformed_response).encode('utf-8')
 
     def do_POST(self):
+        if not self._check_auth():
+            return
+
         # Unified analyze endpoint - OpenRouter only
         if self.path == '/api/analyze':
             content_length = int(self.headers['Content-Length'])
@@ -162,6 +211,10 @@ if __name__ == '__main__':
 
     with ReusableTCPServer(("", PORT), ProxyHTTPRequestHandler) as httpd:
         print(f"✅ Serveur démarré sur http://localhost:{PORT}")
+        if is_auth_enabled():
+            print(f"🔒 Basic Auth activée (user: {BASIC_AUTH_USER})")
+        else:
+            print(f"🔓 Basic Auth désactivée (variables BASIC_AUTH_USER / BASIC_AUTH_PASSWORD non définies)")
         print(f"📡 API endpoints actifs :")
         print(f"   - /api/health")
         print(f"   - /api/analyze (OpenRouter LLM)")

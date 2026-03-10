@@ -620,7 +620,7 @@ Règle CRITIQUE : Tu dois répondre EXACTEMENT avec le format ci-dessus. Commenc
             isActive: false,
             createdAt: new Date().toISOString(),
             modifiedAt: new Date().toISOString(),
-            content: { ...promptData.content },
+            content: promptData.content,
             userneeds: promptData.userneeds || [...USERNEEDS],
             metadata: {
                 version: '1.0',
@@ -669,7 +669,7 @@ Règle CRITIQUE : Tu dois répondre EXACTEMENT avec le format ci-dessus. Commenc
             return this.createPrompt({
                 name: `${original.name} (Copie)`,
                 description: original.description,
-                content: { ...original.content },
+                content: original.content,
                 userneeds: [...original.userneeds],
                 tags: [...(original.metadata.tags || [])]
             });
@@ -3125,10 +3125,11 @@ async function suggestPromptAdaptation() {
     confusions.sort((a, b) => b.count - a.count);
     const topConfusions = confusions.slice(0, 6);
 
-    const promptSnapshot = run.prompt_snapshot || '(prompt non disponible)';
+    const activePrompt = promptManager.getActivePrompt();
+    const promptSnapshot = (activePrompt?.content) || run.prompt_snapshot || '(prompt non disponible)';
     const concordance = run.concordant_percent ?? '?';
     const total = run.analyzed_articles ?? '?';
-    const promptName = run.prompts?.name || run.prompt_id || '—';
+    const promptName = activePrompt?.name || run.prompts?.name || run.prompt_id || '—';
 
     const confusionLines = topConfusions.length > 0
         ? topConfusions.map(c => `  • L'IA a prédit "${c.ai}" alors que la classification humaine était "${c.human}" : ${c.count} fois`).join('\n')

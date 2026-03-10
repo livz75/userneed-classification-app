@@ -2421,6 +2421,33 @@ input[type="file"] {
     background: rgba(16, 185, 129, 0.05);
 }
 
+.classification-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.declassify-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s;
+    flex-shrink: 0;
+}
+
+.declassify-btn:hover {
+    background: rgba(239, 68, 68, 0.3);
+    transform: scale(1.1);
+}
+
 /* ============================= */
 /* TEST RUNS PANEL               */
 /* ============================= */

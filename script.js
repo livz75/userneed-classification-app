@@ -2307,15 +2307,29 @@ function renderArticleCard(article) {
                     ${dateStr ? `<span>Publié le ${dateStr}</span>` : ''}
                     ${article.auteur ? `<span>${article.auteur}</span>` : ''}
                 </div>
-                <select class="classification-select ${isClassified ? 'classified' : ''}"
-                        onchange="handleClassification('${article.id}', this.value)"
-                        title="Classifier cet article">
-                    <option value="">-- Classifier --</option>
-                    ${options}
-                </select>
+                <div class="classification-actions">
+                    <select class="classification-select ${isClassified ? 'classified' : ''}"
+                            onchange="handleClassification('${article.id}', this.value)"
+                            title="Classifier cet article">
+                        <option value="">-- Classifier --</option>
+                        ${options}
+                    </select>
+                    ${isClassified ? `<button class="declassify-btn" onclick="declassifyArticle('${article.id}')" title="Retirer la classification">✕</button>` : ''}
+                </div>
             </div>
         </div>
     `;
+}
+
+async function declassifyArticle(articleId) {
+    try {
+        await classificationManager.unclassify(articleId);
+        await refreshArticlesList();
+        showToast('Classification retirée');
+    } catch (error) {
+        console.error('Erreur déclassification:', error);
+        showToast('Erreur lors de la déclassification', 'error');
+    }
 }
 
 async function handleClassification(articleId, userneed) {

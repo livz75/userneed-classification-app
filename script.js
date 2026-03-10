@@ -37,6 +37,7 @@ let concordanceFilter = 'all'; // 'all' | 'concordant' | 'non-concordant'
 
 // Sélection pour la comparaison (max 2 IDs)
 let selectedRunIds = [];
+let currentViewedRun = null;
 
 // ===================================
 // HEALTH CHECK DU SERVEUR
@@ -2549,6 +2550,9 @@ async function viewTestRun(runId) {
                             run.status === 'running' ? 'En cours' : 'Arrêté';
         const promptName = run.prompts?.name || run.prompt_id || '—';
 
+        // Stocker le run courant pour la suggestion de prompt
+        currentViewedRun = run;
+
         headerContainer.innerHTML = `
             <h3>${run.name || 'Test sans nom'}</h3>
             <div class="test-detail-meta">
@@ -2557,6 +2561,11 @@ async function viewTestRun(runId) {
                 <span>📅 Date: <strong>${dateStr}</strong></span>
                 <span>📊 Status: <strong>${statusLabel}</strong></span>
                 <span>✅ Concordance: <strong>${run.concordant_percent ?? '—'}%</strong> (${run.concordant_count ?? 0}/${run.analyzed_articles ?? 0})</span>
+            </div>
+            <div class="test-detail-actions">
+                <button class="suggest-prompt-btn" onclick="suggestPromptAdaptation()">
+                    💡 Adapter le prompt
+                </button>
             </div>
         `;
 
@@ -3085,6 +3094,159 @@ Sois direct, concis, et parle comme un expert qui s'adresse à une équipe édit
         }
     }
 }
+
+// ─── Suggest prompt adaptation ───────────────────────────────────────────────
+
+async function suggestPromptAdaptation() {
+    const run = currentViewedRun;
+    if (!run) return;
+
+    if (!providerManager || !providerManager.isConfigured()) {
+        showToast('Clé API non configurée', 'error');
+        return;
+    }
+
+    // Ouvrir le modal en état "chargement"
+    openSuggestModal(null, run);
+
+    // Extraire les principales confusions depuis la matrice
+    const matrix = run.confusion_matrix || {};
+    const confusions = [];
+    for (const humanLabel in matrix) {
+        for (const aiLabel in matrix[humanLabel]) {
+            if (humanLabel !== aiLabel) {
+                const count = matrix[humanLabel][aiLabel];
+                if (count > 0) confusions.push({ human: humanLabel, ai: aiLabel, count });
+            }
+        }
+    }
+    confusions.sort((a, b) => b.count - a.count);
+    const topConfusions = confusions.slice(0, 6);
+
+    const promptSnapshot = run.prompt_snapshot || '(prompt non disponible)';
+    const concordance = run.concordant_percent ?? '?';
+    const total = run.analyzed_articles ?? '?';
+    const promptName = run.prompts?.name || run.prompt_id || '—';
+
+    const confusionLines = topConfusions.length > 0
+        ? topConfusions.map(c => `  • L'IA a prédit "${c.ai}" alors que la classification humaine était "${c.human}" : ${c.count} fois`).join('\n')
+        : '  (aucune confusion significative détectée)';
+
+    const metaPrompt = `Tu es expert en prompt engineering pour un système de classification éditoriale.
+
+Voici le prompt utilisé lors du test "${promptName}" pour classifier des articles Franceinfo selon les 8 User Needs :
+
+---
+${promptSnapshot}
+---
+
+Résultats du test (${total} articles) :
+- Taux de concordance global : ${concordance}%
+- Principales confusions détectées (IA vs classification humaine) :
+${confusionLines}
+
+Ta mission : propose une version améliorée de ce prompt qui :
+1. Clarifie les distinctions sémantiques entre les User Needs qui ont été confondus, sans utiliser d'exemples d'articles spécifiques
+2. Reste un prompt générique et réutilisable pour n'importe quel article
+3. Conserve exactement le format de réponse demandé (USERNEED PRINCIPAL, SECONDAIRE, TERTIAIRE avec SCORE et JUSTIFICATION)
+4. Ne modifie que les passages ambigus — ne change pas ce qui fonctionne bien
+5. Ne dépasse pas la longueur du prompt original de plus de 20%
+
+Retourne UNIQUEMENT le nouveau prompt amélioré, sans introduction ni commentaires.`;
+
+    try {
+        const payload = providerManager.getRequestPayload(metaPrompt);
+        payload.model = 'anthropic/claude-3.5-sonnet';
+
+        const response = await fetch('/api/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        const suggestedPrompt = data.content || data.choices?.[0]?.message?.content || null;
+
+        openSuggestModal(suggestedPrompt, run);
+    } catch (err) {
+        openSuggestModal('Erreur lors de la génération : ' + err.message, run);
+    }
+}
+
+function openSuggestModal(suggestedPrompt, run) {
+    // Supprimer modal existant
+    const existing = document.getElementById('suggestPromptModal');
+    if (existing) existing.remove();
+
+    const isLoading = suggestedPrompt === null;
+    const promptName = run.prompts?.name || run.prompt_id || 'prompt';
+
+    const modal = document.createElement('div');
+    modal.id = 'suggestPromptModal';
+    modal.className = 'suggest-modal-overlay';
+    modal.innerHTML = `
+        <div class="suggest-modal">
+            <div class="suggest-modal-header">
+                <h3>💡 Proposition d'adaptation du prompt</h3>
+                <button class="suggest-modal-close" onclick="closeSuggestModal()">✕</button>
+            </div>
+            <div class="suggest-modal-subheader">
+                Basée sur les résultats de <strong>${run.name || 'ce test'}</strong>
+                — Concordance : <strong>${run.concordant_percent ?? '?'}%</strong>
+            </div>
+            <div class="suggest-modal-body" id="suggestModalBody">
+                ${isLoading
+                    ? '<div class="suggest-loading"><span class="suggest-spinner"></span> Analyse des confusions et génération en cours…</div>'
+                    : `<textarea class="suggest-prompt-textarea" id="suggestedPromptText">${suggestedPrompt}</textarea>`
+                }
+            </div>
+            ${!isLoading ? `
+            <div class="suggest-modal-footer">
+                <span class="suggest-modal-hint">Vous pouvez modifier le texte avant de l'enregistrer.</span>
+                <button class="suggest-save-btn" onclick="createPromptFromSuggestion('${encodeURIComponent(promptName)}')">
+                    ✅ Créer ce prompt
+                </button>
+            </div>` : ''}
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+    requestAnimationFrame(() => modal.classList.add('suggest-modal-visible'));
+}
+
+function closeSuggestModal() {
+    const modal = document.getElementById('suggestPromptModal');
+    if (!modal) return;
+    modal.classList.remove('suggest-modal-visible');
+    setTimeout(() => modal.remove(), 250);
+}
+
+async function createPromptFromSuggestion(encodedPromptName) {
+    const textarea = document.getElementById('suggestedPromptText');
+    if (!textarea) return;
+    const content = textarea.value.trim();
+    if (!content) return;
+
+    const baseName = decodeURIComponent(encodedPromptName);
+    const newName = `${baseName} (adapté)`;
+
+    try {
+        promptManager.createPrompt({
+            name: newName,
+            description: 'Prompt adapté automatiquement à partir des résultats de test',
+            content: content,
+            userneeds: [...USERNEEDS],
+            tags: []
+        });
+        closeSuggestModal();
+        showToast(`Prompt "${newName}" créé avec succès`);
+        refreshPromptList();
+    } catch (err) {
+        showToast('Erreur lors de la création du prompt : ' + err.message, 'error');
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function calcPrecision(matrix, userneed) {
     // Precision = TP / (TP + FP) — of all predicted as this UN, how many were correct

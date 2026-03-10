@@ -2266,6 +2266,24 @@ input[type="file"] {
     margin-left: auto;
 }
 
+.articles-refresh-btn {
+    padding: 5px 12px;
+    border-radius: 8px;
+    border: 1.5px solid var(--border-color);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-family: 'Poppins', sans-serif;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+    margin-left: 8px;
+}
+
+.articles-refresh-btn:hover {
+    border-color: var(--accent-purple);
+    color: var(--accent-purple);
+}
+
 /* Articles list */
 .articles-list-container {
     overflow-y: visible;

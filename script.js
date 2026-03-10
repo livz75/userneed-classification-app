@@ -3176,28 +3176,30 @@ async function applyProposals() {
 
     const finalPrompt = `Tu es expert en prompt engineering pour un système de classification éditoriale.
 
-Voici le prompt original :
----
+Voici le prompt ORIGINAL à améliorer — tu dois le reprendre intégralement et y intégrer les adaptations listées ci-dessous :
+
+=== DÉBUT DU PROMPT ORIGINAL ===
 ${currentContent}
----
+=== FIN DU PROMPT ORIGINAL ===
 
-Voici les adaptations à intégrer :
----
+Adaptations à intégrer :
 ${proposals}
----
 
-INSTRUCTIONS ABSOLUES :
-- Génère le prompt COMPLET et INTÉGRAL en intégrant ces adaptations
-- INTERDIT d'utiliser "[Reste du prompt identique]", "[...]" ou tout raccourci — recopie intégralement les parties inchangées
-- Conserve exactement le format de réponse (USERNEED PRINCIPAL, SECONDAIRE, TERTIAIRE, SCORE, JUSTIFICATION)
-- Ne pose aucune question, commence directement par la première ligne du prompt
+RÈGLES ABSOLUES :
+1. Reprends le prompt original MOT POUR MOT, section par section
+2. Modifie UNIQUEMENT les passages concernés par les adaptations
+3. INTERDIT de résumer, tronquer ou remplacer une section par "[...]", "[reste identique]" ou toute abréviation
+4. INTERDIT de poser une question ou de t'arrêter avant la fin — génère le prompt COMPLET jusqu'à la dernière ligne
+5. Conserve exactement le format de réponse final (USERNEED PRINCIPAL, SECONDAIRE, TERTIAIRE, SCORE, JUSTIFICATION)
+6. Commence directement par la première ligne du prompt sans introduction
 
-PROMPT COMPLET :`;
+PROMPT COMPLET AMÉLIORÉ :`;
 
     try {
         const payload = providerManager.getRequestPayload(finalPrompt);
         payload.model = 'anthropic/claude-3.5-sonnet';
         payload.system = '';
+        payload.max_tokens = 16000;
         const res = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const data = await res.json();
         let adapted = (data.content || '').trim().replace(/^PROMPT\s+(COMPLET\s*)?:?\s*/i, '').trim();

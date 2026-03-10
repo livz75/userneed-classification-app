@@ -103,7 +103,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         else:
             super().do_GET()
 
-    def _call_openrouter(self, api_key, model, prompt, system=None):
+    def _call_openrouter(self, api_key, model, prompt, system=None, max_tokens=4096):
         """Call OpenRouter API with specified model.
         If system is None, uses the default classification system message.
         If system is an empty string, sends no system message.
@@ -149,7 +149,7 @@ Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
         api_data = json.dumps({
             'model': model,
             'messages': messages,
-            'max_tokens': 4096
+            'max_tokens': min(int(max_tokens), 32000)
         }).encode('utf-8')
 
         req = urllib.request.Request(api_url, data=api_data, method='POST')
@@ -185,10 +185,10 @@ Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
                 api_key = request_data['apiKey']
                 prompt = request_data['prompt']
                 model = request_data.get('model', 'anthropic/claude-3.5-haiku')
-                system = request_data.get('system', None)  # None = system par défaut
+                system = request_data.get('system', None)
+                max_tokens = request_data.get('max_tokens', 4096)
 
-                # Toujours utiliser OpenRouter
-                response_data = self._call_openrouter(api_key, model, prompt, system=system)
+                response_data = self._call_openrouter(api_key, model, prompt, system=system, max_tokens=max_tokens)
 
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')

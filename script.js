@@ -2243,7 +2243,7 @@ function renderFilteredArticles() {
 function applyTitleFilter(value) {
     articleTitleSearch = value;
     const clearBtn = document.getElementById('articleTitleSearchClear');
-    if (clearBtn) clearBtn.style.display = value ? 'flex' : 'none';
+    if (clearBtn) clearBtn.classList.toggle('has-value', !!value);
     renderFilteredArticles();
 }
 
@@ -2252,7 +2252,7 @@ function clearTitleSearch() {
     const input = document.getElementById('articleTitleSearchInput');
     if (input) input.value = '';
     const clearBtn = document.getElementById('articleTitleSearchClear');
-    if (clearBtn) clearBtn.style.display = 'none';
+    if (clearBtn) clearBtn.classList.remove('has-value');
     renderFilteredArticles();
 }
 

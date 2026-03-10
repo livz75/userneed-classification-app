@@ -1928,7 +1928,38 @@ async function analyzeWithAI() {
     }
 }
 
+// Erreurs non-récupérables : inutile de retenter
+function isRetryableError(error) {
+    const msg = error.message || '';
+    if (error.name === 'AbortError') return false;
+    if (msg.includes('401') || msg.includes('Unauthorized')) return false;
+    if (msg.includes('429')) return false;
+    if (msg.includes('403')) return false;
+    return true;
+}
+
 async function analyzeArticle(apiKey, titre, chapo, corps) {
+    const MAX_RETRIES = 3;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        if (attempt > 1) {
+            addLog(`🔄 Nouvelle tentative (${attempt}/${MAX_RETRIES})…`, 'info');
+            await new Promise(r => setTimeout(r, 2000));
+        }
+
+        try {
+            const result = await _doAnalyzeArticle(apiKey, titre, chapo, corps);
+            return result;
+        } catch (error) {
+            if (!isRetryableError(error) || attempt === MAX_RETRIES) {
+                throw error;
+            }
+            addLog(`⚠️ Tentative ${attempt} échouée (${error.message}) — retry dans 2s`, 'error');
+        }
+    }
+}
+
+async function _doAnalyzeArticle(apiKey, titre, chapo, corps) {
     // Utiliser le prompt du gestionnaire au lieu du hardcodé
     const prompt = promptManager.buildFullPrompt(titre, chapo, corps);
 

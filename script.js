@@ -3147,16 +3147,15 @@ Résultats du dernier test (${total} articles, concordance : ${concordance}%) :
 Principales confusions détectées (IA a prédit X alors que la classification humaine était Y) :
 ${confusionLines}
 
-INSTRUCTIONS STRICTES :
-- Génère directement le prompt amélioré, intégralement, sans aucun commentaire avant ni après
-- Ne pose aucune question, ne demande pas de confirmation
-- Ne liste pas de recommandations : intègre-les directement dans le prompt
-- Conserve exactement la structure et le format de réponse du prompt original (USERNEED PRINCIPAL, SECONDAIRE, TERTIAIRE, SCORE, JUSTIFICATION)
-- Clarifie uniquement les définitions des User Needs qui ont été confondus, sans exemples d'articles
-- Ne modifie pas ce qui fonctionne bien
-- Commence ta réponse directement par la première ligne du prompt, sans introduction
+INSTRUCTIONS ABSOLUES :
+- Retourne le prompt COMPLET et INTÉGRAL, prêt à l'emploi
+- INTERDIT d'utiliser des raccourcis comme "[Reste du prompt identique]", "[...]", "[suite inchangée]" ou toute autre abréviation — recopie mot pour mot les parties non modifiées
+- Intègre directement les améliorations dans le texte du prompt, sans commentaires séparés
+- Ne pose aucune question, ne demande aucune confirmation
+- Conserve exactement la structure et le format de réponse (USERNEED PRINCIPAL, SECONDAIRE, TERTIAIRE, SCORE, JUSTIFICATION)
+- Commence ta réponse par la première ligne du prompt, sans aucune introduction
 
-PROMPT AMÉLIORÉ :`;
+PROMPT COMPLET AMÉLIORÉ :`;
 
     try {
         const payload = providerManager.getRequestPayload(metaPrompt);
@@ -3173,7 +3172,7 @@ PROMPT AMÉLIORÉ :`;
         let suggestedPrompt = data.content || data.choices?.[0]?.message?.content || null;
         // Supprimer un éventuel préfixe "PROMPT AMÉLIORÉ :" laissé par le modèle
         if (suggestedPrompt) {
-            suggestedPrompt = suggestedPrompt.replace(/^PROMPT\s+AM[EÉ]LIOR[EÉ]\s*:?\s*/i, '').trim();
+            suggestedPrompt = suggestedPrompt.replace(/^PROMPT\s+(COMPLET\s+)?AM[EÉ]LIOR[EÉ]\s*:?\s*/i, '').trim();
         }
 
         openSuggestModal(suggestedPrompt, run);

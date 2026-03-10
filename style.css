@@ -2427,6 +2427,19 @@ input[type="file"] {
     gap: 6px;
 }
 
+.userneed-badge {
+    display: inline-block;
+    padding: 5px 12px;
+    border-radius: 20px;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1.5px solid var(--accent-green);
+    color: var(--accent-green);
+    font-size: 0.78rem;
+    font-weight: 600;
+    font-family: 'Poppins', sans-serif;
+    white-space: nowrap;
+}
+
 .declassify-btn {
     display: flex;
     align-items: center;

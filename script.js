@@ -2308,13 +2308,16 @@ function renderArticleCard(article) {
                     ${article.auteur ? `<span>${article.auteur}</span>` : ''}
                 </div>
                 <div class="classification-actions">
-                    <select class="classification-select ${isClassified ? 'classified' : ''}"
-                            onchange="handleClassification('${article.id}', this.value)"
-                            title="Classifier cet article">
-                        <option value="">-- Classifier --</option>
-                        ${options}
-                    </select>
-                    ${isClassified ? `<button class="declassify-btn" onclick="declassifyArticle('${article.id}')" title="Retirer la classification">✕</button>` : ''}
+                    ${isClassified
+                        ? `<span class="userneed-badge">${selectedUserneed}</span>
+                           <button class="declassify-btn" onclick="declassifyArticle('${article.id}')" title="Retirer la classification">✕</button>`
+                        : `<select class="classification-select"
+                                   onchange="handleClassification('${article.id}', this.value)"
+                                   title="Classifier cet article">
+                               <option value="">-- Classifier --</option>
+                               ${options}
+                           </select>`
+                    }
                 </div>
             </div>
         </div>

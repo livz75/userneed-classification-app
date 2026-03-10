@@ -988,6 +988,9 @@ function clearTable() {
     stopAnalysis = false;
     hideError();
     initConfusionMatrix();
+    currentViewedRun = null;
+    const suggestBtn = document.getElementById('suggestPromptBtn');
+    if (suggestBtn) suggestBtn.style.display = 'none';
 }
 
 function initConfusionMatrix() {
@@ -2562,11 +2565,6 @@ async function viewTestRun(runId) {
                 <span>📊 Status: <strong>${statusLabel}</strong></span>
                 <span>✅ Concordance: <strong>${run.concordant_percent ?? '—'}%</strong> (${run.concordant_count ?? 0}/${run.analyzed_articles ?? 0})</span>
             </div>
-            <div class="test-detail-actions">
-                <button class="suggest-prompt-btn" onclick="suggestPromptAdaptation()">
-                    💡 Adapter le prompt
-                </button>
-            </div>
         `;
 
         // Charger la matrice de confusion depuis la DB et l'afficher dans la vue principale
@@ -2673,6 +2671,10 @@ async function loadMatrixFromTestRun(run) {
     // Afficher la zone stats
     statsContainer.style.display = 'block';
     hideArticlesSection();
+
+    // Afficher le bouton "Adapter le prompt" si on a un run chargé
+    const suggestBtn = document.getElementById('suggestPromptBtn');
+    if (suggestBtn) suggestBtn.style.display = currentViewedRun ? 'inline-block' : 'none';
 
     // Fermer le panneau Tests pour voir la matrice
     closeTestsPanel();

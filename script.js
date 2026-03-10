@@ -176,8 +176,16 @@ function parseAIResponse(responseText) {
     const validUserneeds = USERNEEDS.join('|').replace(/\s+/g, '\\s+');
     const validateUserneed = (name) => {
         if (!name) return null;
+        const trimmed = name.trim().toUpperCase();
+        // 1. Correspondance exacte via la table de variantes connues
+        if (USERNEED_VARIANTS[trimmed]) return USERNEED_VARIANTS[trimmed];
+        // 2. Correspondance partielle (ex: "GIVE ME CONCERNING" → "GIVE ME CONCERNING NEWS")
+        for (const [variant, canonical] of Object.entries(USERNEED_VARIANTS)) {
+            if (trimmed.includes(variant) || variant.includes(trimmed)) return canonical;
+        }
+        // 3. Regex sur les noms complets
         const regex = new RegExp(`(${validUserneeds})`, 'i');
-        const match = name.trim().match(regex);
+        const match = trimmed.match(regex);
         return match ? match[1].toUpperCase().trim() : null;
     };
 
@@ -1952,7 +1960,7 @@ async function analyzeArticle(apiKey, titre, chapo, corps) {
         }
 
         try {
-            const result = await _doAnalyzeArticle(apiKey, titre, chapo, corps);
+            const result = await _doAnalyzeArticle(apiKey, titre, chapo, corps, attempt);
             return result;
         } catch (error) {
             if (!isRetryableError(error) || attempt === MAX_RETRIES) {
@@ -1963,9 +1971,15 @@ async function analyzeArticle(apiKey, titre, chapo, corps) {
     }
 }
 
-async function _doAnalyzeArticle(apiKey, titre, chapo, corps) {
+async function _doAnalyzeArticle(apiKey, titre, chapo, corps, attempt = 1) {
     // Utiliser le prompt du gestionnaire au lieu du hardcodé
-    const prompt = promptManager.buildFullPrompt(titre, chapo, corps);
+    let prompt = promptManager.buildFullPrompt(titre, chapo, corps);
+
+    // Sur les tentatives suivantes, injecter un rappel strict sur les options valides
+    if (attempt > 1) {
+        const optionsList = USERNEEDS.join(' | ');
+        prompt += `\n\n⚠️ RAPPEL OBLIGATOIRE (tentative ${attempt}/${3}) : ta réponse précédente contenait des userneeds non reconnus. Tu DOIS choisir UNIQUEMENT parmi ces ${USERNEEDS.length} noms exacts :\n${optionsList}\nTout autre libellé sera rejeté.`;
+    }
 
     // NEW: Get request payload from provider manager
     const requestPayload = providerManager.getRequestPayload(prompt);
@@ -2023,6 +2037,12 @@ async function _doAnalyzeArticle(apiKey, titre, chapo, corps) {
 
         if (!parsed) {
             throw new Error(`Impossible de parser la réponse du modèle : "${responseText.substring(0, 100)}"`);
+        }
+
+        // Si le principal est non identifié, relancer — les autres peuvent l'être (moins grave)
+        const unidentifiedCount = parsed.predictions.filter(p => p.userneed === '❓ Non identifié').length;
+        if (parsed.predictions[0]?.userneed === '❓ Non identifié') {
+            throw new Error(`Userneed principal non reconnu (${unidentifiedCount}/3 non identifiés) — réponse brute : "${responseText.substring(0, 150)}"`);
         }
 
         return parsed;

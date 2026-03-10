@@ -152,7 +152,9 @@ function normalizeUserneed(userneed) {
 
 // Parse la réponse de Claude pour extraire userneed et justification
 function parseAIResponse(responseText) {
+    if (!responseText) return null;
     const text = responseText.trim();
+    if (!text) return null;
 
     // Regex universelle pour capturer tous les formats possibles:
     // Format 1: "Le userneed principal est GIVE ME CONCERNING NEWS, avec un score de 50."
@@ -1975,10 +1977,18 @@ async function analyzeArticle(apiKey, titre, chapo, corps) {
         // DEBUG: Log la réponse brute
         console.log('🔍 Réponse brute:', responseText);
 
+        if (!responseText) {
+            throw new Error('Le modèle a renvoyé une réponse vide');
+        }
+
         const parsed = parseAIResponse(responseText);
 
         // DEBUG: Log le résultat du parsing
         console.log('📊 Résultat du parsing:', parsed);
+
+        if (!parsed) {
+            throw new Error(`Impossible de parser la réponse du modèle : "${responseText.substring(0, 100)}"`);
+        }
 
         return parsed;
     } catch (error) {

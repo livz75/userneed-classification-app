@@ -3137,25 +3137,26 @@ async function suggestPromptAdaptation() {
 
     const metaPrompt = `Tu es expert en prompt engineering pour un système de classification éditoriale.
 
-Voici le prompt utilisé lors du test "${promptName}" pour classifier des articles Franceinfo selon les 8 User Needs :
+Voici le prompt actif à améliorer :
 
 ---
 ${promptSnapshot}
 ---
 
-Résultats du test (${total} articles) :
-- Taux de concordance global : ${concordance}%
-- Principales confusions détectées (IA vs classification humaine) :
+Résultats du dernier test (${total} articles, concordance : ${concordance}%) :
+Principales confusions détectées (IA a prédit X alors que la classification humaine était Y) :
 ${confusionLines}
 
-Ta mission : propose une version améliorée de ce prompt qui :
-1. Clarifie les distinctions sémantiques entre les User Needs qui ont été confondus, sans utiliser d'exemples d'articles spécifiques
-2. Reste un prompt générique et réutilisable pour n'importe quel article
-3. Conserve exactement le format de réponse demandé (USERNEED PRINCIPAL, SECONDAIRE, TERTIAIRE avec SCORE et JUSTIFICATION)
-4. Ne modifie que les passages ambigus — ne change pas ce qui fonctionne bien
-5. Ne dépasse pas la longueur du prompt original de plus de 20%
+INSTRUCTIONS STRICTES :
+- Génère directement le prompt amélioré, intégralement, sans aucun commentaire avant ni après
+- Ne pose aucune question, ne demande pas de confirmation
+- Ne liste pas de recommandations : intègre-les directement dans le prompt
+- Conserve exactement la structure et le format de réponse du prompt original (USERNEED PRINCIPAL, SECONDAIRE, TERTIAIRE, SCORE, JUSTIFICATION)
+- Clarifie uniquement les définitions des User Needs qui ont été confondus, sans exemples d'articles
+- Ne modifie pas ce qui fonctionne bien
+- Commence ta réponse directement par la première ligne du prompt, sans introduction
 
-Retourne UNIQUEMENT le nouveau prompt amélioré, sans introduction ni commentaires.`;
+PROMPT AMÉLIORÉ :`;
 
     try {
         const payload = providerManager.getRequestPayload(metaPrompt);
@@ -3168,7 +3169,11 @@ Retourne UNIQUEMENT le nouveau prompt amélioré, sans introduction ni commentai
         });
 
         const data = await response.json();
-        const suggestedPrompt = data.content || data.choices?.[0]?.message?.content || null;
+        let suggestedPrompt = data.content || data.choices?.[0]?.message?.content || null;
+        // Supprimer un éventuel préfixe "PROMPT AMÉLIORÉ :" laissé par le modèle
+        if (suggestedPrompt) {
+            suggestedPrompt = suggestedPrompt.replace(/^PROMPT\s+AM[EÉ]LIOR[EÉ]\s*:?\s*/i, '').trim();
+        }
 
         openSuggestModal(suggestedPrompt, run);
     } catch (err) {

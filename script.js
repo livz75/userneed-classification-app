@@ -101,6 +101,7 @@ const OUTPUT_TOKENS_50 = 6000;
 const MODELS = [
     // id, provider, name, speedLabel, speedStars(1-5), input$/M, output$/M, qualityStars, french(1-3), recommended, note
     { id: 'anthropic/claude-3.5-haiku',                 provider: 'Anthropic', name: 'Claude 3.5 Haiku',       speed: '⚡⚡⚡ Très rapide', input: 0.80,  output: 4.00,  quality: 5, french: 3, recommended: true,  note: 'Meilleur équilibre vitesse/qualité/français' },
+    { id: 'openai/gpt-5-mini',                           provider: 'OpenAI',    name: 'GPT-5 Mini',             speed: '⚡⚡ Rapide',        input: 0.25,  output: 2.00,  quality: 5, french: 3, recommended: true,  note: 'Successeur o4-mini, raisonnement compact' },
     { id: 'openai/gpt-4o-mini',                         provider: 'OpenAI',    name: 'GPT-4o Mini',            speed: '⚡⚡⚡ Très rapide', input: 0.15,  output: 0.60,  quality: 4, french: 3, recommended: true,  note: 'Excellent rapport qualité/prix' },
     { id: 'mistralai/mistral-small-24b-instruct-2501',  provider: 'Mistral',   name: 'Mistral Small 3.1',      speed: '⚡⚡ Rapide',        input: 0.10,  output: 0.30,  quality: 4, french: 3, recommended: true,  note: 'Modèle européen, excellent en français' },
     { id: 'google/gemini-2.5-flash-lite',               provider: 'Google',    name: 'Gemini 2.5 Flash Lite',  speed: '⚡⚡⚡ Très rapide', input: 0.10,  output: 0.40,  quality: 4, french: 2, recommended: true,  note: 'Ultra rapide, très économique' },

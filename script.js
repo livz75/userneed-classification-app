@@ -2199,7 +2199,13 @@ function renderFilteredArticles() {
     // Filtre statut
     let filtered = articles;
     if (articleFilter === 'classified') {
-        filtered = articles.filter(a => a.human_classifications && a.human_classifications.length > 0);
+        filtered = articles
+            .filter(a => a.human_classifications && a.human_classifications.length > 0)
+            .sort((a, b) => {
+                const dateA = new Date(a.human_classifications[0].classified_at || 0);
+                const dateB = new Date(b.human_classifications[0].classified_at || 0);
+                return dateB - dateA;
+            });
     } else if (articleFilter === 'unclassified') {
         filtered = articles.filter(a => !a.human_classifications || a.human_classifications.length === 0);
     }

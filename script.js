@@ -3174,10 +3174,10 @@ async function applyProposals() {
     const rightPanel = document.getElementById('adaptRightPanel');
     if (rightPanel) rightPanel.innerHTML = '<div class="suggest-loading"><span class="suggest-spinner"></span> Génération du prompt adapté…</div>';
 
+    // Approche diff : le LLM ne sort QUE les passages à modifier, JS les applique au prompt original
     const finalPrompt = `Tu es expert en prompt engineering pour un système de classification éditoriale.
 
-Voici le prompt ORIGINAL à améliorer — tu dois le reprendre intégralement et y intégrer les adaptations listées ci-dessous :
-
+Voici le prompt ORIGINAL :
 === DÉBUT DU PROMPT ORIGINAL ===
 ${currentContent}
 === FIN DU PROMPT ORIGINAL ===
@@ -3185,29 +3185,52 @@ ${currentContent}
 Adaptations à intégrer :
 ${proposals}
 
-RÈGLES ABSOLUES :
-1. Reprends le prompt original MOT POUR MOT, section par section
-2. Modifie UNIQUEMENT les passages concernés par les adaptations
-3. INTERDIT de résumer, tronquer ou remplacer une section par "[...]", "[reste identique]" ou toute abréviation
-4. INTERDIT de poser une question ou de t'arrêter avant la fin — génère le prompt COMPLET jusqu'à la dernière ligne
-5. Conserve exactement le format de réponse final (USERNEED PRINCIPAL, SECONDAIRE, TERTIAIRE, SCORE, JUSTIFICATION)
-6. Commence directement par la première ligne du prompt sans introduction
+TÂCHE : Pour chaque adaptation, fournis uniquement le passage exact à modifier et sa version améliorée.
+Ne reproduis PAS l'intégralité du prompt.
 
-PROMPT COMPLET AMÉLIORÉ :`;
+FORMAT OBLIGATOIRE (un bloc par modification) :
+===DEBUT_MODIF===
+ORIGINAL: [copie exacte et littérale du passage original à remplacer, sans rien changer]
+NOUVEAU: [version modifiée de ce passage uniquement]
+===FIN_MODIF===
+
+RÈGLES :
+- Copie les passages EXACTEMENT tels qu'ils apparaissent dans l'original (ponctuation, sauts de ligne inclus)
+- Si une section doit être ajoutée, inclus le passage qui la précède dans ORIGINAL et ajoute le nouveau contenu dans NOUVEAU
+- Ne pose pas de question, n'ajoute aucun commentaire avant ou après les blocs`;
 
     try {
         const payload = providerManager.getRequestPayload(finalPrompt);
         payload.model = 'anthropic/claude-3.5-sonnet';
         payload.system = '';
-        payload.max_tokens = 16000;
+        payload.max_tokens = 6000;
         const res = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const data = await res.json();
-        let adapted = (data.content || '').trim().replace(/^PROMPT\s+(COMPLET\s*)?:?\s*/i, '').trim();
+        const diffOutput = (data.content || '').trim();
+
+        // Appliquer les diffs au prompt original
+        let adapted = currentContent;
+        const diffRegex = /===DEBUT_MODIF===\s*ORIGINAL:\s*([\s\S]*?)\s*NOUVEAU:\s*([\s\S]*?)\s*===FIN_MODIF===/g;
+        let match;
+        let patchCount = 0;
+        while ((match = diffRegex.exec(diffOutput)) !== null) {
+            const original = match[1].trim();
+            const nouveau = match[2].trim();
+            if (original && adapted.includes(original)) {
+                adapted = adapted.replace(original, nouveau);
+                patchCount++;
+            }
+        }
+
+        // Fallback si aucun diff appliqué (format non respecté)
+        if (patchCount === 0) {
+            adapted = diffOutput;
+        }
 
         if (rightPanel) {
             const promptName = activePrompt?.name || 'prompt';
             rightPanel.innerHTML = `
-                <div class="adapt-panel-label">Prompt adapté — prêt à l'emploi</div>
+                <div class="adapt-panel-label">Prompt adapté — prêt à l'emploi${patchCount > 0 ? ` <span style="font-size:11px;color:#6b7280">(${patchCount} modification${patchCount>1?'s':''} appliquée${patchCount>1?'s':''})</span>` : ''}</div>
                 <textarea class="suggest-prompt-textarea" id="adaptedPromptText" style="flex:1;min-height:0;">${adapted.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
                 <div class="adapt-save-row">
                     <span class="suggest-modal-hint">Modifiable avant enregistrement</span>

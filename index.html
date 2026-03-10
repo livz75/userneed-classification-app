@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=34">
+    <link rel="stylesheet" href="style.css?v=35">
 </head>
 <body>
     <div class="container">
@@ -18,7 +18,7 @@
             </h1>
             <div class="header-actions">
                 <button id="resetBtn" class="header-btn reset-btn" title="Réinitialiser" style="display: none;">🔄 Réinitialiser</button>
-                <button id="articlesBtn" class="header-btn articles-btn" title="Voir les articles" onclick="document.getElementById('articlesSection').scrollIntoView({behavior:'smooth'})">📰 Articles</button>
+                <button id="articlesBtn" class="header-btn articles-btn" title="Voir les articles" onclick="showArticlesSection(); document.getElementById('articlesSection').scrollIntoView({behavior:'smooth'})">📰 Articles</button>
                 <button id="llmBtn" class="header-btn llm-btn" title="Configuration des modèles LLM">🤖 LLM</button>
                 <button id="settingsBtn" class="header-btn prompts-btn" title="Gérer les prompts">📝 Prompts</button>
                 <button id="testsBtn" class="header-btn tests-btn" title="Historique des tests">📋 Tests</button>
@@ -447,6 +447,6 @@ Analyse cet article..."></textarea>
     <script src="js/article-manager.js?v=35"></script>
     <script src="js/classification-manager.js?v=32"></script>
     <script src="js/test-run-manager.js?v=32"></script>
-    <script src="script.js?v=35"></script>
+    <script src="script.js?v=36"></script>
 </body>
 </html>

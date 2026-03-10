@@ -1937,6 +1937,7 @@ async function analyzeWithAI() {
         stopBtn.style.display = 'none';
         analyzeBtn.style.display = 'inline-block';
         currentTestRunId = null;
+        showArticlesSection();
     }
 }
 

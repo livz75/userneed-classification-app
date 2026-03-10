@@ -2473,7 +2473,27 @@ async function refreshTestsList() {
             return;
         }
 
-        listContainer.innerHTML = runs.map(run => renderTestRunCard(run)).join('');
+        // Grouper par prompt
+        const groups = new Map();
+        runs.forEach(run => {
+            const promptName = run.prompts?.name || run.prompt_id || '—';
+            if (!groups.has(promptName)) groups.set(promptName, []);
+            groups.get(promptName).push(run);
+        });
+
+        let html = '';
+        groups.forEach((groupRuns, promptName) => {
+            html += `
+                <div class="test-run-group">
+                    <div class="test-run-group-header">
+                        <span class="test-run-group-prompt-name">📝 ${promptName}</span>
+                        <span class="test-run-group-count">${groupRuns.length} test${groupRuns.length > 1 ? 's' : ''}</span>
+                    </div>
+                    ${groupRuns.map(run => renderTestRunCard(run)).join('')}
+                </div>
+            `;
+        });
+        listContainer.innerHTML = html;
 
         // Restaurer les cases cochées
         selectedRunIds.forEach(id => {
@@ -2491,6 +2511,22 @@ async function refreshTestsList() {
     }
 }
 
+function getModelShortName(model) {
+    if (!model) return '—';
+    return model.includes('/') ? model.split('/').slice(1).join('/') : model;
+}
+
+function getModelBadgeClass(model) {
+    if (!model) return 'badge-model-default';
+    const lower = model.toLowerCase();
+    if (lower.startsWith('anthropic/') || lower.includes('claude')) return 'badge-model-anthropic';
+    if (lower.startsWith('openai/') || lower.includes('gpt')) return 'badge-model-openai';
+    if (lower.startsWith('google/') || lower.includes('gemini')) return 'badge-model-google';
+    if (lower.startsWith('mistralai/') || lower.startsWith('mistral/') || lower.includes('mistral')) return 'badge-model-mistral';
+    if (lower.startsWith('meta') || lower.includes('llama')) return 'badge-model-meta';
+    return 'badge-model-default';
+}
+
 function renderTestRunCard(run) {
     const statusLabel = run.status === 'completed' ? 'Terminé' :
                         run.status === 'running' ? 'En cours' : 'Arrêté';
@@ -2500,8 +2536,9 @@ function renderTestRunCard(run) {
             hour: '2-digit', minute: '2-digit'
         })
         : '';
-    const promptName = run.prompts?.name || run.prompt_id || '—';
     const concordance = run.concordant_percent != null ? `${run.concordant_percent}%` : '—';
+    const modelShort = getModelShortName(run.llm_model);
+    const modelClass = getModelBadgeClass(run.llm_model);
 
     return `
         <div class="test-run-card" data-run-id="${run.id}">
@@ -2511,13 +2548,9 @@ function renderTestRunCard(run) {
                            onchange="toggleRunSelection('${run.id}', this)">
                     <span class="test-run-checkmark"></span>
                 </label>
-                <span class="test-run-card-name">${run.name || 'Test sans nom'}</span>
+                <span class="llm-model-badge ${modelClass}">${modelShort}</span>
+                <span class="test-run-card-date">📅 ${dateStr}</span>
                 <span class="test-run-card-status ${run.status}">${statusLabel}</span>
-            </div>
-            <div class="test-run-card-info">
-                <span>🤖 ${run.llm_model || '—'}</span>
-                <span>📝 ${promptName}</span>
-                <span>📅 ${dateStr}</span>
             </div>
             <div class="test-run-card-stats">
                 <span class="test-run-stat">${run.analyzed_articles || 0}/${run.total_articles || 0} articles</span>

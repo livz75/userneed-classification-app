@@ -58,7 +58,15 @@ class ArticleManager {
             return [];
         }
 
-        return data || [];
+        // Dédupliquer par article.id : la jointure inner peut retourner
+        // plusieurs lignes si un article a plusieurs classifications humaines
+        const seen = new Map();
+        for (const article of (data || [])) {
+            if (!seen.has(article.id)) {
+                seen.set(article.id, article);
+            }
+        }
+        return Array.from(seen.values());
     }
 }
 

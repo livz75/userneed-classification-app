@@ -3064,8 +3064,8 @@ Sois direct, concis, et parle comme un expert qui s'adresse à une équipe édit
 
     try {
         const payload = providerManager.getRequestPayload(prompt);
-        // Use a smart model for this analysis
         payload.model = 'anthropic/claude-3.5-sonnet';
+        payload.system = '';  // Pas de system message de classification
 
         const response = await fetch('/api/analyze', {
             method: 'POST',
@@ -3161,6 +3161,7 @@ PROMPT AMÉLIORÉ :`;
     try {
         const payload = providerManager.getRequestPayload(metaPrompt);
         payload.model = 'anthropic/claude-3.5-sonnet';
+        payload.system = '';  // Pas de system message de classification — rôle neutre
 
         const response = await fetch('/api/analyze', {
             method: 'POST',

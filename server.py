@@ -103,12 +103,15 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         else:
             super().do_GET()
 
-    def _call_openrouter(self, api_key, model, prompt):
-        """Call OpenRouter API with specified model"""
+    def _call_openrouter(self, api_key, model, prompt, system=None):
+        """Call OpenRouter API with specified model.
+        If system is None, uses the default classification system message.
+        If system is an empty string, sends no system message.
+        Otherwise uses the provided system message.
+        """
         api_url = 'https://openrouter.ai/api/v1/chat/completions'
 
-        # System message (identique à Anthropic mais format OpenAI)
-        system_message = """Analyse cet article et détermine OBLIGATOIREMENT le userneed principal, un userneed secondaire et un userneed tertiaire parmi ces options, et donne à chacun un score (le total des 3 scores doit être égal à 100).
+        default_system = """Analyse cet article et détermine OBLIGATOIREMENT le userneed principal, un userneed secondaire et un userneed tertiaire parmi ces options, et donne à chacun un score (le total des 3 scores doit être égal à 100).
 
 OPTIONS :
 - UPDATE ME
@@ -133,13 +136,20 @@ JUSTIFICATION : [explication en 10 mots maximum]
 
 Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
 
+        if system is None:
+            system_message = default_system
+        else:
+            system_message = system  # peut être "" pour aucun system message
+
+        messages = []
+        if system_message:
+            messages.append({'role': 'system', 'content': system_message})
+        messages.append({'role': 'user', 'content': prompt})
+
         api_data = json.dumps({
             'model': model,
-            'messages': [
-                {'role': 'system', 'content': system_message},
-                {'role': 'user', 'content': prompt}
-            ],
-            'max_tokens': 1024
+            'messages': messages,
+            'max_tokens': 4096
         }).encode('utf-8')
 
         req = urllib.request.Request(api_url, data=api_data, method='POST')
@@ -175,9 +185,10 @@ Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
                 api_key = request_data['apiKey']
                 prompt = request_data['prompt']
                 model = request_data.get('model', 'anthropic/claude-3.5-haiku')
+                system = request_data.get('system', None)  # None = system par défaut
 
                 # Toujours utiliser OpenRouter
-                response_data = self._call_openrouter(api_key, model, prompt)
+                response_data = self._call_openrouter(api_key, model, prompt, system=system)
 
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')

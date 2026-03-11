@@ -2026,19 +2026,27 @@ async function _doAnalyzeArticle(apiKey, titre, chapo, corps, attempt = 1) {
         addLog(`📡 Réponse HTTP reçue (status: ${response.status})`, 'info');
 
         if (!response.ok) {
-            const errorData = await response.json();
+            let errorData;
+            try { errorData = await response.json(); } catch { errorData = { error: { message: `Erreur HTTP ${response.status}` } }; }
             addLog(`⚠️ Détails de l'erreur: ${JSON.stringify(errorData)}`, 'error');
             throw new Error(errorData.error?.message || `Erreur HTTP ${response.status}`);
         }
 
-        const data = await response.json();
+        let data;
+        try {
+            const rawText = await response.text();
+            if (!rawText || !rawText.trim()) throw new Error('Réponse vide du serveur');
+            data = JSON.parse(rawText);
+        } catch (jsonErr) {
+            throw new Error(`Réponse invalide du serveur (JSON mal formé) : ${jsonErr.message}`);
+        }
 
-        // NEW: Handle different response formats
+        // Handle different response formats
         let responseText;
         if (data.provider === 'openrouter') {
             responseText = data.content; // OpenRouter format
         } else {
-            responseText = data.content[0].text.trim(); // Anthropic format
+            responseText = data.content?.[0]?.text?.trim(); // Anthropic format
         }
 
         // DEBUG: Log la réponse brute
@@ -2053,7 +2061,7 @@ async function _doAnalyzeArticle(apiKey, titre, chapo, corps, attempt = 1) {
         // DEBUG: Log le résultat du parsing
         console.log('📊 Résultat du parsing:', parsed);
 
-        if (!parsed) {
+        if (!parsed || !parsed.predictions || !Array.isArray(parsed.predictions)) {
             throw new Error(`Impossible de parser la réponse du modèle : "${responseText.substring(0, 100)}"`);
         }
 
@@ -2646,20 +2654,44 @@ function buildScatterSVG(runs) {
     const L = 60, R = W - 30, T = 20, B = H - 46;
     const pw = R - L, ph = B - T;
 
-    const toX = c => L + (c / 100) * pw;
-    const toY = f => B - (f / 100) * ph;
+    // Compute dynamic axis ranges from data with padding
+    const concValues = runs.map(r => r.concordant_percent ?? 0).filter(v => v > 0);
+    const f1Values = runs.map(r => r._metrics?.f1 ?? null).filter(v => v !== null);
+    if (!concValues.length || !f1Values.length) return '<p class="tests-empty">Pas assez de données.</p>';
 
-    // Grid lines
+    const dataMinX = Math.min(...concValues), dataMaxX = Math.max(...concValues);
+    const dataMinY = Math.min(...f1Values),   dataMaxY = Math.max(...f1Values);
+    const padX = Math.max((dataMaxX - dataMinX) * 0.15, 3);
+    const padY = Math.max((dataMaxY - dataMinY) * 0.15, 3);
+
+    // Snap to nice round numbers (multiples of 5)
+    const snap = (v, dir) => dir === 'down' ? Math.floor(v / 5) * 5 : Math.ceil(v / 5) * 5;
+    const minX = snap(Math.max(0, dataMinX - padX), 'down');
+    const maxX = snap(Math.min(100, dataMaxX + padX), 'up');
+    const minY = snap(Math.max(0, dataMinY - padY), 'down');
+    const maxY = snap(Math.min(100, dataMaxY + padY), 'up');
+    const rangeX = maxX - minX || 1;
+    const rangeY = maxY - minY || 1;
+
+    const toX = c => L + ((c - minX) / rangeX) * pw;
+    const toY = f => B - ((f - minY) / rangeY) * ph;
+
+    // Grid lines — generate ticks every 5% within range
     let grid = '';
-    [20,40,60,80,100].forEach(v => {
+    const stepX = rangeX <= 20 ? 5 : 10;
+    const stepY = rangeY <= 20 ? 5 : 10;
+    for (let v = minX; v <= maxX; v += stepX) {
         grid += `<line x1="${toX(v)}" y1="${T}" x2="${toX(v)}" y2="${B}" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>`;
-        grid += `<line x1="${L}" y1="${toY(v)}" x2="${R}" y2="${toY(v)}" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>`;
         grid += `<text x="${toX(v)}" y="${B+14}" text-anchor="middle" font-size="10" fill="#64748b">${v}%</text>`;
+    }
+    for (let v = minY; v <= maxY; v += stepY) {
+        grid += `<line x1="${L}" y1="${toY(v)}" x2="${R}" y2="${toY(v)}" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>`;
         grid += `<text x="${L-8}" y="${toY(v)+4}" text-anchor="end" font-size="10" fill="#64748b">${v}%</text>`;
-    });
+    }
 
-    // "Best zone" shading (top-right quadrant from 60/60)
-    const bx = toX(60), by = toY(60);
+    // "Best zone" shading (top-right quadrant — top 25% of visible range)
+    const zoneX = minX + rangeX * 0.6, zoneY = minY + rangeY * 0.6;
+    const bx = toX(zoneX), by = toY(zoneY);
     grid += `<rect x="${bx}" y="${T}" width="${R-bx}" height="${by-T}" fill="rgba(99,102,241,0.04)" rx="4"/>`;
 
     // Axes

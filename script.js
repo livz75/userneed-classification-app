@@ -2317,14 +2317,20 @@ function renderFilteredArticles() {
     const classifiedCount = articles.filter(a => a.human_classifications && a.human_classifications.length > 0).length;
     if (statsSpan) statsSpan.textContent = `${classifiedCount}/${articles.length} classifiés`;
 
-    // Masquer le bouton Répartition quand filtre = non classifiés
+    // Gestion du graphique de répartition selon le filtre
     const corpusBtn = document.getElementById('corpusChartBtn');
-    if (corpusBtn) {
-        corpusBtn.style.display = articleFilter === 'unclassified' ? 'none' : '';
-        if (articleFilter === 'unclassified') {
-            const panel = document.getElementById('corpusChart');
-            if (panel) panel.classList.add('hidden');
-        }
+    const corpusPanel = document.getElementById('corpusChart');
+    if (articleFilter === 'classified') {
+        // Filtre "Classifiés" : afficher automatiquement le graphique, masquer le bouton
+        if (corpusBtn) corpusBtn.style.display = 'none';
+        if (corpusPanel) corpusPanel.classList.remove('hidden');
+    } else if (articleFilter === 'unclassified') {
+        // Filtre "Non classifiés" : tout masquer
+        if (corpusBtn) corpusBtn.style.display = 'none';
+        if (corpusPanel) corpusPanel.classList.add('hidden');
+    } else {
+        // Filtre "Tous" : bouton visible, graphique sur demande
+        if (corpusBtn) corpusBtn.style.display = '';
     }
 
     // Rendu

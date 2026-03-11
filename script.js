@@ -2583,7 +2583,7 @@ function getModelColor(model) {
 }
 
 let rankingSortCol = 'f1';
-let rankingSortDir = -1; // -1 = desc
+let rankingSortDir = 1; // 1 = desc (meilleurs en haut), -1 = asc
 
 async function renderRankingPage() {
     const el = document.getElementById('rankingContent');
@@ -2739,7 +2739,7 @@ function buildRankingTable(runsRaw) {
     const maxConc = Math.max(...runs.map(r => r.concordant_percent ?? 0));
 
     function th(col, label) {
-        const cls = rankingSortCol === col ? (rankingSortDir < 0 ? 'sort-desc' : 'sort-asc') : '';
+        const cls = rankingSortCol === col ? (rankingSortDir > 0 ? 'sort-desc' : 'sort-asc') : '';
         return `<th class="${cls}" onclick="sortRankingTable('${col}')">${label}</th>`;
     }
 
@@ -2810,7 +2810,7 @@ function colValue(r, col) {
 
 async function sortRankingTable(col) {
     if (rankingSortCol === col) rankingSortDir *= -1;
-    else { rankingSortCol = col; rankingSortDir = -1; }
+    else { rankingSortCol = col; rankingSortDir = 1; }
     await renderRankingPage();
 }
 

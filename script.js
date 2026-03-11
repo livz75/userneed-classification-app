@@ -2538,6 +2538,282 @@ async function handleClassification(articleId, userneed) {
 // TEST RUNS UI FUNCTIONS
 // ====================================
 
+// ---- Tab switching ----
+function showTestsTab(tab) {
+    document.querySelectorAll('.tests-tab').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tab);
+    });
+    document.getElementById('testsTabHistorique').style.display = tab === 'historique' ? 'block' : 'none';
+    document.getElementById('testsTabClassement').style.display = tab === 'classement' ? 'block' : 'none';
+    if (tab === 'classement') renderRankingPage();
+}
+
+// ---- Ranking page ----
+
+function computeRunMetrics(run) {
+    const matrix = run.confusion_matrix;
+    if (!matrix) return null;
+
+    let precisions = [], recalls = [], f1s = [];
+    USERNEEDS.forEach(c => {
+        const TP = (matrix[c]?.[c]) || 0;
+        const FP = USERNEEDS.reduce((s, r) => r !== c ? s + (matrix[r]?.[c] || 0) : s, 0);
+        const FN = USERNEEDS.reduce((s, p) => p !== c ? s + (matrix[c]?.[p] || 0) : s, 0);
+        const support = TP + FN;
+        if (support === 0) return; // classe absente du corpus, on l'exclut
+        const prec = (TP + FP) > 0 ? TP / (TP + FP) : 0;
+        const rec  = support > 0 ? TP / support : 0;
+        const f1   = (prec + rec) > 0 ? 2 * prec * rec / (prec + rec) : 0;
+        precisions.push(prec); recalls.push(rec); f1s.push(f1);
+    });
+    if (!precisions.length) return null;
+    const avg = arr => arr.reduce((s, v) => s + v, 0) / arr.length;
+    return {
+        precision: Math.round(avg(precisions) * 1000) / 10,
+        recall:    Math.round(avg(recalls)    * 1000) / 10,
+        f1:        Math.round(avg(f1s)        * 1000) / 10,
+    };
+}
+
+function getModelColor(model) {
+    const cls = getModelBadgeClass(model);
+    return { 'badge-model-anthropic': '#c4b5fd', 'badge-model-openai': '#6ee7b7',
+             'badge-model-google': '#93c5fd',    'badge-model-mistral': '#fdba74',
+             'badge-model-meta': '#fca5a5' }[cls] || '#94a3b8';
+}
+
+let rankingSortCol = 'f1';
+let rankingSortDir = -1; // -1 = desc
+
+async function renderRankingPage() {
+    const el = document.getElementById('rankingContent');
+    el.innerHTML = '<p class="tests-empty">Chargement…</p>';
+
+    const runs = await testRunManager.listRuns(100);
+    const scored = runs
+        .filter(r => r.status !== 'running' && r.concordant_percent != null)
+        .map(r => ({ ...r, _metrics: computeRunMetrics(r) }));
+
+    if (!scored.length) {
+        el.innerHTML = '<p class="tests-empty">Aucun test terminé à afficher.</p>';
+        return;
+    }
+
+    el.innerHTML = `
+        <p class="ranking-intro">
+            Chaque point représente un test. L'axe horizontal indique la <strong>concordance</strong> (accord IA / classification humaine),
+            l'axe vertical le <strong>score F1 macro</strong> (moyenne harmonique précision/rappel sur l'ensemble des userneeds).
+            Les meilleurs tests se situent en haut à droite.
+        </p>
+        <div class="ranking-chart-wrap" id="scatterWrap">
+            <div class="ranking-chart-title">Scatter plot — Concordance vs F1 macro</div>
+            ${buildScatterSVG(scored)}
+            ${buildScatterLegend(scored)}
+            <div class="scatter-tooltip" id="scatterTooltip"></div>
+        </div>
+        <div class="ranking-table-wrap">
+            ${buildRankingTable(scored)}
+        </div>`;
+
+    // Attach scatter hover events after render
+    attachScatterEvents(scored);
+}
+
+function buildScatterSVG(runs) {
+    const W = 560, H = 340;
+    const L = 60, R = W - 30, T = 20, B = H - 46;
+    const pw = R - L, ph = B - T;
+
+    const toX = c => L + (c / 100) * pw;
+    const toY = f => B - (f / 100) * ph;
+
+    // Grid lines
+    let grid = '';
+    [20,40,60,80,100].forEach(v => {
+        grid += `<line x1="${toX(v)}" y1="${T}" x2="${toX(v)}" y2="${B}" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>`;
+        grid += `<line x1="${L}" y1="${toY(v)}" x2="${R}" y2="${toY(v)}" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>`;
+        grid += `<text x="${toX(v)}" y="${B+14}" text-anchor="middle" font-size="10" fill="#64748b">${v}%</text>`;
+        grid += `<text x="${L-8}" y="${toY(v)+4}" text-anchor="end" font-size="10" fill="#64748b">${v}%</text>`;
+    });
+
+    // "Best zone" shading (top-right quadrant from 60/60)
+    const bx = toX(60), by = toY(60);
+    grid += `<rect x="${bx}" y="${T}" width="${R-bx}" height="${by-T}" fill="rgba(99,102,241,0.04)" rx="4"/>`;
+
+    // Axes
+    grid += `<line x1="${L}" y1="${T}" x2="${L}" y2="${B}" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>`;
+    grid += `<line x1="${L}" y1="${B}" x2="${R}" y2="${B}" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>`;
+
+    // Axis labels
+    grid += `<text x="${(L+R)/2}" y="${H-4}" text-anchor="middle" font-size="11" fill="#94a3b8" font-weight="600">Concordance (%)</text>`;
+    grid += `<text x="12" y="${(T+B)/2}" text-anchor="middle" font-size="11" fill="#94a3b8" font-weight="600" transform="rotate(-90,12,${(T+B)/2})">F1 macro (%)</text>`;
+
+    // Find best run
+    const bestF1 = Math.max(...runs.map(r => r._metrics?.f1 ?? 0));
+
+    // Points
+    let points = '';
+    runs.forEach((r, i) => {
+        const conc = r.concordant_percent ?? 0;
+        const f1   = r._metrics?.f1 ?? null;
+        if (f1 === null) return;
+        const cx = toX(conc), cy = toY(f1);
+        const color = getModelColor(r.llm_model);
+        const isBest = f1 === bestF1;
+        const rad = isBest ? 9 : 7;
+        points += `<circle class="scatter-point" data-idx="${i}"
+            cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${rad}"
+            fill="${color}" fill-opacity="0.85"
+            stroke="${isBest ? '#fbbf24' : 'rgba(255,255,255,0.2)'}"
+            stroke-width="${isBest ? 2 : 1}"
+            style="cursor:pointer;transition:r 0.15s"/>`;
+        if (isBest) {
+            points += `<text x="${cx.toFixed(1)}" y="${(cy - rad - 4).toFixed(1)}" text-anchor="middle" font-size="11">🏆</text>`;
+        }
+    });
+
+    return `<svg class="ranking-chart-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${grid}${points}</svg>`;
+}
+
+function buildScatterLegend(runs) {
+    const seen = new Map();
+    runs.forEach(r => {
+        const model = getModelShortName(r.llm_model);
+        const color = getModelColor(r.llm_model);
+        if (!seen.has(model)) seen.set(model, color);
+    });
+    const items = Array.from(seen.entries()).map(([name, color]) =>
+        `<span class="scatter-legend-item"><span class="scatter-legend-dot" style="background:${color}"></span>${name}</span>`
+    ).join('');
+    return `<div class="scatter-legend">${items}</div>`;
+}
+
+function attachScatterEvents(runs) {
+    const tooltip = document.getElementById('scatterTooltip');
+    const wrap    = document.getElementById('scatterWrap');
+    if (!tooltip || !wrap) return;
+
+    wrap.querySelectorAll('.scatter-point').forEach(circle => {
+        const idx = parseInt(circle.dataset.idx);
+        const r   = runs[idx];
+        if (!r) return;
+
+        circle.addEventListener('mouseenter', e => {
+            const m = r._metrics;
+            const date = r.started_at ? new Date(r.started_at).toLocaleDateString('fr-FR') : '—';
+            tooltip.innerHTML = `
+                <strong>${getModelShortName(r.llm_model)}</strong><br>
+                📝 ${r.prompts?.name || '—'}<br>
+                📅 ${date} · ${r.analyzed_articles || 0} articles<br>
+                Concordance : <strong>${(r.concordant_percent??0).toFixed(1)}%</strong><br>
+                ${m ? `Précision : <strong>${m.precision}%</strong> · Rappel : <strong>${m.recall}%</strong> · F1 : <strong>${m.f1}%</strong>` : '<em>Métriques non disponibles</em>'}`;
+            tooltip.style.display = 'block';
+            circle.setAttribute('r', parseInt(circle.getAttribute('r')) + 2);
+        });
+        circle.addEventListener('mousemove', e => {
+            const rect = wrap.getBoundingClientRect();
+            let x = e.clientX - rect.left + 12, y = e.clientY - rect.top - 10;
+            if (x + 220 > wrap.offsetWidth) x -= 240;
+            tooltip.style.left = x + 'px';
+            tooltip.style.top  = y + 'px';
+        });
+        circle.addEventListener('mouseleave', () => {
+            tooltip.style.display = 'none';
+            const orig = runs[idx]._metrics?.f1 === Math.max(...runs.filter(rr=>rr._metrics).map(rr=>rr._metrics.f1)) ? 9 : 7;
+            circle.setAttribute('r', orig);
+        });
+        circle.addEventListener('click', () => {
+            showTestsTab('historique');
+            viewTestRun(r.id);
+        });
+    });
+}
+
+function buildRankingTable(runsRaw) {
+    const runs = [...runsRaw].sort((a, b) => {
+        const va = colValue(a, rankingSortCol);
+        const vb = colValue(b, rankingSortCol);
+        return rankingSortDir * (vb - va);
+    });
+    const maxF1   = Math.max(...runs.map(r => r._metrics?.f1 ?? 0));
+    const maxConc = Math.max(...runs.map(r => r.concordant_percent ?? 0));
+
+    function th(col, label) {
+        const cls = rankingSortCol === col ? (rankingSortDir < 0 ? 'sort-desc' : 'sort-asc') : '';
+        return `<th class="${cls}" onclick="sortRankingTable('${col}')">${label}</th>`;
+    }
+
+    const rows = runs.map((r, i) => {
+        const medal = i === 0 ? '🏆' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}`;
+        const m = r._metrics;
+        const conc = r.concordant_percent ?? null;
+        const date = r.started_at ? new Date(r.started_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'2-digit' }) : '—';
+        const modelShort = getModelShortName(r.llm_model);
+        const modelColor = getModelColor(r.llm_model);
+
+        const fmtPct = (v, best) => v != null
+            ? `<span class="ranking-metric${v === best ? ' best' : ''}">${v.toFixed(1)}%</span>`
+            : `<span class="ranking-na">—</span>`;
+
+        const miniBar = (v, max, color) => v != null
+            ? `<div class="ranking-mini-bar" style="width:${(v/max*100).toFixed(1)}%;background:${color};opacity:0.7"></div>`
+            : '';
+
+        return `<tr class="${i < 3 ? 'rank-top' : ''}">
+            <td><span class="ranking-medal">${medal}</span></td>
+            <td><span class="llm-model-badge ${getModelBadgeClass(r.llm_model)}">${modelShort}</span></td>
+            <td style="color:var(--text-secondary);font-size:0.73rem">${r.prompts?.name || '—'}</td>
+            <td class="ranking-bar-cell">
+                ${fmtPct(conc, maxConc)}
+                ${miniBar(conc, maxConc, '#6366f1')}
+            </td>
+            <td>${m ? fmtPct(m.precision, null) : '<span class="ranking-na">—</span>'}</td>
+            <td>${m ? fmtPct(m.recall,    null) : '<span class="ranking-na">—</span>'}</td>
+            <td class="ranking-bar-cell">
+                ${m ? fmtPct(m.f1, maxF1) : '<span class="ranking-na">—</span>'}
+                ${m ? miniBar(m.f1, maxF1, '#a3e635') : ''}
+            </td>
+            <td style="color:var(--text-secondary);font-size:0.73rem">${r.analyzed_articles || 0}</td>
+            <td style="color:var(--text-secondary);font-size:0.73rem">${date}</td>
+        </tr>`;
+    }).join('');
+
+    return `<table class="ranking-table">
+        <thead><tr>
+            ${th('rank','#')}
+            ${th('model','Modèle')}
+            ${th('prompt','Prompt')}
+            ${th('concordance','Concordance')}
+            ${th('precision','Précision')}
+            ${th('recall','Rappel')}
+            ${th('f1','F1 macro')}
+            ${th('articles','Articles')}
+            ${th('date','Date')}
+        </tr></thead>
+        <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function colValue(r, col) {
+    switch (col) {
+        case 'concordance': return r.concordant_percent ?? -1;
+        case 'precision':   return r._metrics?.precision ?? -1;
+        case 'recall':      return r._metrics?.recall ?? -1;
+        case 'f1':          return r._metrics?.f1 ?? -1;
+        case 'articles':    return r.analyzed_articles ?? 0;
+        case 'date':        return new Date(r.started_at || 0).getTime();
+        case 'model':       return getModelShortName(r.llm_model);
+        case 'prompt':      return r.prompts?.name || '';
+        default: return 0;
+    }
+}
+
+async function sortRankingTable(col) {
+    if (rankingSortCol === col) rankingSortDir *= -1;
+    else { rankingSortCol = col; rankingSortDir = -1; }
+    await renderRankingPage();
+}
+
 function initializeTestsUI() {
     const testsBtn = document.getElementById('testsBtn');
     const closeTestsPanelBtn = document.getElementById('closeTestsPanelBtn');

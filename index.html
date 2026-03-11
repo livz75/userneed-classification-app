@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=36">
+    <link rel="stylesheet" href="style.css?v=37">
 </head>
 <body>
     <div class="container">
@@ -154,33 +154,50 @@
         <div class="tests-panel-content">
             <div class="tests-panel-inner">
             <div class="tests-panel-header">
-                <h2>📋 Historique des Tests</h2>
+                <h2>📋 Tests</h2>
                 <button id="closeTestsPanelBtn" class="close-panel-btn">✕</button>
             </div>
 
-            <div class="tests-panel-toolbar">
-                <button id="compareFromSelectionBtn" class="action-btn compare-btn" disabled>⚖️ Comparer <span id="compareSelectionCount">(0/2)</span></button>
+            <!-- Onglets sous-pages -->
+            <div class="tests-tabs">
+                <button class="tests-tab active" data-tab="historique" onclick="showTestsTab('historique')">📋 Historique</button>
+                <button class="tests-tab" data-tab="classement" onclick="showTestsTab('classement')">🏆 Classement</button>
             </div>
 
-            <!-- Vue liste des test runs -->
-            <div id="testsListView">
-                <div id="testsList" class="tests-list">
-                    <p class="tests-empty">Chargement des tests...</p>
+            <!-- Sous-page : Historique des tests -->
+            <div id="testsTabHistorique" class="tests-tab-content">
+                <div class="tests-panel-toolbar">
+                    <button id="compareFromSelectionBtn" class="action-btn compare-btn" disabled>⚖️ Comparer <span id="compareSelectionCount">(0/2)</span></button>
+                </div>
+
+                <!-- Vue liste des test runs -->
+                <div id="testsListView">
+                    <div id="testsList" class="tests-list">
+                        <p class="tests-empty">Chargement des tests...</p>
+                    </div>
+                </div>
+
+                <!-- Vue détail d'un test run -->
+                <div id="testDetailView" class="test-detail-view" style="display: none;">
+                    <button id="backToTestsListBtn" class="back-btn-small">← Retour à la liste</button>
+                    <div id="testDetailHeader" class="test-detail-header"></div>
+                    <div id="testDetailContent" class="test-detail-content"></div>
+                </div>
+
+                <!-- Vue comparaison de 2 tests -->
+                <div id="testCompareView" class="test-compare-view" style="display: none;">
+                    <button id="backFromCompareBtn" class="back-btn-small">← Retour à la liste</button>
+                    <div id="compareResults" class="compare-results"></div>
+                </div>
+            </div><!-- /#testsTabHistorique -->
+
+            <!-- Sous-page : Classement -->
+            <div id="testsTabClassement" class="tests-tab-content" style="display:none">
+                <div id="rankingContent" class="ranking-content">
+                    <p class="tests-empty">Chargement…</p>
                 </div>
             </div>
 
-            <!-- Vue détail d'un test run -->
-            <div id="testDetailView" class="test-detail-view" style="display: none;">
-                <button id="backToTestsListBtn" class="back-btn-small">← Retour à la liste</button>
-                <div id="testDetailHeader" class="test-detail-header"></div>
-                <div id="testDetailContent" class="test-detail-content"></div>
-            </div>
-
-            <!-- Vue comparaison de 2 tests -->
-            <div id="testCompareView" class="test-compare-view" style="display: none;">
-                <button id="backFromCompareBtn" class="back-btn-small">← Retour à la liste</button>
-                <div id="compareResults" class="compare-results"></div>
-            </div>
             </div><!-- /.tests-panel-inner -->
         </div>
     </div>
@@ -449,6 +466,6 @@ Analyse cet article..."></textarea>
     <script src="js/article-manager.js?v=35"></script>
     <script src="js/classification-manager.js?v=32"></script>
     <script src="js/test-run-manager.js?v=32"></script>
-    <script src="script.js?v=38"></script>
+    <script src="script.js?v=39"></script>
 </body>
 </html>

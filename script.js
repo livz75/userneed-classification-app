@@ -2260,7 +2260,7 @@ async function refreshArticlesList() {
     listContainer.innerHTML = '<p class="articles-empty">Chargement…</p>';
 
     try {
-        const articles = await articleManager.loadFromSupabase({ limit: 500 });
+        const articles = await articleManager.loadFromSupabase();
         currentArticles = articles;
         renderFilteredArticles();
     } catch (error) {

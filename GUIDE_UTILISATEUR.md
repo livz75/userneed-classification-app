@@ -155,7 +155,7 @@ Via le bouton **"📋 Tests"**, deux sous-pages sont disponibles :
 ## Questions fréquentes
 
 **Combien d'articles dois-je classifier pour avoir des résultats fiables ?**
-Une cinquantaine d'articles est un bon point de départ. L'idéal est d'avoir au moins 5 à 10 exemples par User Need.
+Un corpus de **500 articles** répartis équitablement parmi les 8 User Needs est recommandé pour obtenir des résultats fiables et statistiquement significatifs.
 
 **Puis-je modifier une classification que j'ai déjà faite ?**
 Oui, retrouvez l'article dans la liste (filtre "Classifiés") et modifiez le menu déroulant. La mise à jour est immédiate.

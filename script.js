@@ -129,6 +129,17 @@ const USERNEEDS = [
     'REVEAL NEWS'
 ];
 
+const USERNEED_COLORS = {
+    'UPDATE ME':               '#3b82f6',
+    'EXPLAIN ME':              '#10b981',
+    'GIVE ME PERSPECTIVE':     '#8b5cf6',
+    'GIVE ME A BREAK':         '#f59e0b',
+    'GIVE ME CONCERNING NEWS': '#ef4444',
+    'INSPIRE ME':              '#f97316',
+    'MAKE ME FEEL THE NEWS':   '#ec4899',
+    'REVEAL NEWS':             '#06b6d4',
+};
+
 // Mapping des variantes de userneeds vers leur forme canonique
 const USERNEED_VARIANTS = {
     'CONCERNING NEWS': 'GIVE ME CONCERNING NEWS',
@@ -2311,6 +2322,95 @@ function renderFilteredArticles() {
 
     const loadMore = document.getElementById('articlesLoadMore');
     if (loadMore) loadMore.style.display = articleManager.hasNextPage ? 'block' : 'none';
+
+    updateCorpusChart();
+}
+
+function toggleCorpusChart() {
+    const panel = document.getElementById('corpusChart');
+    const btn = document.getElementById('corpusChartBtn');
+    if (!panel) return;
+    const isOpen = !panel.classList.contains('hidden');
+    panel.classList.toggle('hidden', isOpen);
+    if (btn) btn.classList.toggle('active', !isOpen);
+    if (!isOpen) updateCorpusChart();
+}
+
+function updateCorpusChart() {
+    const panel = document.getElementById('corpusChart');
+    const btn = document.getElementById('corpusChartBtn');
+    if (!panel || panel.classList.contains('hidden')) return;
+
+    const classified = currentArticles.filter(a => a.human_classifications && a.human_classifications.length > 0);
+    const total = classified.length;
+
+    if (total === 0) {
+        panel.innerHTML = '<p class="corpus-chart-empty">Aucun article classifié pour le moment.</p>';
+        return;
+    }
+
+    // Comptage par userneed
+    const counts = {};
+    USERNEEDS.forEach(u => counts[u] = 0);
+    classified.forEach(a => {
+        const raw = a.human_classifications[0]?.userneed;
+        const normalized = normalizeUserneed(raw);
+        if (normalized && counts[normalized] !== undefined) counts[normalized]++;
+    });
+
+    const maxCount = Math.max(...Object.values(counts), 1);
+    const idealCount = total / USERNEEDS.length;
+    const idealLinePct = (idealCount / maxCount) * 100;
+
+    // Score d'équilibre : coefficient de variation (plus bas = plus équilibré)
+    const avg = total / USERNEEDS.length;
+    const stdDev = Math.sqrt(USERNEEDS.reduce((s, u) => s + Math.pow(counts[u] - avg, 2), 0) / USERNEEDS.length);
+    const cv = avg > 0 ? stdDev / avg : 0;
+    const balance = cv < 0.3 ? { label: 'Bon', color: '#10b981' }
+                  : cv < 0.6 ? { label: 'Moyen', color: '#f59e0b' }
+                  :             { label: 'À améliorer', color: '#ef4444' };
+
+    // Mettre à jour la pastille du bouton
+    if (btn) {
+        const dotEl = btn.querySelector('.corpus-balance-dot');
+        if (dotEl) {
+            dotEl.style.background = balance.color;
+        } else {
+            const dot = document.createElement('span');
+            dot.className = 'corpus-balance-dot';
+            dot.style.background = balance.color;
+            btn.appendChild(dot);
+        }
+    }
+
+    const barsHtml = USERNEEDS.map(u => {
+        const count = counts[u];
+        const pct = (count / total * 100);
+        const barWidth = (count / maxCount * 100);
+        const color = USERNEED_COLORS[u] || '#6366f1';
+        const countClass = count === 0 ? 'empty' : pct < (100 / USERNEEDS.length * 0.5) ? 'low' : '';
+        return `
+            <div class="corpus-bar-row">
+                <span class="corpus-bar-label">${u}</span>
+                <div class="corpus-bar-track">
+                    <div class="corpus-bar-fill" style="width:${barWidth.toFixed(1)}%;background:${color}"></div>
+                    <div class="corpus-bar-ideal-line" style="left:${idealLinePct.toFixed(1)}%"></div>
+                </div>
+                <span class="corpus-bar-count ${countClass}">${count} <span class="corpus-bar-pct">(${pct.toFixed(0)}%)</span></span>
+            </div>`;
+    }).join('');
+
+    panel.innerHTML = `
+        <div class="corpus-chart-header">
+            <span class="corpus-chart-title">Répartition du corpus classifié</span>
+            <span class="corpus-chart-total">${total} article${total > 1 ? 's' : ''} classifié${total > 1 ? 's' : ''}</span>
+            <span class="corpus-chart-balance" style="color:${balance.color}">
+                <span class="corpus-balance-dot" style="background:${balance.color}"></span>
+                Équilibre : ${balance.label}
+            </span>
+        </div>
+        <div class="corpus-bars">${barsHtml}</div>
+        <div class="corpus-chart-legend">┆ Ligne idéale : ${Math.round(idealCount)} articles par userneed (${(100 / USERNEEDS.length).toFixed(0)}%)</div>`;
 }
 
 function applyTitleFilter(value) {

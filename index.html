@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=35">
+    <link rel="stylesheet" href="style.css?v=36">
 </head>
 <body>
     <div class="container">
@@ -48,8 +48,10 @@
                     <button class="article-filter-btn active" data-filter="unclassified" onclick="setArticleFilter('unclassified')">Non classifiés</button>
                     <span id="articleStats" class="article-stats"></span>
                     <button class="articles-refresh-btn" onclick="refreshArticlesList()" title="Actualiser la liste">↻ Actualiser</button>
+                    <button id="corpusChartBtn" class="articles-corpus-btn" onclick="toggleCorpusChart()" title="Répartition du corpus classifié par userneed">📊 Répartition</button>
                 </div>
             </div>
+            <div id="corpusChart" class="corpus-chart hidden"></div>
             <div id="articlesListContainer" class="articles-list-container">
                 <div id="articlesList" class="articles-list">
                     <p class="articles-empty">Chargement des articles...</p>
@@ -447,6 +449,6 @@ Analyse cet article..."></textarea>
     <script src="js/article-manager.js?v=35"></script>
     <script src="js/classification-manager.js?v=32"></script>
     <script src="js/test-run-manager.js?v=32"></script>
-    <script src="script.js?v=36"></script>
+    <script src="script.js?v=37"></script>
 </body>
 </html>

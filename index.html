@@ -371,8 +371,8 @@ Analyse cet article..."></textarea>
 
                 <section class="help-section">
                     <h3>À quoi sert cette application ?</h3>
-                    <p>Cette application permet de <strong>tester si une intelligence artificielle est capable de classer des articles franceinfo</strong> selon les 8 "User Needs" — c'est-à-dire le besoin auquel répond un article pour le lecteur.</p>
-                    <p>Pour cela, vous classifiez vous-même des articles, puis vous lancez une analyse IA et comparez vos résultats avec ceux de l'IA.</p>
+                    <p>Cette application permet de <strong>tester si une intelligence artificielle est capable de classer des articles Franceinfo</strong> selon les 8 "User Needs" — c'est-à-dire le besoin auquel répond un article pour le lecteur.</p>
+                    <p>Vous classifiez vous-même des articles, puis vous lancez une analyse IA et comparez vos résultats avec ceux de l'IA. L'application enregistre chaque session d'analyse pour vous permettre de <strong>comparer différents modèles</strong> et différentes <strong>formulations d'instructions</strong>.</p>
                 </section>
 
                 <section class="help-section">
@@ -394,66 +394,109 @@ Analyse cet article..."></textarea>
 
                 <section class="help-section">
                     <h3>Étape 1 — Classifier des articles</h3>
-                    <p>La liste des articles franceinfo s'affiche directement sur la page d'accueil, filtrée par défaut sur les <strong>articles non classifiés</strong>.</p>
+                    <p>La liste des articles Franceinfo s'affiche directement sur la page d'accueil, filtrée par défaut sur les <strong>articles non classifiés</strong>. Les articles sont importés automatiquement toutes les 30 minutes depuis les flux RSS de Franceinfo.</p>
                     <ol>
-                        <li>Pour chaque article, lisez le titre et le chapô</li>
+                        <li>Lisez le titre et le chapô de l'article</li>
                         <li>Choisissez le User Need qui correspond le mieux dans le menu déroulant</li>
-                        <li>Répétez pour autant d'articles que vous le souhaitez — plus vous en classifiez, plus les résultats seront fiables</li>
+                        <li>La classification est enregistrée immédiatement — répétez pour autant d'articles que souhaité</li>
                     </ol>
-                    <p>Vous pouvez basculer entre <strong>Tous</strong>, <strong>Classifiés</strong> et <strong>Non classifiés</strong> via les boutons de filtre. Vous pouvez aussi filtrer par <strong>catégorie</strong> (France, Monde, Culture, Sport…) grâce au menu déroulant.</p>
+                    <p><strong>Filtres disponibles :</strong></p>
+                    <ul>
+                        <li><strong>Statut</strong> — Tous / Classifiés / Non classifiés (actif par défaut)</li>
+                        <li><strong>Recherche par titre</strong> — Saisissez un mot-clé pour filtrer les articles par leur titre</li>
+                    </ul>
                     <p class="help-tip">💡 Cliquez sur le titre d'un article pour l'ouvrir dans un nouvel onglet et lire son contenu complet avant de le classifier.</p>
+                    <p class="help-tip">💡 Pour déclassifier un article, cliquez sur le bouton <strong>✕</strong> à droite de sa classification — l'article repassera en statut "non classifié".</p>
+                    <p class="help-tip">💡 Le bouton <strong>↻ Actualiser</strong> recharge les derniers articles importés sans rafraîchir la page.</p>
                 </section>
 
                 <section class="help-section">
-                    <h3>Étape 2 — Choisir un modèle et un prompt</h3>
-                    <ol>
-                        <li>Cliquez sur <strong>"LLM"</strong> : un tableau comparatif s'affiche avec les 14 principaux modèles du marché, classés du meilleur au moins bon pour cette application. Chaque modèle indique sa vitesse, son prix d'utilisation et sa maîtrise du français. Cliquez sur une ligne pour sélectionner le modèle.</li>
-                        <li>Cliquez sur <strong>"PROMPTS"</strong> pour vérifier ou modifier l'instruction envoyée à l'IA.</li>
-                    </ol>
+                    <h3>📊 Répartition du corpus</h3>
+                    <p>Dans la page Articles, le bouton <strong>"📊 Répartition"</strong> affiche un graphique de la distribution des articles classifiés par User Need. L'objectif est de constituer un corpus <strong>équilibré</strong> : idéalement entre 10 et 20 articles par User Need pour garantir des résultats représentatifs.</p>
+                    <p>Un indicateur de couleur (vert / orange / rouge) résume l'équilibre global du corpus en un coup d'œil.</p>
+                </section>
+
+                <section class="help-section">
+                    <h3>Étape 2 — Choisir un modèle IA</h3>
+                    <p>Cliquez sur <strong>"🤖 LLM"</strong> dans le menu. Un tableau comparatif s'affiche avec les principaux modèles du marché, classés du meilleur au moins bon pour cette application.</p>
+                    <p>Pour chaque modèle, vous voyez : sa <strong>vitesse</strong>, son <strong>prix</strong> (entrée/sortie par million de tokens), le <strong>coût estimé pour 50 articles</strong>, sa <strong>qualité</strong> (1 à 5 étoiles) et son <strong>support du français</strong> (1 à 3). Cliquez sur une ligne pour sélectionner le modèle.</p>
+                    <p>Saisissez votre clé OpenRouter dans le champ prévu (<code>sk-or-...</code>). Une seule clé suffit pour tous les modèles.</p>
                     <p class="help-tip">💡 Pour un bon équilibre vitesse/qualité/coût, les modèles <strong>Claude 3.5 Haiku</strong>, <strong>GPT-4o Mini</strong> et <strong>Mistral Small</strong> sont recommandés.</p>
                 </section>
 
                 <section class="help-section">
-                    <h3>Étape 3 — Lancer une analyse IA</h3>
-                    <p>Cliquez sur <strong>"Analyse IA"</strong> pour démarrer. L'IA analyse chaque article classifié et prédit un User Need. Les résultats s'affichent au fur et à mesure.</p>
-                    <p class="help-tip">⏱ L'analyse prend quelques minutes selon le nombre d'articles et le modèle choisi.</p>
+                    <h3>Étape 3 — Choisir ou créer un prompt</h3>
+                    <p>Cliquez sur <strong>"📝 Prompts"</strong>. Un prompt est l'instruction envoyée à l'IA pour lui expliquer comment analyser les articles. Un seul prompt est actif à la fois.</p>
+                    <p><strong>Actions disponibles :</strong></p>
+                    <ul>
+                        <li><strong>Créer</strong> un nouveau prompt personnalisé</li>
+                        <li><strong>Dupliquer</strong> un prompt existant pour l'adapter</li>
+                        <li><strong>Modifier</strong> ou <strong>supprimer</strong> vos prompts</li>
+                        <li><strong>Exporter / Importer</strong> des prompts au format JSON</li>
+                    </ul>
+                    <p>Un prompt par défaut est fourni et ne peut pas être supprimé. La section contenant l'article analysé est automatiquement ajoutée par le système.</p>
                 </section>
 
                 <section class="help-section">
-                    <h3>Étape 4 — Consulter les résultats</h3>
+                    <h3>✏️ Adapter le prompt avec l'IA</h3>
+                    <p>Après une analyse, le bouton <strong>"💡 Adapter le prompt"</strong> soumet votre prompt actuel à l'IA en lui demandant de proposer des améliorations basées sur les résultats obtenus. L'IA retourne uniquement les <strong>sections modifiées</strong> (pas le prompt entier), qui sont automatiquement appliquées sur votre prompt d'origine.</p>
+                    <p class="help-tip">💡 Cette fonctionnalité est idéale pour itérer rapidement : affinez le prompt en quelques clics, relancez une analyse et comparez les résultats.</p>
+                </section>
+
+                <section class="help-section">
+                    <h3>Étape 4 — Lancer une analyse IA</h3>
+                    <p>Cliquez sur <strong>"Analyse IA"</strong> pour démarrer. L'IA analyse chaque article classifié et prédit un User Need. Les résultats s'affichent au fur et à mesure.</p>
+                    <p>Si l'IA retourne un User Need non reconnu, elle <strong>réessaie automatiquement</strong> (jusqu'à 3 tentatives) avec un rappel strict des options valides. Le bouton <strong>"⏹ Stop"</strong> permet d'interrompre l'analyse à tout moment — les résultats déjà obtenus sont conservés.</p>
+                    <p class="help-tip">⏱ L'analyse prend quelques minutes selon le nombre d'articles et le modèle choisi. Vous pouvez revenir sur la page Articles à tout moment pendant l'analyse.</p>
+                </section>
+
+                <section class="help-section">
+                    <h3>Étape 5 — Consulter les résultats</h3>
                     <p>Les résultats apparaissent automatiquement à la fin de l'analyse :</p>
                     <ul>
-                        <li><strong>Taux de concordance global</strong> : % d'articles où l'IA a prédit le même User Need que vous</li>
-                        <li><strong>Matrice de confusion</strong> : tableau 8×8 montrant les accords (diagonale) et désaccords</li>
-                        <li><strong>Statistiques de confiance</strong> : indicateur de certitude de l'IA pour chaque article</li>
+                        <li><strong>Taux de concordance global</strong> — % d'articles où l'IA a prédit le même User Need que vous</li>
+                        <li><strong>Matrice de confusion</strong> — Tableau 8×8 montrant les accords (diagonale verte) et désaccords (rouge)</li>
+                        <li><strong>Statistiques de confiance</strong> — Niveau de certitude de l'IA pour chaque article (Haute / Moyenne / Basse)</li>
+                        <li><strong>Top 5 des reclassifications</strong> — Les désaccords les plus fréquents entre vous et l'IA</li>
                     </ul>
-                    <p>Filtrez par niveau de confiance ou cliquez sur une case de la matrice pour isoler un type de désaccord.</p>
+                    <p><strong>Interactions :</strong> filtrez par niveau de confiance via les boutons, cliquez sur une case de la matrice pour isoler un type de désaccord, cliquez sur l'icône de justification d'un article pour lire l'explication de l'IA.</p>
+                    <p class="help-tip">💡 Le bouton <strong>"📊 Exporter"</strong> télécharge un fichier Excel complet avec les résultats détaillés.</p>
                 </section>
 
                 <section class="help-section">
-                    <h3>Étape 5 — Comparer plusieurs analyses</h3>
-                    <p>Via le bouton <strong>"Tests"</strong>, accédez à l'historique de vos analyses en pleine page. Comparez deux Test Runs côte à côte pour évaluer l'impact d'un changement de modèle ou de prompt.</p>
-                    <p>Le tableau de comparaison affiche, pour chaque User Need, la <strong>précision</strong> et le <strong>rappel</strong> de chaque configuration :</p>
+                    <h3>📋 Comparer et classer les analyses</h3>
+                    <p>Via le bouton <strong>"📋 Tests"</strong>, deux sous-pages sont disponibles :</p>
+                    <p><strong>📋 Historique</strong></p>
                     <ul>
-                        <li><strong>Précision</strong> : quand l'IA prédit ce User Need, a-t-elle raison ?</li>
-                        <li><strong>Rappel</strong> : parmi tous les articles de ce User Need, combien l'IA en a-t-elle détectés ?</li>
+                        <li>Liste de tous vos Test Runs, groupés par prompt. Chaque run affiche le modèle utilisé (pastille colorée), la date et le statut.</li>
+                        <li>Cochez 2 runs puis cliquez sur <strong>"⚖️ Comparer"</strong> pour les comparer côte à côte.</li>
+                        <li>Le tableau de comparaison affiche pour chaque User Need la précision et le rappel. La valeur la plus haute apparaît en <span style="color:#10b981;font-weight:700;">vert</span>, la plus basse en <span style="color:#ef4444;font-weight:700;">rouge</span>.</li>
+                        <li>Une <strong>analyse rédigée par l'IA</strong> conclut la comparaison avec une recommandation sur le meilleur combo modèle/prompt.</li>
                     </ul>
-                    <p>La valeur la plus haute apparaît en <span style="color:#10b981;font-weight:700;">vert</span>, la plus basse en <span style="color:#ef4444;font-weight:700;">rouge</span>. Une <strong>analyse rédigée par l'IA</strong> conclut la comparaison avec une recommandation sur le meilleur combo modèle/prompt.</p>
+                    <p><strong>🏆 Classement</strong></p>
+                    <ul>
+                        <li>Le <strong>graphique de dispersion</strong> positionne chaque run sur deux axes : <em>Concordance</em> (horizontal) et <em>F1 macro</em> (vertical). Les runs les plus performants apparaissent en haut à droite (zone verte). Le meilleur run est marqué 🏆.</li>
+                        <li>Le <strong>tableau de classement</strong> trie les runs du meilleur au moins bon (F1 macro décroissant) et affiche : modèle, prompt, concordance, précision, rappel et F1 macro. Cliquez sur un en-tête de colonne pour retrier.</li>
+                    </ul>
                 </section>
 
                 <section class="help-section">
                     <h3>Questions fréquentes</h3>
                     <dl class="help-faq">
                         <dt>Combien d'articles dois-je classifier pour avoir des résultats fiables ?</dt>
-                        <dd>Une cinquantaine d'articles est un bon point de départ. L'idéal est d'avoir au moins 5 à 10 exemples par User Need.</dd>
-                        <dt>Puis-je modifier une classification ?</dt>
-                        <dd>Oui, retrouvez l'article dans la liste (filtre "Classifiés") et modifiez le menu déroulant.</dd>
+                        <dd>Une cinquantaine d'articles est un bon point de départ. L'idéal est d'avoir au moins 5 à 10 exemples par User Need, répartis de façon équilibrée entre les 8 catégories. Utilisez le bouton "📊 Répartition" pour vérifier.</dd>
+                        <dt>Puis-je modifier ou annuler une classification ?</dt>
+                        <dd>Oui. Retrouvez l'article dans la liste (filtre "Classifiés") et modifiez le menu déroulant pour changer le User Need, ou cliquez sur <strong>✕</strong> pour le déclassifier complètement.</dd>
                         <dt>Que signifie le score de confiance ?</dt>
-                        <dd>L'IA donne trois prédictions par ordre de certitude avec un score sur 100. Un score élevé sur la prédiction principale indique que l'IA est confiante.</dd>
+                        <dd>L'IA donne trois prédictions par ordre de certitude (principale, secondaire, tertiaire) avec un score dont la somme fait 100. Un score élevé sur la prédiction principale et un grand écart avec la secondaire indiquent que l'IA est confiante dans son choix.</dd>
+                        <dt>Quelle est la différence entre Précision et Rappel ?</dt>
+                        <dd>La <strong>précision</strong> mesure la fiabilité des prédictions : quand l'IA dit "UPDATE ME", est-ce vraiment un article UPDATE ME ? Le <strong>rappel</strong> mesure l'exhaustivité : parmi tous les articles UPDATE ME, combien l'IA en a-t-elle correctement identifiés ? Un bon modèle maximise les deux.</dd>
+                        <dt>Que signifie le F1 macro dans le classement ?</dt>
+                        <dd>Le F1 macro est la moyenne harmonique de la précision et du rappel, calculée indépendamment pour chaque User Need puis moyennée. C'est la métrique de référence pour évaluer globalement un modèle sur des classes déséquilibrées.</dd>
                         <dt>Les articles se mettent-ils à jour automatiquement ?</dt>
-                        <dd>Oui, de nouveaux articles franceinfo sont importés toutes les 30 minutes.</dd>
+                        <dd>Oui, de nouveaux articles Franceinfo sont importés toutes les 30 minutes depuis les flux RSS (Titres, Politique, Monde, Société, Économie, Culture).</dd>
                         <dt>Combien coûte une analyse ?</dt>
-                        <dd>Avec les modèles recommandés, une analyse de 50 articles coûte entre $0,003 et $0,04 — soit moins d'un centime d'euro par article.</dd>
+                        <dd>Avec les modèles recommandés, une analyse de 50 articles coûte entre $0,003 et $0,04 — soit moins d'un centime d'euro par article. Le tableau LLM affiche une estimation pour chaque modèle.</dd>
                     </dl>
                 </section>
 

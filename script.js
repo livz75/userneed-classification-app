@@ -2323,7 +2323,7 @@ function renderFilteredArticles() {
 
     // Stats
     const classifiedCount = articles.filter(a => a.human_classifications && a.human_classifications.length > 0).length;
-    if (statsSpan) statsSpan.textContent = `${classifiedCount}/${articles.length} classifiés`;
+    if (statsSpan) statsSpan.textContent = `${classifiedCount} classifiés`;
 
     // Gestion du graphique de répartition selon le filtre
     const corpusBtn = document.getElementById('corpusChartBtn');
@@ -2549,7 +2549,7 @@ async function handleClassification(articleId, userneed) {
         const stats = await classificationManager.getStats();
         const statsSpan = document.getElementById('articleStats');
         if (statsSpan) {
-            statsSpan.textContent = `${stats.classified}/${stats.total} classifiés`;
+            statsSpan.textContent = `${stats.classified} classifiés`;
         }
 
         // Afficher le bouton Analyse IA si au moins 1 article classifié

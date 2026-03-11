@@ -2311,6 +2311,16 @@ function renderFilteredArticles() {
     const classifiedCount = articles.filter(a => a.human_classifications && a.human_classifications.length > 0).length;
     if (statsSpan) statsSpan.textContent = `${classifiedCount}/${articles.length} classifiés`;
 
+    // Masquer le bouton Répartition quand filtre = non classifiés
+    const corpusBtn = document.getElementById('corpusChartBtn');
+    if (corpusBtn) {
+        corpusBtn.style.display = articleFilter === 'unclassified' ? 'none' : '';
+        if (articleFilter === 'unclassified') {
+            const panel = document.getElementById('corpusChart');
+            if (panel) panel.classList.add('hidden');
+        }
+    }
+
     // Rendu
     if (filtered.length === 0) {
         listContainer.innerHTML = '<p class="articles-empty">Aucun article trouvé.</p>';

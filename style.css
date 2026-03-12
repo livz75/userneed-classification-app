@@ -2768,6 +2768,47 @@ input[type="file"] {
     flex-shrink: 0;
 }
 
+/* Model filter buttons */
+.scatter-model-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 14px;
+}
+.scatter-model-filters .filter-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-right: 4px;
+}
+.scatter-filter-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 12px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.scatter-filter-btn:hover {
+    background: rgba(255,255,255,0.08);
+}
+.scatter-filter-btn.active {
+    background: rgba(99,102,241,0.2);
+    border-color: rgba(99,102,241,0.5);
+    color: #e2e8f0;
+}
+.scatter-filter-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
 /* Ranking table */
 .ranking-table-wrap {
     overflow-x: auto;

@@ -2615,16 +2615,20 @@ function getModelColor(model) {
 let rankingSortCol = 'f1';
 let rankingSortDir = 1; // 1 = desc (meilleurs en haut), -1 = asc
 
+let _rankingAllRuns = [];
+let _rankingActiveModels = new Set(); // empty = all
+
 async function renderRankingPage() {
     const el = document.getElementById('rankingContent');
     el.innerHTML = '<p class="tests-empty">Chargement…</p>';
 
     const runs = await testRunManager.listRuns(100);
-    const scored = runs
+    _rankingAllRuns = runs
         .filter(r => r.status !== 'running' && r.concordant_percent != null)
         .map(r => ({ ...r, _metrics: computeRunMetrics(r) }));
+    _rankingActiveModels = new Set(); // reset = show all
 
-    if (!scored.length) {
+    if (!_rankingAllRuns.length) {
         el.innerHTML = '<p class="tests-empty">Aucun test terminé à afficher.</p>';
         return;
     }
@@ -2633,20 +2637,90 @@ async function renderRankingPage() {
         <p class="ranking-intro">
             Chaque point représente un test. L'axe horizontal indique la <strong>concordance</strong> (accord IA / classification humaine),
             l'axe vertical le <strong>score F1 macro</strong> (moyenne harmonique précision/rappel sur l'ensemble des userneeds).
-            Les meilleurs tests se situent en haut à droite.
+            Les meilleurs tests se situent en haut à droite. Le nombre à l'intérieur de chaque point indique le nombre d'articles analysés.
         </p>
+        ${buildModelFilters(_rankingAllRuns)}
         <div class="ranking-chart-wrap" id="scatterWrap">
             <div class="ranking-chart-title">Scatter plot — Concordance vs F1 macro</div>
-            ${buildScatterSVG(scored)}
-            ${buildScatterLegend(scored)}
+            ${buildScatterSVG(_rankingAllRuns)}
             <div class="scatter-tooltip" id="scatterTooltip"></div>
         </div>
         <div class="ranking-table-wrap">
-            ${buildRankingTable(scored)}
+            ${buildRankingTable(_rankingAllRuns)}
         </div>`;
 
-    // Attach scatter hover events after render
-    attachScatterEvents(scored);
+    attachScatterEvents(_rankingAllRuns);
+    attachModelFilterEvents();
+}
+
+function buildModelFilters(runs) {
+    const models = new Map();
+    runs.forEach(r => {
+        const name = getModelShortName(r.llm_model);
+        const color = getModelColor(r.llm_model);
+        if (!models.has(name)) models.set(name, color);
+    });
+    let html = '<div class="scatter-model-filters"><span class="filter-label">Filtrer par modèle :</span>';
+    html += `<button class="scatter-filter-btn active" data-model="all">Tous</button>`;
+    models.forEach((color, name) => {
+        html += `<button class="scatter-filter-btn" data-model="${name}"><span class="scatter-filter-dot" style="background:${color}"></span>${name}</button>`;
+    });
+    html += '</div>';
+    return html;
+}
+
+function attachModelFilterEvents() {
+    document.querySelectorAll('.scatter-filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const model = btn.dataset.model;
+            if (model === 'all') {
+                _rankingActiveModels = new Set();
+                document.querySelectorAll('.scatter-filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            } else {
+                // Deactivate "Tous"
+                document.querySelector('.scatter-filter-btn[data-model="all"]')?.classList.remove('active');
+                btn.classList.toggle('active');
+                if (btn.classList.contains('active')) {
+                    _rankingActiveModels.add(model);
+                } else {
+                    _rankingActiveModels.delete(model);
+                }
+                // If none selected, reactivate "Tous"
+                if (_rankingActiveModels.size === 0) {
+                    document.querySelector('.scatter-filter-btn[data-model="all"]')?.classList.add('active');
+                }
+            }
+            refreshScatterChart();
+        });
+    });
+}
+
+function getFilteredRankingRuns() {
+    if (_rankingActiveModels.size === 0) return _rankingAllRuns;
+    return _rankingAllRuns.filter(r => _rankingActiveModels.has(getModelShortName(r.llm_model)));
+}
+
+function refreshScatterChart() {
+    const filtered = getFilteredRankingRuns();
+    const wrap = document.getElementById('scatterWrap');
+    if (!wrap) return;
+    // Keep title and tooltip, replace SVG
+    const title = wrap.querySelector('.ranking-chart-title');
+    const tooltip = document.getElementById('scatterTooltip');
+    wrap.innerHTML = '';
+    if (title) wrap.appendChild(title);
+    wrap.insertAdjacentHTML('beforeend', buildScatterSVG(filtered));
+    if (tooltip) { tooltip.style.display = 'none'; wrap.appendChild(tooltip); }
+    attachScatterEvents(filtered);
+}
+
+function getScatterRadius(articleCount, runs) {
+    const counts = runs.map(r => r.analyzed_articles || 0);
+    const minC = Math.min(...counts), maxC = Math.max(...counts);
+    const range = maxC - minC || 1;
+    const t = (articleCount - minC) / range; // 0..1
+    return 12 + t * 10; // radius from 12 to 22
 }
 
 function buildScatterSVG(runs) {
@@ -2705,7 +2779,7 @@ function buildScatterSVG(runs) {
     // Find best run
     const bestF1 = Math.max(...runs.map(r => r._metrics?.f1 ?? 0));
 
-    // Points
+    // Points with article count label inside — size proportional to article count
     let points = '';
     runs.forEach((r, i) => {
         const conc = r.concordant_percent ?? 0;
@@ -2714,32 +2788,23 @@ function buildScatterSVG(runs) {
         const cx = toX(conc), cy = toY(f1);
         const color = getModelColor(r.llm_model);
         const isBest = f1 === bestF1;
-        const rad = isBest ? 9 : 7;
-        points += `<circle class="scatter-point" data-idx="${i}"
-            cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${rad}"
-            fill="${color}" fill-opacity="0.85"
-            stroke="${isBest ? '#fbbf24' : 'rgba(255,255,255,0.2)'}"
-            stroke-width="${isBest ? 2 : 1}"
-            style="cursor:pointer;transition:r 0.15s"/>`;
+        const articleCount = r.analyzed_articles || 0;
+        const rad = getScatterRadius(articleCount, runs) + (isBest ? 2 : 0);
+        const fontSize = Math.max(7, Math.min(11, rad - 4));
+        points += `<g class="scatter-point" data-idx="${i}" style="cursor:pointer">
+            <circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${rad}"
+                fill="${color}" fill-opacity="0.85"
+                stroke="${isBest ? '#fbbf24' : 'rgba(255,255,255,0.25)'}"
+                stroke-width="${isBest ? 2.5 : 1.5}"/>
+            <text x="${cx.toFixed(1)}" y="${(cy + fontSize * 0.35).toFixed(1)}" text-anchor="middle"
+                font-size="${fontSize}" font-weight="700" fill="#fff" pointer-events="none">${articleCount}</text>
+        </g>`;
         if (isBest) {
-            points += `<text x="${cx.toFixed(1)}" y="${(cy - rad - 4).toFixed(1)}" text-anchor="middle" font-size="11">🏆</text>`;
+            points += `<text x="${cx.toFixed(1)}" y="${(cy - rad - 4).toFixed(1)}" text-anchor="middle" font-size="11" pointer-events="none">🏆</text>`;
         }
     });
 
     return `<svg class="ranking-chart-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${grid}${points}</svg>`;
-}
-
-function buildScatterLegend(runs) {
-    const seen = new Map();
-    runs.forEach(r => {
-        const model = getModelShortName(r.llm_model);
-        const color = getModelColor(r.llm_model);
-        if (!seen.has(model)) seen.set(model, color);
-    });
-    const items = Array.from(seen.entries()).map(([name, color]) =>
-        `<span class="scatter-legend-item"><span class="scatter-legend-dot" style="background:${color}"></span>${name}</span>`
-    ).join('');
-    return `<div class="scatter-legend">${items}</div>`;
 }
 
 function attachScatterEvents(runs) {
@@ -2747,12 +2812,13 @@ function attachScatterEvents(runs) {
     const wrap    = document.getElementById('scatterWrap');
     if (!tooltip || !wrap) return;
 
-    wrap.querySelectorAll('.scatter-point').forEach(circle => {
-        const idx = parseInt(circle.dataset.idx);
+    wrap.querySelectorAll('.scatter-point').forEach(group => {
+        const idx = parseInt(group.dataset.idx);
         const r   = runs[idx];
         if (!r) return;
+        const circleEl = group.querySelector('circle');
 
-        circle.addEventListener('mouseenter', e => {
+        group.addEventListener('mouseenter', e => {
             const m = r._metrics;
             const date = r.started_at ? new Date(r.started_at).toLocaleDateString('fr-FR') : '—';
             tooltip.innerHTML = `
@@ -2762,21 +2828,25 @@ function attachScatterEvents(runs) {
                 Concordance : <strong>${(r.concordant_percent??0).toFixed(1)}%</strong><br>
                 ${m ? `Précision : <strong>${m.precision}%</strong> · Rappel : <strong>${m.recall}%</strong> · F1 : <strong>${m.f1}%</strong>` : '<em>Métriques non disponibles</em>'}`;
             tooltip.style.display = 'block';
-            circle.setAttribute('r', parseInt(circle.getAttribute('r')) + 2);
+            if (circleEl) circleEl.setAttribute('r', parseFloat(circleEl.getAttribute('r')) + 2);
         });
-        circle.addEventListener('mousemove', e => {
+        group.addEventListener('mousemove', e => {
             const rect = wrap.getBoundingClientRect();
             let x = e.clientX - rect.left + 12, y = e.clientY - rect.top - 10;
             if (x + 220 > wrap.offsetWidth) x -= 240;
             tooltip.style.left = x + 'px';
             tooltip.style.top  = y + 'px';
         });
-        circle.addEventListener('mouseleave', () => {
+        group.addEventListener('mouseleave', () => {
             tooltip.style.display = 'none';
-            const orig = runs[idx]._metrics?.f1 === Math.max(...runs.filter(rr=>rr._metrics).map(rr=>rr._metrics.f1)) ? 9 : 7;
-            circle.setAttribute('r', orig);
+            if (circleEl) {
+                const baseRad = getScatterRadius(r.analyzed_articles || 0, runs);
+                const bestF1 = Math.max(...runs.filter(rr=>rr._metrics).map(rr=>rr._metrics.f1));
+                const isBest = r._metrics?.f1 === bestF1;
+                circleEl.setAttribute('r', isBest ? baseRad + 2 : baseRad);
+            }
         });
-        circle.addEventListener('click', () => {
+        group.addEventListener('click', () => {
             showTestsTab('historique');
             viewTestRun(r.id);
         });

@@ -42,27 +42,24 @@ body {
 
 header {
     background: var(--bg-card);
-    border-bottom: 2px solid var(--accent-purple);
-    padding: 20px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding: 20px 0 16px;
     margin-bottom: 30px;
-    position: relative;
-    transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 header h1 {
-    font-size: 2rem;
+    font-size: 1.6rem;
     font-weight: 700;
     color: var(--text-primary);
-    margin-bottom: 5px;
+    margin-bottom: 14px;
     display: flex;
     align-items: center;
-    justify-content: flex-start;
-    gap: 15px;
-    padding-left: 40px;
+    justify-content: center;
+    gap: 12px;
 }
 
 .header-logo {
-    height: 55px;
+    height: 42px;
     width: auto;
     vertical-align: middle;
 }
@@ -72,128 +69,111 @@ header p {
     font-size: 0.95rem;
 }
 
-/* Header actions container */
-.header-actions {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    display: flex;
-    gap: 12px;
-    align-items: center;
-}
-
-/* Header buttons base style */
-.header-btn {
-    padding: 10px 20px;
-    border: none;
-    border-radius: 8px;
-    height: 40px;
+/* Navigation bar */
+.header-nav {
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    color: white;
-    font-size: 0.9rem;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.nav-group {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+.nav-separator {
+    width: 1px;
+    height: 24px;
+    background: rgba(255,255,255,0.1);
+    margin: 0 6px;
+}
+
+/* Nav buttons — modern glass style */
+.nav-btn {
+    padding: 8px 16px;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px;
+    background: rgba(255,255,255,0.04);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
     font-weight: 600;
-    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+.nav-btn:hover {
+    background: rgba(255,255,255,0.1);
+    color: var(--text-primary);
+    border-color: rgba(255,255,255,0.15);
+    transform: translateY(-1px);
 }
 
-/* PROMPTS button - purple */
-.header-btn.prompts-btn {
-    background: var(--accent-purple);
+/* Primary action — Analyse IA */
+.nav-btn.nav-btn-primary {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border-color: rgba(99,102,241,0.4);
+    color: #fff;
+}
+.nav-btn.nav-btn-primary:hover {
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    box-shadow: 0 4px 16px rgba(99,102,241,0.35);
 }
 
-.header-btn.prompts-btn:hover {
-    background: #7c3aed;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+/* Pause — amber */
+.nav-btn.nav-btn-warning {
+    background: rgba(245,158,11,0.15);
+    border-color: rgba(245,158,11,0.4);
+    color: #fbbf24;
+}
+.nav-btn.nav-btn-warning:hover {
+    background: rgba(245,158,11,0.25);
+    box-shadow: 0 4px 16px rgba(245,158,11,0.25);
 }
 
-/* Analyze button - blue */
-.header-btn.analyze-btn {
-    background: var(--accent-blue);
+/* Resume — green */
+.nav-btn.nav-btn-success {
+    background: rgba(16,185,129,0.15);
+    border-color: rgba(16,185,129,0.4);
+    color: #34d399;
+}
+.nav-btn.nav-btn-success:hover {
+    background: rgba(16,185,129,0.25);
+    box-shadow: 0 4px 16px rgba(16,185,129,0.25);
 }
 
-.header-btn.analyze-btn:hover {
-    background: #2563eb;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+/* Stop — red */
+.nav-btn.nav-btn-danger {
+    background: rgba(239,68,68,0.15);
+    border-color: rgba(239,68,68,0.4);
+    color: #f87171;
+}
+.nav-btn.nav-btn-danger:hover {
+    background: rgba(239,68,68,0.25);
+    box-shadow: 0 4px 16px rgba(239,68,68,0.25);
 }
 
-/* Stop button - red */
-.header-btn.stop-btn {
-    background: var(--accent-red);
+/* Reset */
+.nav-btn.nav-btn-reset {
+    background: rgba(249,115,22,0.12);
+    border-color: rgba(249,115,22,0.3);
+    color: #fb923c;
+}
+.nav-btn.nav-btn-reset:hover {
+    background: rgba(249,115,22,0.22);
 }
 
-.header-btn.stop-btn:hover {
-    background: #dc2626;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+/* Help */
+.nav-btn.nav-btn-help {
+    background: rgba(139,92,246,0.12);
+    border-color: rgba(139,92,246,0.3);
+    color: #a78bfa;
 }
-
-.header-btn.pause-btn {
-    background: #f59e0b;
-}
-
-.header-btn.pause-btn:hover {
-    background: #d97706;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
-}
-
-.header-btn.resume-btn {
-    background: #10b981;
-}
-
-.header-btn.resume-btn:hover {
-    background: #059669;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-}
-
-/* Articles button - green */
-.header-btn.articles-btn {
-    background: var(--accent-green);
-}
-
-.header-btn.articles-btn:hover {
-    background: #059669;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-}
-
-/* Tests button - indigo */
-.header-btn.tests-btn {
-    background: #6366f1;
-}
-
-.header-btn.tests-btn:hover {
-    background: #4f46e5;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
-}
-
-/* Articles button - teal */
-.header-btn.articles-btn {
-    background: #0d9488;
-}
-
-.header-btn.articles-btn:hover {
-    background: #0f766e;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(13, 148, 136, 0.4);
-}
-
-/* Reset button - orange */
-.header-btn.reset-btn {
-    background: #f97316;
-}
-
-.header-btn.reset-btn:hover {
-    background: #ea580c;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
+.nav-btn.nav-btn-help:hover {
+    background: rgba(139,92,246,0.22);
 }
 
 /* Theme toggle button */

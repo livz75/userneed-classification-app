@@ -16,18 +16,24 @@
                 <img src="assets/franceinfo.jpg" alt="Franceinfo" class="header-logo">
                 Analyse IA des Userneeds
             </h1>
-            <div class="header-actions">
-                <button id="resetBtn" class="header-btn reset-btn" title="Réinitialiser" style="display: none;">🔄 Réinitialiser</button>
-                <button id="articlesBtn" class="header-btn articles-btn" title="Voir les articles" onclick="showArticlesSection(); document.getElementById('articlesSection').scrollIntoView({behavior:'smooth'})">📰 Articles</button>
-                <button id="llmBtn" class="header-btn llm-btn" title="Configuration des modèles LLM">🤖 LLM</button>
-                <button id="settingsBtn" class="header-btn prompts-btn" title="Gérer les prompts">📝 Prompts</button>
-                <button id="testsBtn" class="header-btn tests-btn" title="Historique des tests">📋 Tests</button>
-                <button id="analyzeBtn" class="header-btn analyze-btn">Analyse IA</button>
-                <button id="pauseBtn" class="header-btn pause-btn" style="display: none;">⏸ Pause</button>
-                <button id="resumeBtn" class="header-btn resume-btn" style="display: none;">▶ Reprendre</button>
-                <button id="stopBtn" class="header-btn stop-btn" style="display: none;">⏹ Stop</button>
-                <button id="helpBtn" class="header-btn help-btn" title="Aide">❓ Aide</button>
-            </div>
+            <nav class="header-nav">
+                <div class="nav-group nav-main">
+                    <button id="articlesBtn" class="nav-btn" title="Voir les articles" onclick="showArticlesSection(); document.getElementById('articlesSection').scrollIntoView({behavior:'smooth'})">📰 Articles</button>
+                    <button id="llmBtn" class="nav-btn" title="Configuration des modèles LLM">🤖 LLM</button>
+                    <button id="settingsBtn" class="nav-btn" title="Gérer les prompts">📝 Prompts</button>
+                    <button id="testsBtn" class="nav-btn" title="Historique des tests">📋 Tests</button>
+                </div>
+                <div class="nav-separator"></div>
+                <div class="nav-group nav-actions">
+                    <button id="analyzeBtn" class="nav-btn nav-btn-primary">Analyse IA</button>
+                    <button id="pauseBtn" class="nav-btn nav-btn-warning" style="display: none;">⏸ Pause</button>
+                    <button id="resumeBtn" class="nav-btn nav-btn-success" style="display: none;">▶ Reprendre</button>
+                    <button id="stopBtn" class="nav-btn nav-btn-danger" style="display: none;">⏹ Stop</button>
+                    <button id="resetBtn" class="nav-btn nav-btn-reset" title="Réinitialiser" style="display: none;">↻ Reset</button>
+                </div>
+                <div class="nav-separator"></div>
+                <button id="helpBtn" class="nav-btn nav-btn-help" title="Aide">? Aide</button>
+            </nav>
         </header>
 
         <!-- Section articles inline (accueil) -->

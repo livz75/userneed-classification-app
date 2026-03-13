@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=38">
+    <link rel="stylesheet" href="style.css?v=39">
 </head>
 <body>
     <div class="container">
@@ -121,20 +121,12 @@
                         </div>
                     </div>
                 </div>
-                <div class="stats-section">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
-                        <h3>Statistiques détaillées</h3>
-                        <button id="exportBtn" class="export-btn" style="margin-top: -5px;">📊 Exporter</button>
+                <div class="live-articles-section">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h3>Articles analysés</h3>
+                        <button id="exportBtn" class="export-btn">📊 Exporter</button>
                     </div>
-                    <div class="stats-box">
-                        <div class="stat-title">Total d'articles : <span id="totalArticles">0</span></div>
-                        <div class="stat-item">Articles concordants : <span id="concordantCount" class="stat-value-success">0</span> (<span id="concordantPercent" class="stat-value-success">0%</span>)</div>
-                        <div class="stat-item">Articles reclassifiés : <span id="reclassifiedCount" class="stat-value-error">0</span> (<span id="reclassifiedPercent" class="stat-value-error">0%</span>)</div>
-                    </div>
-                    <div class="stats-box">
-                        <div class="stat-subtitle">Top 5 reclassifications</div>
-                        <div id="topReclassifications"></div>
-                    </div>
+                    <div id="liveArticlesList" class="live-articles-list"></div>
                 </div>
             </div>
         </div>
@@ -526,6 +518,6 @@ Analyse cet article..."></textarea>
     <script src="js/article-manager.js?v=35"></script>
     <script src="js/classification-manager.js?v=32"></script>
     <script src="js/test-run-manager.js?v=32"></script>
-    <script src="script.js?v=41"></script>
+    <script src="script.js?v=42"></script>
 </body>
 </html>

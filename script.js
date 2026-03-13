@@ -1584,13 +1584,6 @@ function updateStatisticsDisplay() {
     const concordantPercent = totalArticles > 0 ? ((concordants / totalArticles) * 100).toFixed(1) : 0;
     const reclassifiedPercent = totalArticles > 0 ? ((reclassified / totalArticles) * 100).toFixed(1) : 0;
 
-    // Mettre à jour les statistiques globales
-    document.getElementById('totalArticles').textContent = totalArticles;
-    document.getElementById('concordantCount').textContent = concordants;
-    document.getElementById('concordantPercent').textContent = concordantPercent + '%';
-    document.getElementById('reclassifiedCount').textContent = reclassified;
-    document.getElementById('reclassifiedPercent').textContent = reclassifiedPercent + '%';
-
     // Mettre à jour la barre de résumé au-dessus de la matrice
     const summaryTotal = document.getElementById('summaryTotal');
     const summaryConcCount = document.getElementById('summaryConcordantCount');
@@ -1602,31 +1595,79 @@ function updateStatisticsDisplay() {
     if (summaryConcPct) summaryConcPct.textContent = concordantPercent + '%';
     if (summaryReclCount) summaryReclCount.textContent = reclassified;
     if (summaryReclPct) summaryReclPct.textContent = reclassifiedPercent + '%';
+}
 
-    // Top 5 reclassifications
-    const topDiv = document.getElementById('topReclassifications');
-    topDiv.innerHTML = '';
+function addLiveArticle(articleData) {
+    const list = document.getElementById('liveArticlesList');
+    if (!list) return;
 
-    const reclassifications = [];
-    USERNEEDS.forEach((source, i) => {
-        USERNEEDS.forEach((pred, j) => {
-            if (i !== j && confusionMatrix[source][pred] > 0) {
-                reclassifications.push({
-                    source: source,
-                    prediction: pred,
-                    count: confusionMatrix[source][pred]
-                });
-            }
-        });
-    });
+    // Supprimer le message vide
+    const empty = list.querySelector('.live-articles-empty');
+    if (empty) empty.remove();
 
-    reclassifications.sort((a, b) => b.count - a.count);
-    reclassifications.slice(0, 5).forEach((item, index) => {
-        const div = document.createElement('div');
-        div.className = 'reclassif-item';
-        div.textContent = `${index + 1}. ${getShortName(item.source)} → ${getShortName(item.prediction)} : ${item.count}`;
-        topDiv.appendChild(div);
-    });
+    const item = document.createElement('div');
+    item.className = 'live-article-item';
+
+    let badgeClass, badgeText;
+    if (articleData.predictedUserneed === 'ERROR') {
+        badgeClass = 'error';
+        badgeText = 'Erreur';
+    } else if (articleData.isMatch) {
+        badgeClass = 'match';
+        badgeText = '✓ ' + getShortName(articleData.predictedUserneed);
+    } else {
+        badgeClass = 'mismatch';
+        badgeText = getShortName(articleData.expectedUserneed) + ' → ' + getShortName(articleData.predictedUserneed);
+    }
+
+    item.innerHTML = `
+        <span class="live-article-num">#${articleData.numero}</span>
+        <span class="live-article-title" title="${articleData.titre}">${articleData.titre}</span>
+        <span class="live-article-badge ${badgeClass}">${badgeText}</span>
+    `;
+
+    // Insérer en haut (dernier classifié en premier)
+    list.insertBefore(item, list.firstChild);
+}
+
+function clearLiveArticles() {
+    const list = document.getElementById('liveArticlesList');
+    if (list) list.innerHTML = '<p class="live-articles-empty">En attente d\'analyse...</p>';
+}
+
+function populateLiveArticlesFromResults() {
+    const list = document.getElementById('liveArticlesList');
+    if (!list) return;
+    list.innerHTML = '';
+    // Afficher du plus récent au plus ancien
+    for (let i = articleResults.length - 1; i >= 0; i--) {
+        const a = articleResults[i];
+        const item = document.createElement('div');
+        item.className = 'live-article-item';
+        item.style.animation = 'none';
+
+        let badgeClass, badgeText;
+        if (a.predictedUserneed === 'ERROR') {
+            badgeClass = 'error';
+            badgeText = 'Erreur';
+        } else if (a.isMatch) {
+            badgeClass = 'match';
+            badgeText = '✓ ' + getShortName(a.predictedUserneed);
+        } else {
+            badgeClass = 'mismatch';
+            badgeText = getShortName(a.expectedUserneed) + ' → ' + getShortName(a.predictedUserneed);
+        }
+
+        item.innerHTML = `
+            <span class="live-article-num">#${a.numero}</span>
+            <span class="live-article-title" title="${a.titre}">${a.titre}</span>
+            <span class="live-article-badge ${badgeClass}">${badgeText}</span>
+        `;
+        list.appendChild(item);
+    }
+    if (articleResults.length === 0) {
+        list.innerHTML = '<p class="live-articles-empty">Aucun article analysé</p>';
+    }
 }
 
 function updateConfidenceStats() {
@@ -1754,6 +1795,7 @@ async function analyzeWithAI() {
     // Réinitialiser le flag d'arrêt et les résultats
     stopAnalysis = false;
     articleResults = [];
+    clearLiveArticles();
 
     // Réinitialiser les filtres
     clearMatrixFilter();
@@ -1914,6 +1956,7 @@ async function analyzeWithAI() {
                 }
 
                 articleResults.push(articleData);
+                addLiveArticle(articleData);
 
                 if (userneed && expectedUserneed && !userneed.includes('Non identifié')) {
                     updateConfusionMatrix(expectedUserneed, userneed);
@@ -1939,7 +1982,7 @@ async function analyzeWithAI() {
             } catch (error) {
                 addLog(`❌ Erreur sur article ${i + 1} : ${error.message}`, 'error');
 
-                articleResults.push({
+                const errorData = {
                     index: i,
                     numero: i + 1,
                     url: urlValue,
@@ -1954,7 +1997,9 @@ async function analyzeWithAI() {
                     icp: 0,
                     confidenceLevel: 'BASSE',
                     icpLevel: 'BASSE'
-                });
+                };
+                articleResults.push(errorData);
+                addLiveArticle(errorData);
             }
 
             // Progression
@@ -3297,6 +3342,9 @@ async function loadMatrixFromTestRun(run) {
     // Afficher la zone stats
     statsContainer.style.display = 'block';
     hideArticlesSection();
+
+    // Remplir la liste d'articles live depuis les résultats chargés
+    populateLiveArticlesFromResults();
 
     // Afficher le bouton "Adapter le prompt" si on a un run chargé
     const suggestBtn = document.getElementById('suggestPromptBtn');

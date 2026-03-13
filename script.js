@@ -2321,9 +2321,13 @@ function renderFilteredArticles() {
         filtered = filtered.filter(a => (a.titre || '').toLowerCase().includes(q));
     }
 
-    // Stats
-    const classifiedCount = articles.filter(a => a.human_classifications && a.human_classifications.length > 0).length;
-    if (statsSpan) statsSpan.textContent = `${classifiedCount} classifiés`;
+    // Stats — comptage réel depuis Supabase (pas limité aux articles chargés)
+    const localClassified = articles.filter(a => a.human_classifications && a.human_classifications.length > 0).length;
+    if (statsSpan) statsSpan.textContent = `${localClassified} classifiés`;
+    if (isSupabaseAvailable()) {
+        supabaseClient.from('human_classifications').select('id', { count: 'exact', head: true })
+            .then(({ count }) => { if (count != null && statsSpan) statsSpan.textContent = `${count} classifiés`; });
+    }
 
     // Gestion du graphique de répartition selon le filtre
     const corpusBtn = document.getElementById('corpusChartBtn');

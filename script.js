@@ -976,7 +976,7 @@ stopBtn.addEventListener('click', stopAnalysisHandler);
 pauseBtn.addEventListener('click', pauseAnalysisHandler);
 resumeBtn.addEventListener('click', resumeAnalysisHandler);
 resetBtn.addEventListener('click', resetApplication);
-exportBtn.addEventListener('click', exportToCSV);
+if (exportBtn) exportBtn.addEventListener('click', exportToCSV);
 
 // Event listeners pour le modal de justification
 document.addEventListener('DOMContentLoaded', () => {
@@ -2469,7 +2469,7 @@ function renderFilteredArticles() {
     }
     listContainer.innerHTML = filtered.map(article => renderArticleCard(article)).join('');
 
-    if (classifiedCount > 0) analyzeBtn.style.display = 'inline-block';
+    if (localClassified > 0) analyzeBtn.style.display = 'inline-block';
 
     const loadMore = document.getElementById('articlesLoadMore');
     if (loadMore) loadMore.style.display = articleManager.hasNextPage ? 'block' : 'none';

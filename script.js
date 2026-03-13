@@ -957,7 +957,7 @@ function pauseAnalysisHandler() {
     resumeBtn.style.display = 'inline-block';
     showArticlesSection();
     addLog('⏸ Analyse en pause — vous pouvez naviguer librement', 'info');
-    progressText.textContent = progressText.textContent.replace('Analyse en cours', 'Analyse en pause');
+    if (progressText) progressText.textContent = progressText.textContent.replace('Analyse en cours', 'Analyse en pause');
 }
 
 function resumeAnalysisHandler() {
@@ -966,11 +966,11 @@ function resumeAnalysisHandler() {
     pauseBtn.style.display = 'inline-block';
     hideArticlesSection();
     addLog('▶ Reprise de l\'analyse...', 'info');
-    progressText.textContent = progressText.textContent.replace('Analyse en pause', 'Analyse en cours');
+    if (progressText) progressText.textContent = progressText.textContent.replace('Analyse en pause', 'Analyse en cours');
     if (pauseResolve) { pauseResolve(); pauseResolve = null; }
 }
 
-clearBtn.addEventListener('click', clearTable);
+if (clearBtn) clearBtn.addEventListener('click', clearTable);
 analyzeBtn.addEventListener('click', analyzeWithAI);
 stopBtn.addEventListener('click', stopAnalysisHandler);
 pauseBtn.addEventListener('click', pauseAnalysisHandler);
@@ -1011,7 +1011,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function resetApplication() {
     tableContainer.style.display = 'none';
     statsContainer.style.display = 'none';
-    progressContainer.style.display = 'none';
+    if (progressContainer) progressContainer.style.display = 'none';
     tableHead.innerHTML = '';
     tableBody.innerHTML = '';
     articleResults = [];
@@ -1819,7 +1819,7 @@ async function analyzeWithAI() {
     stopBtn.style.display = 'inline-block';
     pauseAnalysis = false;
     pauseResolve = null;
-    progressContainer.style.display = 'block';
+    if (progressContainer) progressContainer.style.display = 'block';
     statsContainer.style.display = 'block';
     tableContainer.style.display = 'block';
     hideArticlesSection();
@@ -1861,7 +1861,7 @@ async function analyzeWithAI() {
         showError('Veuillez configurer votre clé API dans le panneau LLM');
         analyzeBtn.style.display = 'inline-block';
         stopBtn.style.display = 'none';
-        progressContainer.style.display = 'none';
+        if (progressContainer) progressContainer.style.display = 'none';
         return;
     }
 
@@ -2008,8 +2008,8 @@ async function analyzeWithAI() {
 
             // Progression
             const progress = ((i + 1) / classifiedArticles.length) * 100;
-            progressFill.style.width = `${progress}%`;
-            progressText.textContent = `Analyse en cours... ${i + 1}/${classifiedArticles.length} articles`;
+            if (progressFill) progressFill.style.width = `${progress}%`;
+            if (progressText) progressText.textContent = `Analyse en cours... ${i + 1}/${classifiedArticles.length} articles`;
 
             // Délai entre articles
             if (i < classifiedArticles.length - 1 && !stopAnalysis) {
@@ -2044,15 +2044,15 @@ async function analyzeWithAI() {
         }
 
         if (!stopAnalysis) {
-            progressText.textContent = 'Analyse terminée !';
-            progressFill.style.width = '100%';
+            if (progressText) progressText.textContent = 'Analyse terminée !';
+            if (progressFill) progressFill.style.width = '100%';
             addLog(`🎉 ANALYSE TERMINÉE ! ${articleResults.length} articles traités. Concordance: ${concordantPercent}%`, 'success');
         }
 
         setTimeout(() => {
             if (!stopAnalysis) {
-                progressContainer.style.display = 'none';
-                progressFill.style.width = '0%';
+                if (progressContainer) progressContainer.style.display = 'none';
+                if (progressFill) progressFill.style.width = '0%';
             }
         }, 3000);
 

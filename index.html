@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=45">
+    <link rel="stylesheet" href="style.css?v=46">
 </head>
 <body>
     <div class="container">
@@ -238,27 +238,29 @@
     <div id="promptPanel" class="prompt-panel">
         <div class="prompt-panel-backdrop"></div>
         <div class="prompt-panel-content">
-            <div class="prompt-panel-header">
-                <h2>📝 Gestion des Prompts</h2>
-                <button id="closePanelBtn" class="close-panel-btn">✕</button>
-            </div>
+            <div class="prompt-panel-inner">
+                <div class="prompt-panel-header">
+                    <h2>📝 Gestion des Prompts</h2>
+                    <button id="closePanelBtn" class="close-panel-btn">✕</button>
+                </div>
 
-            <div class="prompt-panel-actions">
-                <button id="createPromptBtn" class="action-btn create-btn">
-                    <span>➕</span> Nouveau prompt
-                </button>
-                <button id="importPromptsBtn" class="action-btn import-btn">
-                    <span>📥</span> Importer
-                </button>
-                <button id="exportPromptsBtn" class="action-btn export-btn">
-                    <span>📤</span> Exporter
-                </button>
-            </div>
+                <div class="prompt-panel-actions">
+                    <button id="createPromptBtn" class="action-btn create-btn">
+                        <span>➕</span> Nouveau prompt
+                    </button>
+                    <button id="importPromptsBtn" class="action-btn import-btn">
+                        <span>📥</span> Importer
+                    </button>
+                    <button id="exportPromptsBtn" class="action-btn export-btn">
+                        <span>📤</span> Exporter
+                    </button>
+                </div>
 
-            <div class="prompt-list-container">
-                <h3>Prompts disponibles (<span id="promptCount">0</span>)</h3>
-                <div id="promptList" class="prompt-list">
-                    <!-- Liste générée dynamiquement par JavaScript -->
+                <div class="prompt-list-container">
+                    <h3>Prompts disponibles (<span id="promptCount">0</span>)</h3>
+                    <div id="promptList" class="prompt-list">
+                        <!-- Liste générée dynamiquement par JavaScript -->
+                    </div>
                 </div>
             </div>
         </div>

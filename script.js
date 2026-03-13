@@ -10,11 +10,15 @@ const progressContainer = document.getElementById('progress');
 const progressFill = document.getElementById('progressFill');
 const progressText = document.getElementById('progressText');
 const stopBtn = document.getElementById('stopBtn');
+const pauseBtn = document.getElementById('pauseBtn');
+const resumeBtn = document.getElementById('resumeBtn');
 const statsContainer = document.getElementById('statsContainer');
 const exportBtn = document.getElementById('exportBtn');
 
 let currentArticles = []; // Articles chargés depuis Supabase (avec classifications)
 let stopAnalysis = false;
+let pauseAnalysis = false;
+let pauseResolve = null; // resolve function to resume from pause
 let articleResults = []; // Stockage global des résultats d'analyse
 let articleFilter = 'unclassified'; // 'all' | 'classified' | 'unclassified'
 let articleCategoryFilter = 'all'; // 'all' | '<category>'
@@ -938,14 +942,39 @@ function clearLog() {
 
 function stopAnalysisHandler() {
     stopAnalysis = true;
+    pauseAnalysis = false;
+    if (pauseResolve) { pauseResolve(); pauseResolve = null; }
     stopBtn.style.display = 'none';
+    pauseBtn.style.display = 'none';
+    resumeBtn.style.display = 'none';
     analyzeBtn.style.display = 'inline-block';
     addLog('🛑 Arrêt de l\'analyse demandé par l\'utilisateur...', 'error');
+}
+
+function pauseAnalysisHandler() {
+    pauseAnalysis = true;
+    pauseBtn.style.display = 'none';
+    resumeBtn.style.display = 'inline-block';
+    showArticlesSection();
+    addLog('⏸ Analyse en pause — vous pouvez naviguer librement', 'info');
+    progressText.textContent = progressText.textContent.replace('Analyse en cours', 'Analyse en pause');
+}
+
+function resumeAnalysisHandler() {
+    pauseAnalysis = false;
+    resumeBtn.style.display = 'none';
+    pauseBtn.style.display = 'inline-block';
+    hideArticlesSection();
+    addLog('▶ Reprise de l\'analyse...', 'info');
+    progressText.textContent = progressText.textContent.replace('Analyse en pause', 'Analyse en cours');
+    if (pauseResolve) { pauseResolve(); pauseResolve = null; }
 }
 
 clearBtn.addEventListener('click', clearTable);
 analyzeBtn.addEventListener('click', analyzeWithAI);
 stopBtn.addEventListener('click', stopAnalysisHandler);
+pauseBtn.addEventListener('click', pauseAnalysisHandler);
+resumeBtn.addEventListener('click', resumeAnalysisHandler);
 resetBtn.addEventListener('click', resetApplication);
 exportBtn.addEventListener('click', exportToCSV);
 
@@ -1726,7 +1755,11 @@ async function analyzeWithAI() {
 
     // Gérer les boutons
     analyzeBtn.style.display = 'none';
+    pauseBtn.style.display = 'inline-block';
+    resumeBtn.style.display = 'none';
     stopBtn.style.display = 'inline-block';
+    pauseAnalysis = false;
+    pauseResolve = null;
     progressContainer.style.display = 'block';
     statsContainer.style.display = 'block';
     tableContainer.style.display = 'block';
@@ -1790,6 +1823,12 @@ async function analyzeWithAI() {
             if (stopAnalysis) {
                 addLog(`🛑 ANALYSE ARRÊTÉE par l'utilisateur à l'article ${i + 1}/${classifiedArticles.length}`, 'error');
                 break;
+            }
+
+            // Attendre si en pause
+            if (pauseAnalysis) {
+                await new Promise(resolve => { pauseResolve = resolve; });
+                if (stopAnalysis) break;
             }
 
             const article = classifiedArticles[i];
@@ -1952,6 +1991,8 @@ async function analyzeWithAI() {
         showError('Erreur lors de l\'analyse : ' + error.message);
     } finally {
         stopBtn.style.display = 'none';
+        pauseBtn.style.display = 'none';
+        resumeBtn.style.display = 'none';
         analyzeBtn.style.display = 'inline-block';
         currentTestRunId = null;
         showArticlesSection();

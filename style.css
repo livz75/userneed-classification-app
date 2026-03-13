@@ -54,7 +54,7 @@ header h1 {
     margin-bottom: 14px;
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 12px;
 }
 

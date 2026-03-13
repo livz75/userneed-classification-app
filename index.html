@@ -207,7 +207,10 @@
             <div class="llm-panel-inner">
                 <div class="llm-panel-header">
                     <h2>🤖 Configuration OpenRouter</h2>
-                    <button id="closeLlmPanelBtn" class="close-panel-btn">✕</button>
+                    <div style="display:flex;gap:12px;align-items:center;">
+                        <button id="saveProviderConfigBtn" class="btn-save-provider">💾 Enregistrer la configuration</button>
+                        <button id="closeLlmPanelBtn" class="close-panel-btn">✕</button>
+                    </div>
                 </div>
 
                 <div class="provider-config-section">
@@ -221,7 +224,6 @@
                         <input type="password" id="openrouterApiKey" class="api-key-input" placeholder="sk-or-...">
                         <p class="input-help-text">Obtenez votre clé sur <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a></p>
                     </div>
-                    <button id="saveProviderConfigBtn" class="btn-save-provider">💾 Enregistrer la configuration</button>
                 </div>
 
                 <div class="reset-config-section" style="margin-top:16px;">

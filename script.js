@@ -1597,7 +1597,7 @@ function updateStatisticsDisplay() {
     const summaryConcPct = document.getElementById('summaryConcordantPercent');
     const summaryReclCount = document.getElementById('summaryReclassifiedCount');
     const summaryReclPct = document.getElementById('summaryReclassifiedPercent');
-    if (summaryTotal) summaryTotal.textContent = totalArticles;
+    if (summaryTotal) summaryTotal.textContent = totalClassifiedArticles > 0 ? `${totalArticles}/${totalClassifiedArticles}` : totalArticles;
     if (summaryConcCount) summaryConcCount.textContent = concordants;
     if (summaryConcPct) summaryConcPct.textContent = concordantPercent + '%';
     if (summaryReclCount) summaryReclCount.textContent = reclassified;
@@ -1728,6 +1728,7 @@ function hideError() {
 }
 
 let currentTestRunId = null; // ID du test run en cours
+let totalClassifiedArticles = 0; // Nombre total d'articles classifiés pour l'analyse en cours
 
 async function analyzeWithAI() {
     // Vérifier la configuration OpenRouter
@@ -1797,6 +1798,7 @@ async function analyzeWithAI() {
     initConfusionMatrix();
 
     addLog('🚀 Démarrage de l\'analyse IA...', 'info');
+    totalClassifiedArticles = classifiedArticles.length;
     addLog(`📊 Nombre total d'articles classifiés à analyser : ${classifiedArticles.length}`, 'info');
 
     const ARTICLE_DELAY_MS = 5000;

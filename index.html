@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=37">
+    <link rel="stylesheet" href="style.css?v=38">
 </head>
 <body>
     <div class="container">
@@ -18,14 +18,14 @@
             </h1>
             <nav class="header-nav">
                 <div class="nav-group nav-main">
-                    <button id="articlesBtn" class="nav-btn" title="Voir les articles" onclick="showArticlesSection(); document.getElementById('articlesSection').scrollIntoView({behavior:'smooth'})">📰 Articles</button>
+                    <button id="articlesBtn" class="nav-btn nav-btn-primary" title="Voir les articles" onclick="showArticlesSection(); document.getElementById('articlesSection').scrollIntoView({behavior:'smooth'})">📰 Articles</button>
                     <button id="llmBtn" class="nav-btn" title="Configuration des modèles LLM">🤖 LLM</button>
                     <button id="settingsBtn" class="nav-btn" title="Gérer les prompts">📝 Prompts</button>
                     <button id="testsBtn" class="nav-btn" title="Historique des tests">📋 Tests</button>
                 </div>
                 <div class="nav-separator"></div>
                 <div class="nav-group nav-actions">
-                    <button id="analyzeBtn" class="nav-btn nav-btn-primary">Analyse IA</button>
+                    <button id="analyzeBtn" class="nav-btn">Analyse IA</button>
                     <button id="pauseBtn" class="nav-btn nav-btn-warning" style="display: none;">⏸ Pause</button>
                     <button id="resumeBtn" class="nav-btn nav-btn-success" style="display: none;">▶ Reprendre</button>
                     <button id="stopBtn" class="nav-btn nav-btn-danger" style="display: none;">⏹ Stop</button>
@@ -526,6 +526,6 @@ Analyse cet article..."></textarea>
     <script src="js/article-manager.js?v=35"></script>
     <script src="js/classification-manager.js?v=32"></script>
     <script src="js/test-run-manager.js?v=32"></script>
-    <script src="script.js?v=40"></script>
+    <script src="script.js?v=41"></script>
 </body>
 </html>

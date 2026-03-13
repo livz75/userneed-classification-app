@@ -2330,7 +2330,7 @@ function setMediaTypeFilter(type) {
     renderFilteredArticles();
 }
 
-async function refreshArticlesList(retries = 2) {
+async function refreshArticlesList(retries = 4) {
     const listContainer = document.getElementById('articlesList');
     listContainer.innerHTML = '<p class="articles-empty">Chargement…</p>';
 

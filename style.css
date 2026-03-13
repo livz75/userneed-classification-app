@@ -524,7 +524,13 @@ input[type="file"] {
     overflow: hidden;
 }
 
-.matrix-section h3,
+.matrix-section h3 {
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    font-size: 1rem;
+    text-align: center;
+}
+
 .live-articles-section h3 {
     color: var(--text-primary);
     margin-bottom: 8px;

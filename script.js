@@ -1591,6 +1591,18 @@ function updateStatisticsDisplay() {
     document.getElementById('reclassifiedCount').textContent = reclassified;
     document.getElementById('reclassifiedPercent').textContent = reclassifiedPercent + '%';
 
+    // Mettre à jour la barre de résumé au-dessus de la matrice
+    const summaryTotal = document.getElementById('summaryTotal');
+    const summaryConcCount = document.getElementById('summaryConcordantCount');
+    const summaryConcPct = document.getElementById('summaryConcordantPercent');
+    const summaryReclCount = document.getElementById('summaryReclassifiedCount');
+    const summaryReclPct = document.getElementById('summaryReclassifiedPercent');
+    if (summaryTotal) summaryTotal.textContent = totalArticles;
+    if (summaryConcCount) summaryConcCount.textContent = concordants;
+    if (summaryConcPct) summaryConcPct.textContent = concordantPercent + '%';
+    if (summaryReclCount) summaryReclCount.textContent = reclassified;
+    if (summaryReclPct) summaryReclPct.textContent = reclassifiedPercent + '%';
+
     // Top 5 reclassifications
     const topDiv = document.getElementById('topReclassifications');
     topDiv.innerHTML = '';

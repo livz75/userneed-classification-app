@@ -473,6 +473,58 @@ input[type="file"] {
     margin-bottom: 30px;
 }
 
+/* Summary bar above confusion matrix */
+.analysis-summary-bar {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+.summary-stat {
+    flex: 1;
+    background: var(--bg-card);
+    border-radius: 12px;
+    padding: 16px 20px;
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.06);
+}
+.summary-stat .summary-label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+}
+.summary-stat .summary-value {
+    display: block;
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1.1;
+}
+.summary-stat .summary-percent {
+    display: block;
+    font-size: 1rem;
+    font-weight: 700;
+    margin-top: 4px;
+}
+.summary-stat.summary-concordant {
+    border-color: rgba(16, 185, 129, 0.3);
+    background: linear-gradient(135deg, var(--bg-card), rgba(16, 185, 129, 0.08));
+}
+.summary-stat.summary-concordant .summary-value,
+.summary-stat.summary-concordant .summary-percent {
+    color: #10b981;
+}
+.summary-stat.summary-reclassified {
+    border-color: rgba(239, 68, 68, 0.3);
+    background: linear-gradient(135deg, var(--bg-card), rgba(239, 68, 68, 0.08));
+}
+.summary-stat.summary-reclassified .summary-value,
+.summary-stat.summary-reclassified .summary-percent {
+    color: #ef4444;
+}
+
 .confusion-matrix-wrapper {
     display: grid;
     grid-template-columns: 1.2fr 1fr;

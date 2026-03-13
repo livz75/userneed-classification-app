@@ -62,6 +62,22 @@
         </div>
 
         <div id="statsContainer" class="stats-container" style="display: none;">
+            <div class="analysis-summary-bar" id="analysisSummaryBar">
+                <div class="summary-stat">
+                    <span class="summary-label">Total</span>
+                    <span class="summary-value" id="summaryTotal">0</span>
+                </div>
+                <div class="summary-stat summary-concordant">
+                    <span class="summary-label">Concordants</span>
+                    <span class="summary-value" id="summaryConcordantCount">0</span>
+                    <span class="summary-percent" id="summaryConcordantPercent">0%</span>
+                </div>
+                <div class="summary-stat summary-reclassified">
+                    <span class="summary-label">Reclassifiés</span>
+                    <span class="summary-value" id="summaryReclassifiedCount">0</span>
+                    <span class="summary-percent" id="summaryReclassifiedPercent">0%</span>
+                </div>
+            </div>
             <div class="confusion-matrix-wrapper">
                 <div class="matrix-section">
                     <h3>Matrice de confusion</h3>

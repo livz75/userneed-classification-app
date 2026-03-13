@@ -58,15 +58,23 @@ class ArticleManager {
             return [];
         }
 
-        // Dédupliquer par article.id : la jointure inner peut retourner
-        // plusieurs lignes si un article a plusieurs classifications humaines
-        const seen = new Map();
+        // Dédupliquer par article.id puis par titre :
+        // - la jointure inner peut retourner plusieurs lignes si plusieurs classifications
+        // - des articles republiés avec une URL différente partagent le même titre
+        const seenById = new Map();
         for (const article of (data || [])) {
-            if (!seen.has(article.id)) {
-                seen.set(article.id, article);
+            if (!seenById.has(article.id)) {
+                seenById.set(article.id, article);
             }
         }
-        return Array.from(seen.values());
+        const seenByTitle = new Map();
+        for (const article of seenById.values()) {
+            const title = (article.titre || '').trim().toLowerCase();
+            if (!title || !seenByTitle.has(title)) {
+                seenByTitle.set(title || article.id, article);
+            }
+        }
+        return Array.from(seenByTitle.values());
     }
 }
 

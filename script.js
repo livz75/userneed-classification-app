@@ -2322,18 +2322,25 @@ function setMediaTypeFilter(type) {
     renderFilteredArticles();
 }
 
-async function refreshArticlesList() {
+async function refreshArticlesList(retries = 2) {
     const listContainer = document.getElementById('articlesList');
     listContainer.innerHTML = '<p class="articles-empty">Chargement…</p>';
 
-    try {
-        const articles = await articleManager.loadFromSupabase();
-        currentArticles = articles;
-        renderFilteredArticles();
-    } catch (error) {
-        console.error('Erreur refresh articles:', error);
-        document.getElementById('articlesList').innerHTML = '<p class="articles-empty">Erreur de chargement.</p>';
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            const articles = await articleManager.loadFromSupabase();
+            if (!articles || articles.length === 0) throw new Error('Aucun article reçu');
+            currentArticles = articles;
+            renderFilteredArticles();
+            return;
+        } catch (error) {
+            console.warn(`Tentative ${attempt + 1}/${retries + 1} chargement articles:`, error.message);
+            if (attempt < retries) {
+                await new Promise(r => setTimeout(r, 1500));
+            }
+        }
     }
+    document.getElementById('articlesList').innerHTML = '<p class="articles-empty">Erreur de chargement. Cliquez sur ↻ Actualiser pour réessayer.</p>';
 }
 
 function renderFilteredArticles() {

@@ -548,9 +548,8 @@ input[type="file"] {
 
 .live-article-item {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px 10px;
+    flex-direction: column;
+    gap: 4px;
     padding: 8px 12px;
     border-radius: 8px;
     background: var(--bg-darker);
@@ -565,6 +564,12 @@ input[type="file"] {
     to { opacity: 1; transform: translateY(0); }
 }
 
+.live-article-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .live-article-num {
     font-weight: 700;
     color: var(--text-secondary);
@@ -573,12 +578,9 @@ input[type="file"] {
 }
 
 .live-article-title {
-    flex: 1 1 0;
-    min-width: 0;
     color: var(--text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.35;
+    word-break: break-word;
 }
 
 .live-article-badge {
@@ -587,7 +589,7 @@ input[type="file"] {
     font-size: 0.68rem;
     font-weight: 600;
     white-space: nowrap;
-    flex-shrink: 0;
+    align-self: flex-start;
 }
 
 .live-article-badge.match {

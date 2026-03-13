@@ -1621,8 +1621,10 @@ function addLiveArticle(articleData) {
     }
 
     item.innerHTML = `
-        <span class="live-article-num">#${articleData.numero}</span>
-        <span class="live-article-title" title="${articleData.titre}">${articleData.titre}</span>
+        <div class="live-article-top">
+            <span class="live-article-num">#${articleData.numero}</span>
+            <span class="live-article-title">${articleData.titre}</span>
+        </div>
         <span class="live-article-badge ${badgeClass}">${badgeText}</span>
     `;
 
@@ -1659,8 +1661,10 @@ function populateLiveArticlesFromResults() {
         }
 
         item.innerHTML = `
-            <span class="live-article-num">#${a.numero}</span>
-            <span class="live-article-title" title="${a.titre}">${a.titre}</span>
+            <div class="live-article-top">
+                <span class="live-article-num">#${a.numero}</span>
+                <span class="live-article-title">${a.titre}</span>
+            </div>
             <span class="live-article-badge ${badgeClass}">${badgeText}</span>
         `;
         list.appendChild(item);

@@ -1798,7 +1798,14 @@ async function analyzeWithAI() {
     initConfusionMatrix();
 
     addLog('🚀 Démarrage de l\'analyse IA...', 'info');
+    // Comptage réel depuis Supabase (inclut les doublons dédupliqués)
     totalClassifiedArticles = classifiedArticles.length;
+    if (isSupabaseAvailable()) {
+        try {
+            const { count } = await supabaseClient.from('human_classifications').select('id', { count: 'exact', head: true });
+            if (count != null) totalClassifiedArticles = count;
+        } catch (e) { /* fallback sur classifiedArticles.length */ }
+    }
     addLog(`📊 Nombre total d'articles classifiés à analyser : ${classifiedArticles.length}`, 'info');
 
     const ARTICLE_DELAY_MS = 5000;

@@ -2009,7 +2009,6 @@ async function analyzeWithAI() {
         resumeBtn.style.display = 'none';
         analyzeBtn.style.display = 'inline-block';
         currentTestRunId = null;
-        showArticlesSection();
     }
 }
 

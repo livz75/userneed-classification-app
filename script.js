@@ -2411,9 +2411,17 @@ function renderFilteredArticles() {
         filtered = articles
             .filter(a => a.human_classifications && a.human_classifications.length > 0)
             .sort((a, b) => {
-                const dateA = new Date(a.human_classifications[0].classified_at || 0);
-                const dateB = new Date(b.human_classifications[0].classified_at || 0);
-                return dateB - dateA;
+                // Tri par date de classification décroissante (plus récent en premier)
+                // Prendre la classification la plus récente si plusieurs existent
+                const classA = a.human_classifications.reduce((latest, c) => {
+                    const d = new Date(c.classified_at || 0);
+                    return d > latest ? d : latest;
+                }, new Date(0));
+                const classB = b.human_classifications.reduce((latest, c) => {
+                    const d = new Date(c.classified_at || 0);
+                    return d > latest ? d : latest;
+                }, new Date(0));
+                return classB - classA;
             });
     } else if (articleFilter === 'unclassified') {
         filtered = articles.filter(a => !a.human_classifications || a.human_classifications.length === 0);
@@ -2679,6 +2687,9 @@ async function handleClassification(articleId, userneed) {
         }
 
         showToast(`Article classifié: ${userneed}`);
+
+        // Rafraîchir la liste pour que classified_at soit à jour pour le tri
+        await refreshArticlesList();
     } catch (error) {
         console.error('Erreur classification:', error);
         showToast('Erreur de classification', 'error');

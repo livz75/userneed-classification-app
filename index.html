@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=49">
+    <link rel="stylesheet" href="style.css?v=50">
 </head>
 <body>
     <div class="container">
@@ -64,6 +64,14 @@
                     <p class="articles-empty">Chargement des articles...</p>
                 </div>
             </div>
+        </div>
+
+        <!-- Barre de progression analyse IA -->
+        <div id="progress" class="progress-container" style="display: none;">
+            <div class="progress-bar-wrapper">
+                <div class="progress-bar-fill" id="progressFill"></div>
+            </div>
+            <p class="progress-text" id="progressText">Analyse en cours...</p>
         </div>
 
         <div id="statsContainer" class="stats-container" style="display: none;">
@@ -504,6 +512,6 @@ Analyse cet article..."></textarea>
     <script src="js/article-manager.js?v=35"></script>
     <script src="js/classification-manager.js?v=32"></script>
     <script src="js/test-run-manager.js?v=32"></script>
-    <script src="script.js?v=51"></script>
+    <script src="script.js?v=52"></script>
 </body>
 </html>

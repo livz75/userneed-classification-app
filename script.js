@@ -2777,23 +2777,27 @@ function renderArticleCard(article) {
 }
 
 async function declassifyArticle(articleId) {
-    // Sauvegarder la position de scroll avant le refresh
-    const listContainer = document.getElementById('articlesList');
-    const scrollParent = listContainer?.closest('.articles-panel') || listContainer?.parentElement || window;
-    const savedScrollTop = scrollParent.scrollTop ?? window.scrollY;
-
     try {
         await classificationManager.unclassify(articleId);
-        await refreshArticlesList();
 
-        // Restaurer la position de scroll après le refresh
-        requestAnimationFrame(() => {
-            if (scrollParent === window) {
-                window.scrollTo(0, savedScrollTop);
-            } else {
-                scrollParent.scrollTop = savedScrollTop;
-            }
-        });
+        // Mettre à jour l'article dans currentArticles (retirer la classification)
+        const article = currentArticles.find(a => a.id === articleId);
+        if (article) {
+            article.human_classifications = [];
+        }
+
+        // Mettre à jour uniquement la carte dans le DOM (sans reconstruire toute la liste)
+        const card = document.querySelector(`[data-article-id="${articleId}"]`);
+        if (card && article) {
+            const newCard = document.createElement('div');
+            newCard.innerHTML = renderArticleCard(article);
+            card.replaceWith(newCard.firstElementChild);
+        }
+
+        // Mettre à jour les stats
+        const localClassified = currentArticles.filter(a => a.human_classifications && a.human_classifications.length > 0).length;
+        const statsSpan = document.getElementById('articleStats');
+        if (statsSpan) statsSpan.textContent = `${localClassified} classifiés`;
 
         showToast('Classification retirée');
     } catch (error) {
@@ -2805,46 +2809,34 @@ async function declassifyArticle(articleId) {
 async function handleClassification(articleId, userneed) {
     if (!userneed) return;
 
-    // Sauvegarder la position de scroll avant le refresh
-    const listContainer = document.getElementById('articlesList');
-    const scrollParent = listContainer?.closest('.articles-panel') || listContainer?.parentElement || window;
-    const savedScrollTop = scrollParent.scrollTop ?? window.scrollY;
-
     try {
         await classificationManager.classify(articleId, userneed);
 
-        // Mettre à jour le visuel de la select
+        // Mettre à jour l'article dans currentArticles
+        const article = currentArticles.find(a => a.id === articleId);
+        if (article) {
+            article.human_classifications = [{ userneed, classified_at: new Date().toISOString() }];
+        }
+
+        // Mettre à jour uniquement la carte dans le DOM (sans reconstruire toute la liste)
         const card = document.querySelector(`[data-article-id="${articleId}"]`);
-        if (card) {
-            const select = card.querySelector('.classification-select');
-            if (select) select.classList.add('classified');
+        if (card && article) {
+            const newCard = document.createElement('div');
+            newCard.innerHTML = renderArticleCard(article);
+            card.replaceWith(newCard.firstElementChild);
         }
 
         // Mettre à jour les stats
-        const stats = await classificationManager.getStats();
+        const localClassified = currentArticles.filter(a => a.human_classifications && a.human_classifications.length > 0).length;
         const statsSpan = document.getElementById('articleStats');
-        if (statsSpan) {
-            statsSpan.textContent = `${stats.classified} classifiés`;
-        }
+        if (statsSpan) statsSpan.textContent = `${localClassified} classifiés`;
 
         // Afficher le bouton Analyse IA si au moins 1 article classifié
-        if (stats.classified > 0) {
+        if (localClassified > 0) {
             analyzeBtn.style.display = 'inline-block';
         }
 
         showToast(`Article classifié: ${userneed}`);
-
-        // Rafraîchir la liste pour que classified_at soit à jour pour le tri
-        await refreshArticlesList();
-
-        // Restaurer la position de scroll après le refresh
-        requestAnimationFrame(() => {
-            if (scrollParent === window) {
-                window.scrollTo(0, savedScrollTop);
-            } else {
-                scrollParent.scrollTop = savedScrollTop;
-            }
-        });
     } catch (error) {
         console.error('Erreur classification:', error);
         showToast('Erreur de classification', 'error');

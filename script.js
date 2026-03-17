@@ -2777,9 +2777,24 @@ function renderArticleCard(article) {
 }
 
 async function declassifyArticle(articleId) {
+    // Sauvegarder la position de scroll avant le refresh
+    const listContainer = document.getElementById('articlesList');
+    const scrollParent = listContainer?.closest('.articles-panel') || listContainer?.parentElement || window;
+    const savedScrollTop = scrollParent.scrollTop ?? window.scrollY;
+
     try {
         await classificationManager.unclassify(articleId);
         await refreshArticlesList();
+
+        // Restaurer la position de scroll après le refresh
+        requestAnimationFrame(() => {
+            if (scrollParent === window) {
+                window.scrollTo(0, savedScrollTop);
+            } else {
+                scrollParent.scrollTop = savedScrollTop;
+            }
+        });
+
         showToast('Classification retirée');
     } catch (error) {
         console.error('Erreur déclassification:', error);
@@ -2789,6 +2804,11 @@ async function declassifyArticle(articleId) {
 
 async function handleClassification(articleId, userneed) {
     if (!userneed) return;
+
+    // Sauvegarder la position de scroll avant le refresh
+    const listContainer = document.getElementById('articlesList');
+    const scrollParent = listContainer?.closest('.articles-panel') || listContainer?.parentElement || window;
+    const savedScrollTop = scrollParent.scrollTop ?? window.scrollY;
 
     try {
         await classificationManager.classify(articleId, userneed);
@@ -2816,6 +2836,15 @@ async function handleClassification(articleId, userneed) {
 
         // Rafraîchir la liste pour que classified_at soit à jour pour le tri
         await refreshArticlesList();
+
+        // Restaurer la position de scroll après le refresh
+        requestAnimationFrame(() => {
+            if (scrollParent === window) {
+                window.scrollTo(0, savedScrollTop);
+            } else {
+                scrollParent.scrollTop = savedScrollTop;
+            }
+        });
     } catch (error) {
         console.error('Erreur classification:', error);
         showToast('Erreur de classification', 'error');

@@ -1005,18 +1005,15 @@ function updateTimerDisplay() {
     const elapsed = getAnalysisElapsed();
     const doneCount = articleResults.length;
     const rate = elapsed > 0 ? (doneCount / (elapsed / 60000)).toFixed(1) : '—';
-    // Estimer le temps restant
-    let etaStr = '';
-    if (doneCount > 0 && typeof classifiedArticles !== 'undefined') {
-        const remaining = classifiedArticles.length - doneCount;
-        if (remaining > 0) {
-            const msPerArticle = elapsed / doneCount;
-            etaStr = ` · fin estimée dans ${formatDuration(msPerArticle * remaining)}`;
-        }
+    const total = typeof classifiedArticles !== 'undefined' ? classifiedArticles.length : 0;
+    const remaining = total - doneCount;
+    let etaHtml = '';
+    if (doneCount > 0 && remaining > 0) {
+        const msPerArticle = elapsed / doneCount;
+        etaHtml = `<br>⏳ Fin estimée dans ${formatDuration(msPerArticle * remaining)}`;
     }
-    const timerStr = ` ⏱️ ${formatDuration(elapsed)} · ${rate} art/min${etaStr}`;
-    const base = progressText.textContent.replace(/\s*⏱️.*$/, '');
-    progressText.textContent = base + timerStr;
+    const statusWord = pauseAnalysis ? 'Analyse en pause' : 'Analyse en cours';
+    progressText.innerHTML = `${statusWord}... ${doneCount}/${total} articles ⏱️ ${formatDuration(elapsed)} · ${rate} art/min${etaHtml}`;
 }
 
 function pauseAnalysisHandler() {
@@ -1026,7 +1023,7 @@ function pauseAnalysisHandler() {
     resumeBtn.style.display = 'inline-block';
     showArticlesSection();
     addLog('⏸ Analyse en pause — vous pouvez naviguer librement', 'info');
-    if (progressText) progressText.textContent = progressText.textContent.replace('Analyse en cours', 'Analyse en pause');
+    updateTimerDisplay();
 }
 
 function resumeAnalysisHandler() {
@@ -1036,7 +1033,7 @@ function resumeAnalysisHandler() {
     pauseBtn.style.display = 'inline-block';
     hideArticlesSection();
     addLog('▶ Reprise de l\'analyse...', 'info');
-    if (progressText) progressText.textContent = progressText.textContent.replace('Analyse en pause', 'Analyse en cours');
+    updateTimerDisplay();
     if (pauseResolve) { pauseResolve(); pauseResolve = null; }
 }
 
@@ -2081,17 +2078,7 @@ async function analyzeWithAI() {
             const progress = ((i + 1) / classifiedArticles.length) * 100;
             if (progressFill) progressFill.style.width = `${progress}%`;
             if (progressText) {
-                const elapsed = getAnalysisElapsed();
-                const doneCount = articleResults.length;
-                const rate = elapsed > 0 ? (doneCount / (elapsed / 60000)).toFixed(1) : '—';
-                const remaining = classifiedArticles.length - (i + 1);
-                let etaStr = '';
-                if (doneCount > 0 && remaining > 0) {
-                    const msPerArticle = elapsed / doneCount;
-                    const etaMs = msPerArticle * remaining;
-                    etaStr = ` · fin estimée dans ${formatDuration(etaMs)}`;
-                }
-                progressText.textContent = `Analyse en cours... ${i + 1}/${classifiedArticles.length} articles ⏱️ ${formatDuration(elapsed)} · ${rate} art/min${etaStr}`;
+                updateTimerDisplay();
             }
 
             // Délai entre articles

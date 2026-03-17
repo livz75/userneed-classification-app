@@ -24,6 +24,7 @@ let pauseResolve = null; // resolve function to resume from pause
 let analysisElapsedMs = 0;       // temps effectif écoulé (hors pause)
 let analysisTimerStart = null;    // Date.now() du dernier démarrage/reprise
 let analysisTimerInterval = null; // setInterval pour mise à jour affichage
+let analysisTotalArticles = 0;   // nombre total d'articles à analyser
 let articleResults = []; // Stockage global des résultats d'analyse
 let articleFilter = 'unclassified'; // 'all' | 'classified' | 'unclassified'
 let articleCategoryFilter = 'all'; // 'all' | '<category>'
@@ -1006,7 +1007,7 @@ function updateTimerDisplay() {
     const elapsed = getAnalysisElapsed();
     const doneCount = articleResults.length;
     const rate = elapsed > 0 ? (doneCount / (elapsed / 60000)).toFixed(1) : '—';
-    const total = typeof classifiedArticles !== 'undefined' ? classifiedArticles.length : 0;
+    const total = analysisTotalArticles || 0;
     const remaining = total - doneCount;
     let etaHtml = '';
     if (doneCount > 0 && remaining > 0) {
@@ -1910,6 +1911,7 @@ async function analyzeWithAI() {
     clearLog();
     hideError();
     initConfusionMatrix();
+    analysisTotalArticles = classifiedArticles.length;
     startAnalysisTimer();
 
     addLog('🚀 Démarrage de l\'analyse IA...', 'info');

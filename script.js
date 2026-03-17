@@ -19,6 +19,11 @@ let currentArticles = []; // Articles chargés depuis Supabase (avec classificat
 let stopAnalysis = false;
 let pauseAnalysis = false;
 let pauseResolve = null; // resolve function to resume from pause
+
+// Timer pour mesurer la vitesse d'analyse (articles/min)
+let analysisElapsedMs = 0;       // temps effectif écoulé (hors pause)
+let analysisTimerStart = null;    // Date.now() du dernier démarrage/reprise
+let analysisTimerInterval = null; // setInterval pour mise à jour affichage
 let articleResults = []; // Stockage global des résultats d'analyse
 let articleFilter = 'unclassified'; // 'all' | 'classified' | 'unclassified'
 let articleCategoryFilter = 'all'; // 'all' | '<category>'
@@ -945,6 +950,7 @@ function clearLog() {
 function stopAnalysisHandler() {
     stopAnalysis = true;
     pauseAnalysis = false;
+    stopAnalysisTimer();
     if (pauseResolve) { pauseResolve(); pauseResolve = null; }
     stopBtn.style.display = 'none';
     pauseBtn.style.display = 'none';
@@ -953,8 +959,61 @@ function stopAnalysisHandler() {
     addLog('🛑 Arrêt de l\'analyse demandé par l\'utilisateur...', 'error');
 }
 
+// ── Timer helpers ──────────────────────────────────────
+function startAnalysisTimer() {
+    analysisElapsedMs = 0;
+    analysisTimerStart = Date.now();
+    analysisTimerInterval = setInterval(updateTimerDisplay, 1000);
+}
+
+function pauseAnalysisTimer() {
+    if (analysisTimerStart) {
+        analysisElapsedMs += Date.now() - analysisTimerStart;
+        analysisTimerStart = null;
+    }
+    if (analysisTimerInterval) { clearInterval(analysisTimerInterval); analysisTimerInterval = null; }
+}
+
+function resumeAnalysisTimer() {
+    analysisTimerStart = Date.now();
+    if (!analysisTimerInterval) analysisTimerInterval = setInterval(updateTimerDisplay, 1000);
+}
+
+function stopAnalysisTimer() {
+    if (analysisTimerStart) {
+        analysisElapsedMs += Date.now() - analysisTimerStart;
+        analysisTimerStart = null;
+    }
+    if (analysisTimerInterval) { clearInterval(analysisTimerInterval); analysisTimerInterval = null; }
+}
+
+function getAnalysisElapsed() {
+    let total = analysisElapsedMs;
+    if (analysisTimerStart) total += Date.now() - analysisTimerStart;
+    return total;
+}
+
+function formatDuration(ms) {
+    const totalSec = Math.floor(ms / 1000);
+    const min = Math.floor(totalSec / 60);
+    const sec = totalSec % 60;
+    return min > 0 ? `${min}min ${sec.toString().padStart(2, '0')}s` : `${sec}s`;
+}
+
+function updateTimerDisplay() {
+    if (!progressText) return;
+    const elapsed = getAnalysisElapsed();
+    const doneCount = articleResults.length;
+    const rate = elapsed > 0 ? (doneCount / (elapsed / 60000)).toFixed(1) : '—';
+    const timerStr = ` ⏱️ ${formatDuration(elapsed)} · ${rate} art/min`;
+    // Remplacer la partie timer si elle existe, sinon l'ajouter
+    const base = progressText.textContent.replace(/\s*⏱️.*$/, '');
+    progressText.textContent = base + timerStr;
+}
+
 function pauseAnalysisHandler() {
     pauseAnalysis = true;
+    pauseAnalysisTimer();
     pauseBtn.style.display = 'none';
     resumeBtn.style.display = 'inline-block';
     showArticlesSection();
@@ -964,6 +1023,7 @@ function pauseAnalysisHandler() {
 
 function resumeAnalysisHandler() {
     pauseAnalysis = false;
+    resumeAnalysisTimer();
     resumeBtn.style.display = 'none';
     pauseBtn.style.display = 'inline-block';
     hideArticlesSection();
@@ -1844,6 +1904,7 @@ async function analyzeWithAI() {
     clearLog();
     hideError();
     initConfusionMatrix();
+    startAnalysisTimer();
 
     addLog('🚀 Démarrage de l\'analyse IA...', 'info');
     // Comptage réel depuis Supabase (inclut les doublons dédupliqués)
@@ -2011,7 +2072,11 @@ async function analyzeWithAI() {
             // Progression
             const progress = ((i + 1) / classifiedArticles.length) * 100;
             if (progressFill) progressFill.style.width = `${progress}%`;
-            if (progressText) progressText.textContent = `Analyse en cours... ${i + 1}/${classifiedArticles.length} articles`;
+            if (progressText) {
+                const elapsed = getAnalysisElapsed();
+                const rate = elapsed > 0 ? (articleResults.length / (elapsed / 60000)).toFixed(1) : '—';
+                progressText.textContent = `Analyse en cours... ${i + 1}/${classifiedArticles.length} articles ⏱️ ${formatDuration(elapsed)} · ${rate} art/min`;
+            }
 
             // Délai entre articles
             if (i < classifiedArticles.length - 1 && !stopAnalysis) {
@@ -2045,10 +2110,13 @@ async function analyzeWithAI() {
             addLog(`📋 Test run sauvegardé en DB`, 'info');
         }
 
+        stopAnalysisTimer();
         if (!stopAnalysis) {
-            if (progressText) progressText.textContent = 'Analyse terminée !';
+            const finalElapsed = getAnalysisElapsed();
+            const finalRate = finalElapsed > 0 ? (articleResults.length / (finalElapsed / 60000)).toFixed(1) : '—';
+            if (progressText) progressText.textContent = `Analyse terminée ! ⏱️ ${formatDuration(finalElapsed)} · ${finalRate} art/min`;
             if (progressFill) progressFill.style.width = '100%';
-            addLog(`🎉 ANALYSE TERMINÉE ! ${articleResults.length} articles traités. Concordance: ${concordantPercent}%`, 'success');
+            addLog(`🎉 ANALYSE TERMINÉE ! ${articleResults.length} articles traités. Concordance: ${concordantPercent}% — Durée: ${formatDuration(finalElapsed)} (${finalRate} art/min)`, 'success');
         }
 
         setTimeout(() => {
@@ -2062,6 +2130,7 @@ async function analyzeWithAI() {
         addLog(`❌ ERREUR: ${error.message}`, 'error');
         showError('Erreur lors de l\'analyse : ' + error.message);
     } finally {
+        stopAnalysisTimer();
         stopBtn.style.display = 'none';
         pauseBtn.style.display = 'none';
         resumeBtn.style.display = 'none';

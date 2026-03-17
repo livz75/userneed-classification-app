@@ -2996,11 +2996,7 @@ function refreshScatterChart() {
 }
 
 function getScatterRadius(articleCount, runs) {
-    const counts = runs.map(r => r.analyzed_articles || 0);
-    const minC = Math.min(...counts), maxC = Math.max(...counts);
-    const range = maxC - minC || 1;
-    const t = (articleCount - minC) / range; // 0..1
-    return 12 + t * 10; // radius from 12 to 22
+    return 16; // taille fixe pour toutes les bulles
 }
 
 function buildScatterSVG(runs) {
@@ -3069,8 +3065,8 @@ function buildScatterSVG(runs) {
         const color = getModelColor(r.llm_model);
         const isBest = f1 === bestF1;
         const articleCount = r.analyzed_articles || 0;
-        const rad = getScatterRadius(articleCount, runs) + (isBest ? 2 : 0);
-        const fontSize = Math.max(7, Math.min(11, rad - 4));
+        const rad = 16 + (isBest ? 2 : 0);
+        const fontSize = 10;
         points += `<g class="scatter-point" data-idx="${i}" style="cursor:pointer">
             <circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${rad}"
                 fill="${color}" fill-opacity="0.85"
@@ -3120,10 +3116,9 @@ function attachScatterEvents(runs) {
         group.addEventListener('mouseleave', () => {
             tooltip.style.display = 'none';
             if (circleEl) {
-                const baseRad = getScatterRadius(r.analyzed_articles || 0, runs);
                 const bestF1 = Math.max(...runs.filter(rr=>rr._metrics).map(rr=>rr._metrics.f1));
                 const isBest = r._metrics?.f1 === bestF1;
-                circleEl.setAttribute('r', isBest ? baseRad + 2 : baseRad);
+                circleEl.setAttribute('r', isBest ? 18 : 16);
             }
         });
         group.addEventListener('click', () => {

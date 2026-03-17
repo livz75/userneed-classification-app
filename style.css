@@ -3286,6 +3286,17 @@ input[type="file"] {
     color: white;
 }
 
+.test-run-action-btn.export {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: #10b981;
+    color: #10b981;
+}
+
+.test-run-action-btn.export:hover {
+    background: #10b981;
+    color: white;
+}
+
 /* Test detail view */
 .test-detail-view {
     display: flex;

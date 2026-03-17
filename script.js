@@ -2329,6 +2329,131 @@ function exportToCSV() {
     console.log(`✅ Fichier CSV exporté`);
 }
 
+/**
+ * Exporte les résultats d'un test run depuis l'historique en CSV
+ * Colonnes : Titre, Chapô, URL, Prédiction humaine, Prédiction IA, Concordant
+ * Trié par concordance (non-concordants en premier)
+ */
+async function exportTestRunToCSV(runId, event) {
+    if (event) event.stopPropagation();
+
+    try {
+        showToast('Préparation de l\'export...', 'info');
+
+        // Récupérer le test run et ses analyses
+        const run = await testRunManager.getRun(runId);
+        if (!run) {
+            showToast('Test non trouvé', 'error');
+            return;
+        }
+
+        const analyses = await testRunManager.getRunAnalyses(runId);
+        if (!analyses || analyses.length === 0) {
+            showToast('Aucune analyse à exporter', 'error');
+            return;
+        }
+
+        // Construire les lignes de données
+        const rows = analyses.map(analysis => {
+            const article = analysis.articles;
+            if (!article) return null;
+
+            // Prédiction humaine (classification manuelle)
+            const humanClassif = article.human_classifications;
+            const humanUserneed = Array.isArray(humanClassif) && humanClassif.length > 0
+                ? humanClassif[0].userneed
+                : (humanClassif?.userneed || '—');
+
+            // Prédiction IA
+            const aiUserneed = analysis.predicted_userneed || '—';
+
+            // Concordance
+            const isMatch = analysis.is_match;
+
+            return {
+                titre: article.titre || '',
+                chapo: article.chapo || '',
+                url: article.url || '',
+                humanUserneed,
+                aiUserneed,
+                isMatch,
+                delta: analysis.delta ?? '',
+                icp: analysis.icp ?? '',
+                confidenceLevel: analysis.confidence_level || ''
+            };
+        }).filter(Boolean);
+
+        // Trier : non-concordants en premier, puis concordants
+        rows.sort((a, b) => {
+            if (a.isMatch === b.isMatch) return 0;
+            return a.isMatch ? 1 : -1;
+        });
+
+        // Helper CSV
+        const csvEscape = (val) => {
+            const str = String(val ?? '');
+            if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes(';')) {
+                return '"' + str.replace(/"/g, '""') + '"';
+            }
+            return str;
+        };
+        const csvRow = (cols) => cols.map(csvEscape).join(',');
+
+        const lines = [];
+
+        // En-tête avec infos du test
+        const modelShort = getModelShortName(run.llm_model);
+        const dateStr = run.started_at
+            ? new Date(run.started_at).toLocaleString('fr-FR')
+            : '—';
+        const concordance = run.concordant_percent != null ? `${run.concordant_percent}%` : '—';
+
+        lines.push(csvRow(['TEST RUN']));
+        lines.push(csvRow(['Modèle', modelShort]));
+        lines.push(csvRow(['Date', dateStr]));
+        lines.push(csvRow(['Articles analysés', `${run.analyzed_articles || 0}/${run.total_articles || 0}`]));
+        lines.push(csvRow(['Concordance', concordance]));
+        lines.push('');
+
+        // En-tête du tableau
+        lines.push(csvRow(['N°', 'Concordant', 'Titre', 'Chapô', 'URL', 'Prédiction humaine', 'Prédiction IA', 'Delta', 'ICP', 'Confiance']));
+
+        // Données
+        rows.forEach((row, index) => {
+            lines.push(csvRow([
+                index + 1,
+                row.isMatch ? 'OUI' : 'NON',
+                row.titre,
+                row.chapo,
+                row.url,
+                row.humanUserneed,
+                row.aiUserneed,
+                row.delta,
+                row.icp,
+                row.confidenceLevel
+            ]));
+        });
+
+        // Télécharger
+        const csvContent = '\uFEFF' + lines.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const date = new Date().toISOString().split('T')[0];
+        a.download = `Export_Test_${modelShort}_${date}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        showToast(`Export CSV téléchargé (${rows.length} articles)`, 'success');
+        console.log(`✅ Export test run ${runId} : ${rows.length} articles`);
+
+    } catch (err) {
+        console.error('Erreur export test run:', err);
+        showToast('Erreur lors de l\'export', 'error');
+    }
+}
+
 // ====================================
 // ARTICLES PANEL UI FUNCTIONS
 // ====================================
@@ -3212,6 +3337,7 @@ function renderTestRunCard(run) {
             </div>
             <div class="test-run-card-actions">
                 <button class="test-run-action-btn view" onclick="viewTestRun('${run.id}')">📊 Voir détail</button>
+                <button class="test-run-action-btn export" onclick="exportTestRunToCSV('${run.id}', event)">📥 Export</button>
                 <button class="test-run-action-btn delete" onclick="deleteTestRun('${run.id}', event)">🗑️ Supprimer</button>
             </div>
         </div>

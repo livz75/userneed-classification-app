@@ -176,7 +176,8 @@ function normalizeUserneed(userneed) {
 // Parse la réponse de Claude pour extraire userneed et justification
 function parseAIResponse(responseText) {
     if (!responseText) return null;
-    const text = responseText.trim();
+    // Nettoyer le formatage markdown (bold **..**, italique *..*, backticks `..`)
+    const text = responseText.trim().replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1').replace(/`([^`]+)`/g, '$1');
     if (!text) return null;
 
     // Regex universelle pour capturer tous les formats possibles:

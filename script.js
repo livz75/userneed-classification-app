@@ -4415,30 +4415,46 @@ function renderModelPicker() {
             </div>
         </div>`;
 
-    const rows = MODELS.map((m, i) => {
-        const isSelected = m.id === providerManager.selectedModel;
-        const cost = estimatedCost(m);
-        const costStr = cost === null ? '<span class="mt-cost free">Gratuit</span>'
-            : `<span class="mt-cost ${costClass(cost)}">$${cost < 0.01 ? cost.toFixed(4) : cost.toFixed(3)}</span>`;
-        const inputStr = m.input === 0 ? '<span class="mt-price free">—</span>' : `<span class="mt-price">$${m.input}</span>`;
-        const outputStr = m.output === 0 ? '<span class="mt-price free">—</span>' : `<span class="mt-price">$${m.output}</span>`;
-        const recBadge = m.recommended ? '<span class="mt-rec-badge">✦ Recommandé</span>' : '';
-        const rankEmoji = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+    // Grouper les modèles par fournisseur (en conservant l'ordre d'apparition)
+    const providerOrder = [];
+    const providerGroups = {};
+    MODELS.forEach(m => {
+        if (!providerGroups[m.provider]) {
+            providerGroups[m.provider] = [];
+            providerOrder.push(m.provider);
+        }
+        providerGroups[m.provider].push(m);
+    });
 
-        return `<tr class="${isSelected ? 'selected' : ''}" data-model-id="${m.id}" title="${m.note}">
-            <td class="mt-rank">${rankEmoji}</td>
-            <td class="mt-name-cell">
-                <span class="mt-radio">${isSelected ? '●' : '○'}</span>
-                <span class="mt-name">${m.name}${recBadge}</span>
-                <span class="mt-provider">${m.provider}</span>
-            </td>
-            <td class="mt-speed">${m.speed}</td>
-            <td>${inputStr}</td>
-            <td>${outputStr}</td>
-            <td>${costStr}</td>
-            <td class="mt-stars">${stars(m.quality)}</td>
-            <td class="mt-fr">${frenchLabel(m.french)}</td>
-        </tr>`;
+    let globalIndex = 0;
+    const rows = providerOrder.map(provider => {
+        const groupRows = providerGroups[provider].map(m => {
+            const isSelected = m.id === providerManager.selectedModel;
+            const cost = estimatedCost(m);
+            const costStr = cost === null ? '<span class="mt-cost free">Gratuit</span>'
+                : `<span class="mt-cost ${costClass(cost)}">$${cost < 0.01 ? cost.toFixed(4) : cost.toFixed(3)}</span>`;
+            const inputStr = m.input === 0 ? '<span class="mt-price free">—</span>' : `<span class="mt-price">$${m.input}</span>`;
+            const outputStr = m.output === 0 ? '<span class="mt-price free">—</span>' : `<span class="mt-price">$${m.output}</span>`;
+            const recBadge = m.recommended ? '<span class="mt-rec-badge">✦ Recommandé</span>' : '';
+            const rankEmoji = globalIndex === 0 ? '🥇' : globalIndex === 1 ? '🥈' : globalIndex === 2 ? '🥉' : `${globalIndex + 1}.`;
+            globalIndex++;
+
+            return `<tr class="${isSelected ? 'selected' : ''}" data-model-id="${m.id}" title="${m.note}">
+                <td class="mt-rank">${rankEmoji}</td>
+                <td class="mt-name-cell">
+                    <span class="mt-radio">${isSelected ? '●' : '○'}</span>
+                    <span class="mt-name">${m.name}${recBadge}</span>
+                </td>
+                <td class="mt-speed">${m.speed}</td>
+                <td>${inputStr}</td>
+                <td>${outputStr}</td>
+                <td>${costStr}</td>
+                <td class="mt-stars">${stars(m.quality)}</td>
+                <td class="mt-fr">${frenchLabel(m.french)}</td>
+            </tr>`;
+        }).join('');
+
+        return `<tr class="provider-group-header"><td colspan="8">${provider}</td></tr>${groupRows}`;
     }).join('');
 
     picker.innerHTML = legend + `

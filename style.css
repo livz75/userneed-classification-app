@@ -1588,8 +1588,23 @@ input[type="file"] {
     border-bottom: none;
 }
 
-.model-table tbody tr:hover {
+.model-table tbody tr:hover:not(.provider-group-header) {
     background: rgba(139, 92, 246, 0.06);
+}
+
+.provider-group-header {
+    cursor: default !important;
+}
+
+.provider-group-header td {
+    padding: 10px 12px 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent-purple);
+    background: rgba(139, 92, 246, 0.05);
+    border-bottom: 1px solid rgba(139, 92, 246, 0.15);
 }
 
 .model-table tbody tr.selected {

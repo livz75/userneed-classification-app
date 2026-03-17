@@ -1005,8 +1005,16 @@ function updateTimerDisplay() {
     const elapsed = getAnalysisElapsed();
     const doneCount = articleResults.length;
     const rate = elapsed > 0 ? (doneCount / (elapsed / 60000)).toFixed(1) : '—';
-    const timerStr = ` ⏱️ ${formatDuration(elapsed)} · ${rate} art/min`;
-    // Remplacer la partie timer si elle existe, sinon l'ajouter
+    // Estimer le temps restant
+    let etaStr = '';
+    if (doneCount > 0 && typeof classifiedArticles !== 'undefined') {
+        const remaining = classifiedArticles.length - doneCount;
+        if (remaining > 0) {
+            const msPerArticle = elapsed / doneCount;
+            etaStr = ` · fin estimée dans ${formatDuration(msPerArticle * remaining)}`;
+        }
+    }
+    const timerStr = ` ⏱️ ${formatDuration(elapsed)} · ${rate} art/min${etaStr}`;
     const base = progressText.textContent.replace(/\s*⏱️.*$/, '');
     progressText.textContent = base + timerStr;
 }
@@ -2074,8 +2082,16 @@ async function analyzeWithAI() {
             if (progressFill) progressFill.style.width = `${progress}%`;
             if (progressText) {
                 const elapsed = getAnalysisElapsed();
-                const rate = elapsed > 0 ? (articleResults.length / (elapsed / 60000)).toFixed(1) : '—';
-                progressText.textContent = `Analyse en cours... ${i + 1}/${classifiedArticles.length} articles ⏱️ ${formatDuration(elapsed)} · ${rate} art/min`;
+                const doneCount = articleResults.length;
+                const rate = elapsed > 0 ? (doneCount / (elapsed / 60000)).toFixed(1) : '—';
+                const remaining = classifiedArticles.length - (i + 1);
+                let etaStr = '';
+                if (doneCount > 0 && remaining > 0) {
+                    const msPerArticle = elapsed / doneCount;
+                    const etaMs = msPerArticle * remaining;
+                    etaStr = ` · fin estimée dans ${formatDuration(etaMs)}`;
+                }
+                progressText.textContent = `Analyse en cours... ${i + 1}/${classifiedArticles.length} articles ⏱️ ${formatDuration(elapsed)} · ${rate} art/min${etaStr}`;
             }
 
             // Délai entre articles

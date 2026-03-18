@@ -7,42 +7,103 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=13">
+    <link rel="stylesheet" href="style.css?v=52">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>
-                <img src="assets/franceinfo.jpg" alt="Franceinfo" class="header-logo">
-                Analyse IA des Userneeds
+            <h1 style="text-align: center; width: 100%;">
+                Analyse IA des User Needs
             </h1>
-            <div class="header-actions">
-                <button id="themeToggle" class="header-btn theme-btn" title="Changer de thème">
-                    <span class="theme-icon">🌙</span>
-                </button>
-                <label for="fileInput" class="header-btn upload-btn" title="Sélectionner un fichier Excel">
-                    📁 Fichier
-                </label>
-                <input type="file" id="fileInput" accept=".xlsx" style="display: none;" />
-                <button id="resetBtn" class="header-btn reset-btn" title="Réinitialiser" style="display: none;">🔄 Réinitialiser</button>
-                <button id="llmBtn" class="header-btn llm-btn" title="Configuration des modèles LLM">🤖 LLM</button>
-                <button id="settingsBtn" class="header-btn prompts-btn" title="Gérer les prompts">📝 PROMPTS</button>
-                <button id="analyzeBtn" class="header-btn analyze-btn" style="display: none;">Analyse IA</button>
-                <button id="stopBtn" class="header-btn stop-btn" style="display: none;">⏹ Stop</button>
-            </div>
+            <nav class="header-nav">
+                <div class="nav-group nav-main">
+                    <button id="articlesBtn" class="nav-btn nav-btn-primary" title="Voir les articles" onclick="showArticlesSection(); document.getElementById('articlesSection').scrollIntoView({behavior:'smooth'})">📰 Articles</button>
+                    <button id="llmBtn" class="nav-btn" title="Configuration des modèles LLM">🤖 LLM</button>
+                    <button id="settingsBtn" class="nav-btn" title="Gérer les prompts">📝 Prompts</button>
+                    <button id="testsBtn" class="nav-btn" title="Historique des tests">📋 Tests</button>
+                </div>
+                <div class="nav-separator"></div>
+                <div class="nav-group nav-actions">
+                    <button id="analyzeBtn" class="nav-btn">Analyse IA</button>
+                    <button id="pauseBtn" class="nav-btn nav-btn-warning" style="display: none;">⏸ Pause</button>
+                    <button id="resumeBtn" class="nav-btn nav-btn-success" style="display: none;">▶ Reprendre</button>
+                    <button id="stopBtn" class="nav-btn nav-btn-danger" style="display: none;">⏹ Stop</button>
+                    <button id="resetBtn" class="nav-btn nav-btn-reset" title="Réinitialiser" style="display: none;">↻ Reset</button>
+                </div>
+                <div class="nav-separator"></div>
+                <button id="helpBtn" class="nav-btn nav-btn-help" title="Aide">? Aide</button>
+            </nav>
         </header>
 
+        <!-- Section articles inline (accueil) -->
+        <div id="articlesSection" class="articles-section">
+            <div class="articles-section-toolbar">
+                <div class="articles-search-block">
+                    <label class="articles-search-label">Recherche par titre</label>
+                    <div class="articles-search-bar">
+                        <span class="articles-search-icon">🔍</span>
+                        <input type="text" id="articleTitleSearchInput" class="articles-search-input"
+                               placeholder="Saisir un mot-clé…" autocomplete="off"
+                               oninput="applyTitleFilter(this.value)">
+                        <button id="articleTitleSearchClear" class="articles-search-clear" onclick="clearTitleSearch()">✕</button>
+                    </div>
+                </div>
+                <div class="articles-filter-group">
+                    <span class="filter-label">Filtrer :</span>
+                    <button class="article-filter-btn" data-filter="all" onclick="setArticleFilter('all')">Tous</button>
+                    <button class="article-filter-btn" data-filter="classified" onclick="setArticleFilter('classified')">Classifiés</button>
+                    <button class="article-filter-btn active" data-filter="unclassified" onclick="setArticleFilter('unclassified')">Non classifiés</button>
+                    <span id="articleStats" class="article-stats"></span>
+                    <button class="articles-refresh-btn" onclick="refreshArticlesList()" title="Actualiser la liste">↻ Actualiser</button>
+                    <button id="corpusChartBtn" class="articles-corpus-btn" onclick="toggleCorpusChart()" title="Répartition du corpus classifié par userneed">📊 Répartition</button>
+                </div>
+            </div>
+            <div class="add-article-zone">
+                <label class="add-article-label">Ajouter un article</label>
+                <div class="add-article-bar">
+                    <input type="text" id="addArticleInput" class="add-article-input"
+                           placeholder="Coller l'URL Franceinfo…" autocomplete="off"
+                           onkeydown="if(event.key==='Enter') addArticleFromInput()">
+                    <button id="addArticleBtn" class="add-article-btn" onclick="addArticleFromInput()">➕ Ajouter</button>
+                </div>
+                <span id="addArticleStatus" class="add-article-status"></span>
+            </div>
+            <div id="corpusChart" class="corpus-chart hidden"></div>
+            <div id="articlesListContainer" class="articles-list-container">
+                <div id="articlesList" class="articles-list">
+                    <p class="articles-empty">Chargement des articles...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Barre de progression analyse IA -->
+        <div id="progress" class="progress-container" style="display: none;">
+            <div class="progress-bar-wrapper">
+                <div class="progress-bar-fill" id="progressFill"></div>
+            </div>
+            <p class="progress-text" id="progressText">Analyse en cours...</p>
+        </div>
+
         <div id="statsContainer" class="stats-container" style="display: none;">
+            <div class="analysis-summary-bar" id="analysisSummaryBar">
+                <div class="summary-stat">
+                    <span class="summary-label">Total</span>
+                    <span class="summary-value" id="summaryTotal">0</span>
+                </div>
+                <div class="summary-stat summary-concordant">
+                    <span class="summary-label">Concordants</span>
+                    <span class="summary-value" id="summaryConcordantCount">0</span>
+                    <span class="summary-percent" id="summaryConcordantPercent">0%</span>
+                </div>
+                <div class="summary-stat summary-reclassified">
+                    <span class="summary-label">Reclassifiés</span>
+                    <span class="summary-value" id="summaryReclassifiedCount">0</span>
+                    <span class="summary-percent" id="summaryReclassifiedPercent">0%</span>
+                </div>
+            </div>
             <div class="confusion-matrix-wrapper">
                 <div class="matrix-section">
                     <h3>Matrice de confusion</h3>
-                    <div class="confidence-filter-bar" id="confidenceFilterBar">
-                        <span class="filter-label">Filtrer par confiance :</span>
-                        <button class="confidence-filter-btn active" data-filter="all" onclick="setConfidenceFilter('all')">Tous</button>
-                        <button class="confidence-filter-btn" data-filter="haute" onclick="setConfidenceFilter('haute')">Haute</button>
-                        <button class="confidence-filter-btn" data-filter="haute+moyenne" onclick="setConfidenceFilter('haute+moyenne')">Haute + Moyenne</button>
-                        <button class="confidence-filter-btn" data-filter="basse" onclick="setConfidenceFilter('basse')">Basse</button>
-                    </div>
                     <div class="matrix-container">
                         <div class="matrix-with-y-labels">
                             <div class="label-title-y">Catégorie source</div>
@@ -77,48 +138,19 @@
                         </div>
                     </div>
                 </div>
-                <div class="stats-section">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
-                        <h3>Statistiques détaillées</h3>
-                        <button id="exportBtn" class="export-btn" style="margin-top: -5px;">📊 Exporter</button>
-                    </div>
-                    <div class="stats-box">
-                        <div class="stat-title">Total d'articles : <span id="totalArticles">0</span></div>
-                        <div class="stat-item">Articles concordants : <span id="concordantCount" class="stat-value-success">0</span> (<span id="concordantPercent" class="stat-value-success">0%</span>)</div>
-                        <div class="stat-item">Articles reclassifiés : <span id="reclassifiedCount" class="stat-value-error">0</span> (<span id="reclassifiedPercent" class="stat-value-error">0%</span>)</div>
-                    </div>
-                    <div class="stats-box">
-                        <div class="stat-subtitle">Top 5 reclassifications</div>
-                        <div id="topReclassifications"></div>
-                    </div>
-                    <div class="stats-box" id="confidenceStatsBox" style="display: none;">
-                        <div class="stat-subtitle">📊 Indice de confiance</div>
-                        <div class="concordance-filter-bar" id="concordanceFilterBar">
-                            <span class="filter-label">Filtrer :</span>
-                            <button class="concordance-filter-btn active" data-filter="all" onclick="setConcordanceFilter('all')">Tous</button>
-                            <button class="concordance-filter-btn" data-filter="concordant" onclick="setConcordanceFilter('concordant')">Concordant</button>
-                            <button class="concordance-filter-btn" data-filter="non-concordant" onclick="setConcordanceFilter('non-concordant')">Non concordant</button>
-                        </div>
-                        <div id="confidenceDistribution"></div>
-                        <div id="confidencePrecision" style="margin-top: 10px;"></div>
-                    </div>
+                <div class="live-articles-section">
+                    <h3 style="margin-bottom: 12px;">Articles analysés</h3>
+                    <div id="liveArticlesList" class="live-articles-list"></div>
                 </div>
             </div>
         </div>
 
-        <div id="fileName" class="file-name" style="text-align: center; margin: 20px 0; display: none;"></div>
-
-        <div id="progress" class="progress-container" style="display: none;">
-            <div class="progress-bar">
-                <div id="progressFill" class="progress-fill"></div>
-            </div>
-            <p id="progressText" class="progress-text">Analyse en cours...</p>
-        </div>
-
         <div id="tableContainer" class="table-container" style="display: none;">
             <div class="table-header">
-                <h2 id="tableTitle">Contenu du fichier</h2>
-                <button id="clearBtn" class="clear-btn">Nouveau fichier</button>
+                <h2 id="tableTitle">Articles analysés</h2>
+                <div style="display:flex;gap:10px;align-items:center;">
+                    <button id="suggestPromptBtn" class="suggest-prompt-btn" onclick="suggestPromptAdaptation()" style="display:none;">💡 Adapter le prompt</button>
+                </div>
             </div>
             <div class="table-wrapper">
                 <table id="dataTable">
@@ -131,64 +163,87 @@
         <div id="error" class="error" style="display: none;"></div>
     </div>
 
+    <!-- Panneau des Test Runs -->
+    <div id="testsPanel" class="tests-panel">
+        <div class="tests-panel-backdrop"></div>
+        <div class="tests-panel-content">
+            <div class="tests-panel-inner">
+            <div class="tests-panel-header">
+                <h2>📋 Tests</h2>
+                <button id="closeTestsPanelBtn" class="close-panel-btn">✕</button>
+            </div>
+
+            <!-- Onglets sous-pages -->
+            <div class="tests-tabs">
+                <button class="tests-tab active" data-tab="historique" onclick="showTestsTab('historique')">📋 Historique</button>
+                <button class="tests-tab" data-tab="classement" onclick="showTestsTab('classement')">🏆 Classement</button>
+            </div>
+
+            <!-- Sous-page : Historique des tests -->
+            <div id="testsTabHistorique" class="tests-tab-content">
+                <div class="tests-panel-toolbar">
+                    <button id="compareFromSelectionBtn" class="action-btn compare-btn" disabled>⚖️ Comparer <span id="compareSelectionCount">(0/2)</span></button>
+                </div>
+
+                <!-- Vue liste des test runs -->
+                <div id="testsListView">
+                    <div id="testsList" class="tests-list">
+                        <p class="tests-empty">Chargement des tests...</p>
+                    </div>
+                </div>
+
+                <!-- Vue détail d'un test run -->
+                <div id="testDetailView" class="test-detail-view" style="display: none;">
+                    <button id="backToTestsListBtn" class="back-btn-small">← Retour à la liste</button>
+                    <div id="testDetailHeader" class="test-detail-header"></div>
+                    <div id="testDetailContent" class="test-detail-content"></div>
+                </div>
+
+                <!-- Vue comparaison de 2 tests -->
+                <div id="testCompareView" class="test-compare-view" style="display: none;">
+                    <button id="backFromCompareBtn" class="back-btn-small">← Retour à la liste</button>
+                    <div id="compareResults" class="compare-results"></div>
+                </div>
+            </div><!-- /#testsTabHistorique -->
+
+            <!-- Sous-page : Classement -->
+            <div id="testsTabClassement" class="tests-tab-content" style="display:none">
+                <div id="rankingContent" class="ranking-content">
+                    <p class="tests-empty">Chargement…</p>
+                </div>
+            </div>
+
+            </div><!-- /.tests-panel-inner -->
+        </div>
+    </div>
+
     <!-- Panneau de configuration LLM -->
     <div id="llmPanel" class="llm-panel">
         <div class="llm-panel-backdrop"></div>
         <div class="llm-panel-content">
-            <div class="llm-panel-header">
-                <h2>🤖 Configuration OpenRouter</h2>
-                <button id="closeLlmPanelBtn" class="close-panel-btn">✕</button>
-            </div>
-
-            <div class="provider-config-section">
-                <h3>⚙️ Sélection du Modèle</h3>
-
-                <div class="form-group">
-                    <label for="modelSelect">Choisissez votre modèle LLM :</label>
-                    <select id="modelSelect" class="model-select">
-                        <optgroup label="🟣 Anthropic (via OpenRouter)">
-                            <option value="anthropic/claude-3.5-haiku">Claude 3.5 Haiku ⚡</option>
-                            <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
-                            <option value="anthropic/claude-3-opus">Claude 3 Opus</option>
-                        </optgroup>
-                        <optgroup label="🟣 OpenAI (via OpenRouter)">
-                            <option value="openai/gpt-4o-mini">GPT-4o Mini ⚡</option>
-                            <option value="openai/gpt-4o">GPT-4o</option>
-                        </optgroup>
-                        <optgroup label="🟣 Google (via OpenRouter)">
-                            <option value="google/gemini-2.5-flash-lite">Gemini 2.5 Flash Lite ⚡⚡⚡</option>
-                            <option value="google/gemini-flash-1.5">Gemini Flash 1.5 ⚡⚡</option>
-                            <option value="google/gemini-pro-1.5">Gemini Pro 1.5</option>
-                        </optgroup>
-                        <optgroup label="🟣 Meta Llama (via OpenRouter)">
-                            <option value="meta-llama/llama-3.1-8b-instruct">Llama 3.1 8B 🆓</option>
-                            <option value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B</option>
-                        </optgroup>
-                        <optgroup label="🟣 Mistral AI (via OpenRouter)">
-                            <option value="mistralai/mistral-small-24b-instruct-2501">Mistral Small</option>
-                            <option value="mistralai/mistral-medium">Mistral Medium</option>
-                        </optgroup>
-                        <optgroup label="🟣 Alibaba (via OpenRouter)">
-                            <option value="qwen/qwen-2.5-72b-instruct">Qwen 2.5 72B</option>
-                        </optgroup>
-                    </select>
+            <div class="llm-panel-inner">
+                <div class="llm-panel-header">
+                    <h2>🤖 Configuration OpenRouter</h2>
+                    <div style="display:flex;gap:12px;align-items:center;">
+                        <button id="saveProviderConfigBtn" class="btn-save-provider">💾 Enregistrer la configuration</button>
+                        <button id="closeLlmPanelBtn" class="close-panel-btn">✕</button>
+                    </div>
                 </div>
 
-                <div class="provider-api-config">
+                <div class="provider-config-section">
+                    <h3>⚙️ Sélection du Modèle</h3>
+                    <div id="modelPicker" class="model-picker"></div>
+                </div>
+
+                <div class="provider-api-config" style="margin-top:24px;">
                     <div class="form-group">
                         <label for="openrouterApiKey">Clé API OpenRouter :</label>
                         <input type="password" id="openrouterApiKey" class="api-key-input" placeholder="sk-or-...">
                         <p class="input-help-text">Obtenez votre clé sur <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a></p>
                     </div>
-                    <button id="saveProviderConfigBtn" class="btn-save-provider">💾 Enregistrer la configuration</button>
                 </div>
 
-                <p class="provider-help-text">
-                    💡 Tous les modèles utilisent <strong>OpenRouter</strong> comme provider unifié<br>
-                    💡 Vous pouvez configurer la clé API dans <code>config.json</code> ou la saisir ci-dessus
-                </p>
-
-                <div class="reset-config-section">
+                <div class="reset-config-section" style="margin-top:16px;">
                     <button id="resetConfigBtn" class="btn-reset-config">
                         🔄 Recharger depuis config.json
                     </button>
@@ -202,27 +257,23 @@
     <div id="promptPanel" class="prompt-panel">
         <div class="prompt-panel-backdrop"></div>
         <div class="prompt-panel-content">
-            <div class="prompt-panel-header">
-                <h2>📝 Gestion des Prompts</h2>
-                <button id="closePanelBtn" class="close-panel-btn">✕</button>
-            </div>
+            <div class="prompt-panel-inner">
+                <div class="prompt-panel-header">
+                    <h2>📝 Gestion des Prompts</h2>
+                    <button id="closePanelBtn" class="close-panel-btn">✕</button>
+                </div>
 
-            <div class="prompt-panel-actions">
-                <button id="createPromptBtn" class="action-btn create-btn">
-                    <span>➕</span> Nouveau prompt
-                </button>
-                <button id="importPromptsBtn" class="action-btn import-btn">
-                    <span>📥</span> Importer
-                </button>
-                <button id="exportPromptsBtn" class="action-btn export-btn">
-                    <span>📤</span> Exporter
-                </button>
-            </div>
+                <div class="prompt-panel-actions">
+                    <button id="createPromptBtn" class="action-btn create-btn">
+                        <span>➕</span> Nouveau prompt
+                    </button>
+                </div>
 
-            <div class="prompt-list-container">
-                <h3>Prompts disponibles (<span id="promptCount">0</span>)</h3>
-                <div id="promptList" class="prompt-list">
-                    <!-- Liste générée dynamiquement par JavaScript -->
+                <div class="prompt-list-container">
+                    <h3>Prompts disponibles (<span id="promptCount">0</span>)</h3>
+                    <div id="promptList" class="prompt-list">
+                        <!-- Liste générée dynamiquement par JavaScript -->
+                    </div>
                 </div>
             </div>
         </div>
@@ -321,7 +372,156 @@ Analyse cet article..."></textarea>
     <!-- Toast notification container -->
     <div id="toastContainer" class="toast-container"></div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="script.js?v=12"></script>
+    <!-- Modale d'aide -->
+    <div id="helpModal" class="help-modal">
+        <div class="help-modal-backdrop"></div>
+        <div class="help-modal-content">
+            <div class="help-modal-header">
+                <h2>❓ Guide utilisateur</h2>
+                <button id="closeHelpModalBtn" class="close-modal-btn">✕</button>
+            </div>
+            <div class="help-modal-body">
+
+                <section class="help-section">
+                    <h3>À quoi sert cette application ?</h3>
+                    <p>Cette application permet de <strong>tester si une intelligence artificielle est capable de classer des articles Franceinfo</strong> selon les 8 "User Needs" — c'est-à-dire le besoin auquel répond un article pour le lecteur.</p>
+                    <p>Vous classifiez vous-même des articles, puis vous lancez une analyse IA et comparez vos résultats avec ceux de l'IA. L'application enregistre chaque session d'analyse pour vous permettre de <strong>comparer différents modèles</strong> et différentes <strong>formulations d'instructions</strong>.</p>
+                </section>
+
+                <section class="help-section">
+                    <h3>Les 8 User Needs</h3>
+                    <table class="help-table">
+                        <thead><tr><th>User Need</th><th>Ce que ça signifie</th></tr></thead>
+                        <tbody>
+                            <tr><td><strong>UPDATE ME</strong></td><td>L'article tient informé sur une actu en cours</td></tr>
+                            <tr><td><strong>EXPLAIN ME</strong></td><td>L'article explique un sujet ou un contexte</td></tr>
+                            <tr><td><strong>GIVE ME PERSPECTIVE</strong></td><td>L'article offre une analyse ou une mise en recul</td></tr>
+                            <tr><td><strong>GIVE ME A BREAK</strong></td><td>L'article est léger ou divertissant</td></tr>
+                            <tr><td><strong>GIVE ME CONCERNING NEWS</strong></td><td>L'article alerte sur quelque chose de préoccupant</td></tr>
+                            <tr><td><strong>INSPIRE ME</strong></td><td>L'article raconte une histoire positive</td></tr>
+                            <tr><td><strong>MAKE ME FEEL THE NEWS</strong></td><td>L'article est émotionnel, immersif, un témoignage</td></tr>
+                            <tr><td><strong>REVEAL NEWS</strong></td><td>L'article révèle une enquête ou une info exclusive</td></tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <section class="help-section">
+                    <h3>Étape 1 — Classifier des articles</h3>
+                    <p>La liste des articles Franceinfo s'affiche directement sur la page d'accueil, filtrée par défaut sur les <strong>articles non classifiés</strong>. Les articles sont importés automatiquement toutes les 30 minutes depuis les flux RSS de Franceinfo.</p>
+                    <ol>
+                        <li>Lisez le titre et le chapô de l'article</li>
+                        <li>Choisissez le User Need qui correspond le mieux dans le menu déroulant</li>
+                        <li>La classification est enregistrée immédiatement — répétez pour autant d'articles que souhaité</li>
+                    </ol>
+                    <p><strong>Filtres disponibles :</strong></p>
+                    <ul>
+                        <li><strong>Statut</strong> — Tous / Classifiés / Non classifiés (actif par défaut)</li>
+                        <li><strong>Recherche par titre</strong> — Saisissez un mot-clé pour filtrer les articles par leur titre</li>
+                    </ul>
+                    <p class="help-tip">💡 Cliquez sur le titre d'un article pour l'ouvrir dans un nouvel onglet et lire son contenu complet avant de le classifier.</p>
+                    <p class="help-tip">💡 Pour déclassifier un article, cliquez sur le bouton <strong>✕</strong> à droite de sa classification — l'article repassera en statut "non classifié".</p>
+                    <p class="help-tip">💡 Le bouton <strong>↻ Actualiser</strong> recharge les derniers articles importés sans rafraîchir la page.</p>
+                </section>
+
+                <section class="help-section">
+                    <h3>📊 Répartition du corpus</h3>
+                    <p>Dans la page Articles, le bouton <strong>"📊 Répartition"</strong> affiche un graphique de la distribution des articles classifiés par User Need. L'objectif est de constituer un corpus <strong>équilibré</strong> : idéalement entre 10 et 20 articles par User Need pour garantir des résultats représentatifs.</p>
+                    <p>Un indicateur de couleur (vert / orange / rouge) résume l'équilibre global du corpus en un coup d'œil.</p>
+                </section>
+
+                <section class="help-section">
+                    <h3>Étape 2 — Choisir un modèle IA</h3>
+                    <p>Cliquez sur <strong>"🤖 LLM"</strong> dans le menu. Un tableau comparatif s'affiche avec les principaux modèles du marché, classés du meilleur au moins bon pour cette application.</p>
+                    <p>Pour chaque modèle, vous voyez : sa <strong>vitesse</strong>, son <strong>prix</strong> (entrée/sortie par million de tokens), le <strong>coût estimé pour 50 articles</strong>, sa <strong>qualité</strong> (1 à 5 étoiles) et son <strong>support du français</strong> (1 à 3). Cliquez sur une ligne pour sélectionner le modèle.</p>
+                    <p>Saisissez votre clé OpenRouter dans le champ prévu (<code>sk-or-...</code>). Une seule clé suffit pour tous les modèles.</p>
+                    <p class="help-tip">💡 Pour un bon équilibre vitesse/qualité/coût, les modèles <strong>Claude 3.5 Haiku</strong>, <strong>GPT-4o Mini</strong> et <strong>Mistral Small</strong> sont recommandés.</p>
+                </section>
+
+                <section class="help-section">
+                    <h3>Étape 3 — Choisir ou créer un prompt</h3>
+                    <p>Cliquez sur <strong>"📝 Prompts"</strong>. Un prompt est l'instruction envoyée à l'IA pour lui expliquer comment analyser les articles. Un seul prompt est actif à la fois.</p>
+                    <p><strong>Actions disponibles :</strong></p>
+                    <ul>
+                        <li><strong>Créer</strong> un nouveau prompt personnalisé</li>
+                        <li><strong>Dupliquer</strong> un prompt existant pour l'adapter</li>
+                        <li><strong>Modifier</strong> ou <strong>supprimer</strong> vos prompts</li>
+                        <li><strong>Exporter / Importer</strong> des prompts au format JSON</li>
+                    </ul>
+                    <p>Un prompt par défaut est fourni et ne peut pas être supprimé. La section contenant l'article analysé est automatiquement ajoutée par le système.</p>
+                </section>
+
+                <section class="help-section">
+                    <h3>✏️ Adapter le prompt avec l'IA</h3>
+                    <p>Après une analyse, le bouton <strong>"💡 Adapter le prompt"</strong> soumet votre prompt actuel à l'IA en lui demandant de proposer des améliorations basées sur les résultats obtenus. L'IA retourne uniquement les <strong>sections modifiées</strong> (pas le prompt entier), qui sont automatiquement appliquées sur votre prompt d'origine.</p>
+                    <p class="help-tip">💡 Cette fonctionnalité est idéale pour itérer rapidement : affinez le prompt en quelques clics, relancez une analyse et comparez les résultats.</p>
+                </section>
+
+                <section class="help-section">
+                    <h3>Étape 4 — Lancer une analyse IA</h3>
+                    <p>Cliquez sur <strong>"Analyse IA"</strong> pour démarrer. L'IA analyse chaque article classifié et prédit un User Need. Les résultats s'affichent au fur et à mesure.</p>
+                    <p>Si l'IA retourne un User Need non reconnu, elle <strong>réessaie automatiquement</strong> (jusqu'à 3 tentatives) avec un rappel strict des options valides. Le bouton <strong>"⏹ Stop"</strong> permet d'interrompre l'analyse à tout moment — les résultats déjà obtenus sont conservés.</p>
+                    <p class="help-tip">⏱ L'analyse prend quelques minutes selon le nombre d'articles et le modèle choisi. Vous pouvez revenir sur la page Articles à tout moment pendant l'analyse.</p>
+                </section>
+
+                <section class="help-section">
+                    <h3>Étape 5 — Consulter les résultats</h3>
+                    <p>Les résultats apparaissent automatiquement à la fin de l'analyse :</p>
+                    <ul>
+                        <li><strong>Taux de concordance global</strong> — % d'articles où l'IA a prédit le même User Need que vous</li>
+                        <li><strong>Matrice de confusion</strong> — Tableau 8×8 montrant les accords (diagonale verte) et désaccords (rouge)</li>
+                        <li><strong>Statistiques de confiance</strong> — Niveau de certitude de l'IA pour chaque article (Haute / Moyenne / Basse)</li>
+                        <li><strong>Top 5 des reclassifications</strong> — Les désaccords les plus fréquents entre vous et l'IA</li>
+                    </ul>
+                    <p><strong>Interactions :</strong> filtrez par niveau de confiance via les boutons, cliquez sur une case de la matrice pour isoler un type de désaccord, cliquez sur l'icône de justification d'un article pour lire l'explication de l'IA.</p>
+                    <p class="help-tip">💡 Le bouton <strong>"📊 Exporter"</strong> télécharge un fichier Excel complet avec les résultats détaillés.</p>
+                </section>
+
+                <section class="help-section">
+                    <h3>📋 Comparer et classer les analyses</h3>
+                    <p>Via le bouton <strong>"📋 Tests"</strong>, deux sous-pages sont disponibles :</p>
+                    <p><strong>📋 Historique</strong></p>
+                    <ul>
+                        <li>Liste de tous vos Test Runs, groupés par prompt. Chaque run affiche le modèle utilisé (pastille colorée), la date et le statut.</li>
+                        <li>Cochez 2 runs puis cliquez sur <strong>"⚖️ Comparer"</strong> pour les comparer côte à côte.</li>
+                        <li>Le tableau de comparaison affiche pour chaque User Need la précision et le rappel. La valeur la plus haute apparaît en <span style="color:#10b981;font-weight:700;">vert</span>, la plus basse en <span style="color:#ef4444;font-weight:700;">rouge</span>.</li>
+                        <li>Une <strong>analyse rédigée par l'IA</strong> conclut la comparaison avec une recommandation sur le meilleur combo modèle/prompt.</li>
+                    </ul>
+                    <p><strong>🏆 Classement</strong></p>
+                    <ul>
+                        <li>Le <strong>graphique de dispersion</strong> positionne chaque run sur deux axes : <em>Concordance</em> (horizontal) et <em>F1 macro</em> (vertical). Les runs les plus performants apparaissent en haut à droite (zone verte). Le meilleur run est marqué 🏆.</li>
+                        <li>Le <strong>tableau de classement</strong> trie les runs du meilleur au moins bon (F1 macro décroissant) et affiche : modèle, prompt, concordance, précision, rappel et F1 macro. Cliquez sur un en-tête de colonne pour retrier.</li>
+                    </ul>
+                </section>
+
+                <section class="help-section">
+                    <h3>Questions fréquentes</h3>
+                    <dl class="help-faq">
+                        <dt>Combien d'articles dois-je classifier pour avoir des résultats fiables ?</dt>
+                        <dd>Un corpus de <strong>500 articles</strong> répartis équitablement parmi les 8 User Needs est recommandé pour obtenir des résultats fiables et statistiquement significatifs. Utilisez le bouton "📊 Répartition" pour vérifier l'équilibre de votre corpus.</dd>
+                        <dt>Puis-je modifier ou annuler une classification ?</dt>
+                        <dd>Oui. Retrouvez l'article dans la liste (filtre "Classifiés") et modifiez le menu déroulant pour changer le User Need, ou cliquez sur <strong>✕</strong> pour le déclassifier complètement.</dd>
+                        <dt>Que signifie le score de confiance ?</dt>
+                        <dd>L'IA donne trois prédictions par ordre de certitude (principale, secondaire, tertiaire) avec un score dont la somme fait 100. Un score élevé sur la prédiction principale et un grand écart avec la secondaire indiquent que l'IA est confiante dans son choix.</dd>
+                        <dt>Quelle est la différence entre Précision et Rappel ?</dt>
+                        <dd>La <strong>précision</strong> mesure la fiabilité des prédictions : quand l'IA dit "UPDATE ME", est-ce vraiment un article UPDATE ME ? Le <strong>rappel</strong> mesure l'exhaustivité : parmi tous les articles UPDATE ME, combien l'IA en a-t-elle correctement identifiés ? Un bon modèle maximise les deux.</dd>
+                        <dt>Que signifie le F1 macro dans le classement ?</dt>
+                        <dd>Le F1 macro est la moyenne harmonique de la précision et du rappel, calculée indépendamment pour chaque User Need puis moyennée. C'est la métrique de référence pour évaluer globalement un modèle sur des classes déséquilibrées.</dd>
+                        <dt>Les articles se mettent-ils à jour automatiquement ?</dt>
+                        <dd>Oui, de nouveaux articles Franceinfo sont importés toutes les 30 minutes depuis les flux RSS (Titres, Politique, Monde, Société, Économie, Culture).</dd>
+                        <dt>Combien coûte une analyse ?</dt>
+                        <dd>Avec les modèles recommandés, une analyse de 50 articles coûte entre $0,003 et $0,04 — soit moins d'un centime d'euro par article. Le tableau LLM affiche une estimation pour chaque modèle.</dd>
+                    </dl>
+                </section>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-client.js?v=32"></script>
+    <script src="js/article-manager.js?v=35"></script>
+    <script src="js/classification-manager.js?v=32"></script>
+    <script src="js/test-run-manager.js?v=32"></script>
+    <script src="script.js?v=61"></script>
 </body>
 </html>

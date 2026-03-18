@@ -1,9 +1,14 @@
 services:
   - type: web
     name: userneed-classification-app
+    region: frankfurt
     env: python
     buildCommand: "pip install -r requirements.txt"
     startCommand: "python server.py"
     envVars:
       - key: PORT
         value: 8000
+      - key: BASIC_AUTH_USER
+        sync: false  # À définir manuellement dans le dashboard Render
+      - key: BASIC_AUTH_PASSWORD
+        sync: false  # À définir manuellement dans le dashboard Render

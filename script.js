@@ -2575,6 +2575,61 @@ function setMediaTypeFilter(type) {
     renderFilteredArticles();
 }
 
+/**
+ * Ajouter un article Franceinfo depuis son URL
+ */
+async function addArticleFromInput() {
+    const input = document.getElementById('addArticleInput');
+    const statusEl = document.getElementById('addArticleStatus');
+    const btn = document.getElementById('addArticleBtn');
+    const value = input.value.trim();
+
+    if (!value) {
+        statusEl.textContent = '⚠️ Veuillez coller une URL Franceinfo';
+        statusEl.className = 'add-article-status error';
+        return;
+    }
+
+    // Désactiver pendant le chargement
+    btn.disabled = true;
+    btn.textContent = '⏳ Chargement…';
+    statusEl.textContent = '';
+    statusEl.className = 'add-article-status';
+
+    try {
+        const resp = await fetch('/api/add-article', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ article_id: value })
+        });
+
+        const data = await resp.json();
+
+        if (!resp.ok) {
+            statusEl.textContent = `❌ ${data.error || 'Erreur inconnue'}`;
+            statusEl.className = 'add-article-status error';
+            return;
+        }
+
+        if (data.status === 'exists') {
+            statusEl.textContent = `ℹ️ ${data.message}`;
+            statusEl.className = 'add-article-status warning';
+        } else {
+            statusEl.textContent = `✅ ${data.message}`;
+            statusEl.className = 'add-article-status success';
+            input.value = '';
+            // Rafraîchir la liste des articles
+            await refreshArticlesList();
+        }
+    } catch (err) {
+        statusEl.textContent = `❌ Erreur : ${err.message}`;
+        statusEl.className = 'add-article-status error';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '➕ Ajouter';
+    }
+}
+
 async function refreshArticlesList(retries = 4) {
     const listContainer = document.getElementById('articlesList');
     listContainer.innerHTML = '<p class="articles-empty">Chargement…</p>';

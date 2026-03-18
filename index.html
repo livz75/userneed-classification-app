@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=51">
+    <link rel="stylesheet" href="style.css?v=53">
 </head>
 <body>
     <div class="container">
@@ -38,14 +38,26 @@
         <!-- Section articles inline (accueil) -->
         <div id="articlesSection" class="articles-section">
             <div class="articles-section-toolbar">
-                <div class="articles-search-block">
-                    <label class="articles-search-label">Recherche par titre</label>
-                    <div class="articles-search-bar">
-                        <span class="articles-search-icon">🔍</span>
-                        <input type="text" id="articleTitleSearchInput" class="articles-search-input"
-                               placeholder="Saisir un mot-clé…" autocomplete="off"
-                               oninput="applyTitleFilter(this.value)">
-                        <button id="articleTitleSearchClear" class="articles-search-clear" onclick="clearTitleSearch()">✕</button>
+                <div class="articles-search-and-add-row">
+                    <div class="articles-search-block">
+                        <label class="articles-search-label">Recherche par titre</label>
+                        <div class="articles-search-bar">
+                            <span class="articles-search-icon">🔍</span>
+                            <input type="text" id="articleTitleSearchInput" class="articles-search-input"
+                                   placeholder="Saisir un mot-clé…" autocomplete="off"
+                                   oninput="applyTitleFilter(this.value)">
+                            <button id="articleTitleSearchClear" class="articles-search-clear" onclick="clearTitleSearch()">✕</button>
+                        </div>
+                    </div>
+                    <div class="add-article-zone">
+                        <label class="add-article-label">Ajouter un article</label>
+                        <div class="add-article-bar">
+                            <input type="text" id="addArticleInput" class="add-article-input"
+                                   placeholder="Coller l'URL Franceinfo…" autocomplete="off"
+                                   onkeydown="if(event.key==='Enter') addArticleFromInput()">
+                            <button id="addArticleBtn" class="add-article-btn" onclick="addArticleFromInput()">➕ Ajouter</button>
+                        </div>
+                        <span id="addArticleStatus" class="add-article-status"></span>
                     </div>
                 </div>
                 <div class="articles-filter-group">
@@ -512,6 +524,6 @@ Analyse cet article..."></textarea>
     <script src="js/article-manager.js?v=35"></script>
     <script src="js/classification-manager.js?v=32"></script>
     <script src="js/test-run-manager.js?v=32"></script>
-    <script src="script.js?v=60"></script>
+    <script src="script.js?v=62"></script>
 </body>
 </html>

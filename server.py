@@ -5,7 +5,9 @@ import json
 import urllib.request
 from urllib.parse import urlparse, parse_qs
 import os
+import re
 import base64
+from html import unescape
 
 PORT = int(os.environ.get('PORT', 8000))
 
@@ -207,6 +209,118 @@ Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
                 self.end_headers()
                 error_msg = json.dumps({'error': str(e)}).encode('utf-8')
                 self.wfile.write(error_msg)
+        elif self.path == '/api/add-article':
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+
+            try:
+                request_data = json.loads(post_data.decode('utf-8'))
+                article_input = request_data.get('article_id', '').strip()
+
+                # Accepter un ID numérique ou une URL complète
+                m = re.search(r'(\d{5,10})', article_input)
+                if not m:
+                    raise ValueError("ID article invalide. Entrez un ID numérique ou une URL Franceinfo.")
+                ext_id = m.group(1)
+
+                # Si c'est une URL, l'utiliser directement, sinon construire l'URL de recherche
+                if article_input.startswith('http'):
+                    article_url = article_input.split('#')[0].split('?')[0]
+                else:
+                    # On ne peut pas construire l'URL sans le slug, on cherche via l'API
+                    raise ValueError("Veuillez entrer l'URL complète de l'article Franceinfo.")
+
+                # Vérifier si l'article existe déjà en base
+                config = json.load(open('config.json'))
+                check_req = urllib.request.Request(
+                    f'{config["supabase_url"]}/rest/v1/articles?external_id=eq.{ext_id}&select=id,titre',
+                    headers={
+                        'apikey': config['supabase_anon_key'],
+                        'Authorization': f'Bearer {config["supabase_anon_key"]}',
+                        'Accept': 'application/json',
+                    }
+                )
+                with urllib.request.urlopen(check_req, timeout=15) as resp:
+                    existing = json.loads(resp.read())
+
+                if existing:
+                    result = {'status': 'exists', 'message': f'Article déjà en base : {existing[0]["titre"]}', 'id': existing[0]['id']}
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps(result).encode('utf-8'))
+                    return
+
+                # Scraper l'article
+                from fetch_articles import scrape_article_body
+                body, media_type = scrape_article_body(article_url)
+
+                # Récupérer titre et chapô depuis les meta tags
+                meta_req = urllib.request.Request(article_url, headers={
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+                    'Accept': 'text/html',
+                })
+                with urllib.request.urlopen(meta_req, timeout=15) as resp:
+                    html = resp.read().decode('utf-8', errors='replace')
+
+                title_match = re.search(r'<meta property="og:title" content="([^"]+)"', html)
+                desc_match = re.search(r'<meta property="og:description" content="([^"]+)"', html)
+                titre = unescape(title_match.group(1)) if title_match else ''
+                chapo = unescape(desc_match.group(1)) if desc_match else ''
+
+                path_part = article_url.replace('https://www.franceinfo.fr/', '')
+                path = '/'.join(path_part.split('/')[:-1])
+
+                # Insérer dans Supabase
+                article_data = json.dumps({
+                    'external_id': ext_id,
+                    'titre': titre,
+                    'chapo': chapo,
+                    'corps': body or '',
+                    'url': article_url,
+                    'auteur': None,
+                    'path': path,
+                    'word_count': len(body.split()) if body else 0,
+                    'date_publication': None,
+                    'date_modification': None,
+                    'metadata': {'media_type': media_type or 'article'},
+                }).encode('utf-8')
+
+                ins_req = urllib.request.Request(
+                    f'{config["supabase_url"]}/rest/v1/articles',
+                    data=article_data,
+                    method='POST',
+                    headers={
+                        'apikey': config['supabase_anon_key'],
+                        'Authorization': f'Bearer {config["supabase_anon_key"]}',
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=representation',
+                    }
+                )
+                with urllib.request.urlopen(ins_req, timeout=15) as resp:
+                    inserted = json.loads(resp.read())
+
+                result = {
+                    'status': 'created',
+                    'message': f'Article ajouté : {titre}',
+                    'article': inserted[0] if isinstance(inserted, list) else inserted
+                }
+                self.send_response(201)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps(result).encode('utf-8'))
+
+            except ValueError as e:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': str(e)}).encode('utf-8'))
+            except Exception as e:
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'error': str(e)}).encode('utf-8'))
+
         else:
             self.send_response(404)
             self.end_headers()

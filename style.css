@@ -2393,14 +2393,23 @@ input[type="file"] {
     color: white;
 }
 
+/* Row recherche + ajout article côte à côte */
+.articles-search-and-add-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+}
+
+.articles-search-and-add-row .articles-search-block {
+    flex: 0 0 auto;
+}
+
 /* Zone ajout article */
 .add-article-zone {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    margin-bottom: 15px;
-    padding-bottom: 15px;
-    border-bottom: 1px solid var(--border-color);
+    flex: 1;
 }
 
 .add-article-label {

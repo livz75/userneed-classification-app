@@ -70,6 +70,16 @@
                     <button id="corpusChartBtn" class="articles-corpus-btn" onclick="toggleCorpusChart()" title="Répartition du corpus classifié par userneed">📊 Répartition</button>
                 </div>
             </div>
+            <div class="add-article-zone">
+                <label class="add-article-label">Ajouter un article</label>
+                <div class="add-article-bar">
+                    <input type="text" id="addArticleInput" class="add-article-input"
+                           placeholder="Coller l'URL Franceinfo…" autocomplete="off"
+                           onkeydown="if(event.key==='Enter') addArticleFromInput()">
+                    <button id="addArticleBtn" class="add-article-btn" onclick="addArticleFromInput()">➕ Ajouter</button>
+                </div>
+                <span id="addArticleStatus" class="add-article-status"></span>
+            </div>
             <div id="corpusChart" class="corpus-chart hidden"></div>
             <div id="articlesListContainer" class="articles-list-container">
                 <div id="articlesList" class="articles-list">

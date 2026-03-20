@@ -2746,13 +2746,24 @@ function toggleCorpusChart() {
     if (!isOpen) updateCorpusChart();
 }
 
-function updateCorpusChart() {
+async function updateCorpusChart() {
     const panel = document.getElementById('corpusChart');
     const btn = document.getElementById('corpusChartBtn');
     if (!panel || panel.classList.contains('hidden')) return;
 
-    const classified = currentArticles.filter(a => a.human_classifications && a.human_classifications.length > 0);
-    const total = classified.length;
+    // Requête directe Supabase pour obtenir TOUTES les classifications
+    // (indépendamment de la limite de chargement des articles en mémoire)
+    let classifications = [];
+    let total = 0;
+    if (isSupabaseAvailable()) {
+        const { data, error, count } = await supabaseClient
+            .from('human_classifications')
+            .select('userneed', { count: 'exact' })
+            .limit(10000);
+        if (!error && data) classifications = data;
+        if (count != null) total = count;
+        else total = classifications.length;
+    }
 
     if (total === 0) {
         panel.innerHTML = '<p class="corpus-chart-empty">Aucun article classifié pour le moment.</p>';
@@ -2762,9 +2773,8 @@ function updateCorpusChart() {
     // Comptage par userneed
     const counts = {};
     USERNEEDS.forEach(u => counts[u] = 0);
-    classified.forEach(a => {
-        const raw = a.human_classifications[0]?.userneed;
-        const normalized = normalizeUserneed(raw);
+    classifications.forEach(c => {
+        const normalized = normalizeUserneed(c.userneed);
         if (normalized && counts[normalized] !== undefined) counts[normalized]++;
     });
 
@@ -2919,10 +2929,15 @@ async function declassifyArticle(articleId) {
             card.replaceWith(newCard.firstElementChild);
         }
 
-        // Mettre à jour les stats
-        const localClassified = currentArticles.filter(a => a.human_classifications && a.human_classifications.length > 0).length;
+        // Mettre à jour les stats (requête Supabase pour un compteur exact)
         const statsSpan = document.getElementById('articleStats');
-        if (statsSpan) statsSpan.textContent = `${localClassified} classifiés`;
+        if (isSupabaseAvailable() && statsSpan) {
+            supabaseClient.from('human_classifications').select('id', { count: 'exact', head: true })
+                .then(({ count }) => { if (count != null) statsSpan.textContent = `${count} classifiés`; });
+        }
+
+        // Rafraîchir le graphique de répartition
+        updateCorpusChart();
 
         showToast('Classification retirée');
     } catch (error) {
@@ -2951,15 +2966,18 @@ async function handleClassification(articleId, userneed) {
             card.replaceWith(newCard.firstElementChild);
         }
 
-        // Mettre à jour les stats
-        const localClassified = currentArticles.filter(a => a.human_classifications && a.human_classifications.length > 0).length;
+        // Mettre à jour les stats (requête Supabase pour un compteur exact)
         const statsSpan = document.getElementById('articleStats');
-        if (statsSpan) statsSpan.textContent = `${localClassified} classifiés`;
-
-        // Afficher le bouton Analyse IA si au moins 1 article classifié
-        if (localClassified > 0) {
-            analyzeBtn.style.display = 'inline-block';
+        if (isSupabaseAvailable() && statsSpan) {
+            supabaseClient.from('human_classifications').select('id', { count: 'exact', head: true })
+                .then(({ count }) => { if (count != null) statsSpan.textContent = `${count} classifiés`; });
         }
+
+        // Afficher le bouton Analyse IA
+        analyzeBtn.style.display = 'inline-block';
+
+        // Rafraîchir le graphique de répartition
+        updateCorpusChart();
 
         showToast(`Article classifié: ${userneed}`);
     } catch (error) {

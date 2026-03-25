@@ -231,7 +231,14 @@ Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
                     raise ValueError("Veuillez entrer l'URL complète de l'article Franceinfo.")
 
                 # Vérifier si l'article existe déjà en base
-                config = json.load(open('config.json'))
+                # Charger config depuis config.json (local) ou env vars (Render)
+                try:
+                    config = json.load(open('config.json'))
+                except FileNotFoundError:
+                    config = {
+                        'supabase_url': os.environ.get('SUPABASE_URL', ''),
+                        'supabase_anon_key': os.environ.get('SUPABASE_ANON_KEY', ''),
+                    }
                 check_req = urllib.request.Request(
                     f'{config["supabase_url"]}/rest/v1/articles?external_id=eq.{ext_id}&select=id,titre',
                     headers={

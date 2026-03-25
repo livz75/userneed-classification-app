@@ -100,7 +100,7 @@ def scrape_article_body(url):
 
         for block in jsonld_blocks:
             try:
-                data = json.loads(block)
+                data = json.loads(block, strict=False)
                 if not body:
                     b = find_key(data, 'articleBody')
                     if b and len(b) > 50:

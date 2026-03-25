@@ -241,7 +241,7 @@ Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
                     }
                 )
                 with urllib.request.urlopen(check_req, timeout=15) as resp:
-                    existing = json.loads(resp.read())
+                    existing = json.loads(resp.read(), strict=False)
 
                 if existing:
                     result = {'status': 'exists', 'message': f'Article déjà en base : {existing[0]["titre"]}', 'id': existing[0]['id']}
@@ -301,7 +301,7 @@ Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
                     }
                 )
                 with urllib.request.urlopen(ins_req, timeout=15) as resp:
-                    inserted = json.loads(resp.read())
+                    inserted = json.loads(resp.read(), strict=False)
 
                 result = {
                     'status': 'created',

@@ -278,6 +278,16 @@ Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
                 titre = re.sub(r'[\x00-\x1f\x7f]', ' ', unescape(title_match.group(1))) if title_match else ''
                 chapo = re.sub(r'[\x00-\x1f\x7f]', ' ', unescape(desc_match.group(1))) if desc_match else ''
 
+                # Extraire les dates de publication/modification depuis les meta tags
+                pub_date_match = re.search(r'<meta property="article:published_time" content="([^"]+)"', html)
+                mod_date_match = re.search(r'<meta property="article:modified_time" content="([^"]+)"', html)
+                date_publication = pub_date_match.group(1) if pub_date_match else None
+                date_modification = mod_date_match.group(1) if mod_date_match else None
+                # Fallback : utiliser la date courante si aucune date trouvée
+                if not date_publication:
+                    from datetime import datetime, timezone
+                    date_publication = datetime.now(timezone.utc).isoformat()
+
                 path_part = article_url.replace('https://www.franceinfo.fr/', '')
                 path = '/'.join(path_part.split('/')[:-1])
 
@@ -291,8 +301,8 @@ Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
                     'auteur': None,
                     'path': path,
                     'word_count': len(body.split()) if body else 0,
-                    'date_publication': None,
-                    'date_modification': None,
+                    'date_publication': date_publication,
+                    'date_modification': date_modification,
                     'metadata': {'media_type': media_type or 'article'},
                 }).encode('utf-8')
 

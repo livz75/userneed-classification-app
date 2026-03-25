@@ -15,28 +15,48 @@ class ArticleManager {
     async loadFromSupabase(options = {}) {
         if (!isSupabaseAvailable()) return [];
 
-        let query = supabaseClient
-            .from('articles')
-            .select(`
-                *,
-                human_classifications (id, userneed, classified_at)
-            `)
-            .order('date_publication', { ascending: false });
+        // Supabase limite à 1000 lignes par défaut — on pagine pour tout charger
+        const PAGE_SIZE = 1000;
+        let allData = [];
+        let from = 0;
+        let hasMore = true;
 
-        if (options.limit) query = query.limit(options.limit);
-        if (options.offset) query = query.range(options.offset, options.offset + (options.limit || 30) - 1);
-        if (options.classified === true) {
-            query = query.not('human_classifications', 'is', null);
+        while (hasMore) {
+            let query = supabaseClient
+                .from('articles')
+                .select(`
+                    *,
+                    human_classifications (id, userneed, classified_at)
+                `)
+                .order('date_publication', { ascending: false })
+                .range(from, from + PAGE_SIZE - 1);
+
+            if (options.classified === true) {
+                query = query.not('human_classifications', 'is', null);
+            }
+
+            const { data, error } = await query;
+
+            if (error) {
+                console.error('Erreur chargement articles:', error);
+                break;
+            }
+
+            if (data && data.length > 0) {
+                allData = allData.concat(data);
+                from += PAGE_SIZE;
+                hasMore = data.length === PAGE_SIZE;
+            } else {
+                hasMore = false;
+            }
         }
 
-        const { data, error } = await query;
-
-        if (error) {
-            console.error('Erreur chargement articles:', error);
-            return [];
+        // Si des options de limite/offset sont passées, les appliquer sur le résultat
+        if (options.limit && !options.offset) {
+            return allData.slice(0, options.limit);
         }
 
-        return data || [];
+        return allData;
     }
 
     /**

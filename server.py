@@ -254,6 +254,9 @@ Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
                 # Scraper l'article
                 from fetch_articles import scrape_article_body
                 body, media_type = scrape_article_body(article_url)
+                # Nettoyer les caractères de contrôle qui cassent le JSON
+                if body:
+                    body = re.sub(r'[\x00-\x1f\x7f]', ' ', body)
 
                 # Récupérer titre et chapô depuis les meta tags
                 meta_req = urllib.request.Request(article_url, headers={
@@ -265,8 +268,8 @@ Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
 
                 title_match = re.search(r'<meta property="og:title" content="([^"]+)"', html)
                 desc_match = re.search(r'<meta property="og:description" content="([^"]+)"', html)
-                titre = unescape(title_match.group(1)) if title_match else ''
-                chapo = unescape(desc_match.group(1)) if desc_match else ''
+                titre = re.sub(r'[\x00-\x1f\x7f]', ' ', unescape(title_match.group(1))) if title_match else ''
+                chapo = re.sub(r'[\x00-\x1f\x7f]', ' ', unescape(desc_match.group(1))) if desc_match else ''
 
                 path_part = article_url.replace('https://www.franceinfo.fr/', '')
                 path = '/'.join(path_part.split('/')[:-1])
@@ -316,10 +319,13 @@ Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
                 self.end_headers()
                 self.wfile.write(json.dumps({'error': str(e)}).encode('utf-8'))
             except Exception as e:
+                import traceback
+                traceback.print_exc()
+                error_detail = f'{type(e).__name__}: {e}'
                 self.send_response(500)
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
-                self.wfile.write(json.dumps({'error': str(e)}).encode('utf-8'))
+                self.wfile.write(json.dumps({'error': error_detail}).encode('utf-8'))
 
         else:
             self.send_response(404)

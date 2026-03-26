@@ -1005,9 +1005,9 @@ function formatDuration(ms) {
 function updateTimerDisplay() {
     if (!progressText) return;
     const elapsed = getAnalysisElapsed();
-    const doneCount = articleResults.length;
-    const rate = elapsed > 0 ? (doneCount / (elapsed / 60000)).toFixed(1) : '—';
     const total = analysisTotalArticles || 0;
+    const doneCount = Math.min(articleResults.length, total);
+    const rate = elapsed > 0 ? (doneCount / (elapsed / 60000)).toFixed(1) : '—';
     const remaining = total - doneCount;
     let etaHtml = '';
     if (doneCount > 0 && remaining > 0) {
@@ -1640,14 +1640,12 @@ function createTableRow(article) {
 }
 
 function updateStatisticsDisplay() {
-    // Calculer les totaux
-    let totalArticles = 0;
-    let concordants = 0;
-
-    USERNEEDS.forEach(source => {
-        totalArticles += sourceDistribution[source];
-        concordants += confusionMatrix[source][source];
-    });
+    // Calculer les totaux depuis articleResults (dédupliqué par index, dernière entrée prioritaire)
+    const uniqueResults = new Map();
+    articleResults.forEach(r => uniqueResults.set(r.index, r));
+    const validResults = [...uniqueResults.values()].filter(r => r.predictedUserneed !== 'ERROR' && !r.predictedUserneed.includes('Non identifié'));
+    let totalArticles = validResults.length;
+    let concordants = validResults.filter(r => r.isMatch).length;
 
     const reclassified = totalArticles - concordants;
     const concordantPercent = totalArticles > 0 ? ((concordants / totalArticles) * 100).toFixed(1) : 0;

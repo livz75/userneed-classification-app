@@ -1863,6 +1863,23 @@ async function analyzeWithAI() {
         return;
     }
 
+    // Trier par priorité de User Need : les catégories les plus stratégiques d'abord
+    const userneedPriority = {
+        'Update me': 1,
+        'Explain me': 2,
+        'Give me perspective': 3,
+        'Give me concerning news': 4,
+        'Inspire me': 5,
+        'Make me feel the news': 6,
+        'Reveal news': 7,
+        'Give me a break': 8,
+    };
+    classifiedArticles.sort((a, b) => {
+        const unA = a.human_classifications?.[0]?.userneed || '';
+        const unB = b.human_classifications?.[0]?.userneed || '';
+        return (userneedPriority[unA] || 99) - (userneedPriority[unB] || 99);
+    });
+
     // Réinitialiser le flag d'arrêt et les résultats
     stopAnalysis = false;
     articleResults = [];

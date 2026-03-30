@@ -1865,14 +1865,14 @@ async function analyzeWithAI() {
 
     // Trier par priorité de User Need : les catégories les plus stratégiques d'abord
     const userneedPriority = {
-        'Update me': 1,
-        'Explain me': 2,
-        'Give me perspective': 3,
-        'Give me concerning news': 4,
-        'Inspire me': 5,
-        'Make me feel the news': 6,
-        'Reveal news': 7,
-        'Give me a break': 8,
+        'UPDATE ME': 1,
+        'EXPLAIN ME': 2,
+        'GIVE ME PERSPECTIVE': 3,
+        'GIVE ME CONCERNING NEWS': 4,
+        'INSPIRE ME': 5,
+        'MAKE ME FEEL THE NEWS': 6,
+        'REVEAL NEWS': 7,
+        'GIVE ME A BREAK': 8,
     };
     classifiedArticles.sort((a, b) => {
         const unA = a.human_classifications?.[0]?.userneed || '';

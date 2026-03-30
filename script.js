@@ -1865,8 +1865,8 @@ async function analyzeWithAI() {
 
     // Trier par priorité de User Need : les catégories les plus stratégiques d'abord
     const userneedPriority = {
-        'UPDATE ME': 1,
-        'EXPLAIN ME': 2,
+        'EXPLAIN ME': 1,
+        'UPDATE ME': 2,
         'GIVE ME PERSPECTIVE': 3,
         'GIVE ME CONCERNING NEWS': 4,
         'INSPIRE ME': 5,

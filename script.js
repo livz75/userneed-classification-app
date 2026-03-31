@@ -1929,6 +1929,15 @@ async function analyzeWithAI() {
     analysisTotalArticles = classifiedArticles.length;
     startAnalysisTimer();
 
+    // Afficher le bandeau LLM + Prompt
+    const activePromptForBanner = promptManager.getActivePrompt();
+    const configBanner = document.getElementById('analysisConfigBanner');
+    if (configBanner) {
+        const modelName = (providerManager.selectedModel || '').split('/').pop();
+        const promptName = activePromptForBanner?.name || '—';
+        configBanner.innerHTML = `<span class="config-banner-item">🤖 <strong>${modelName}</strong></span><span class="config-banner-sep">•</span><span class="config-banner-item">📝 <strong>${promptName}</strong></span>`;
+    }
+
     addLog('🚀 Démarrage de l\'analyse IA...', 'info');
     // Nombre total d'articles classifiés à analyser (= ceux réellement chargés)
     totalClassifiedArticles = classifiedArticles.length;

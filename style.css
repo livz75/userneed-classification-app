@@ -456,6 +456,30 @@ input[type="file"] {
     border: 1px solid var(--border-color);
 }
 
+.analysis-config-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 8px 16px;
+    background: rgba(139, 92, 246, 0.1);
+    border: 1px solid rgba(139, 92, 246, 0.25);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    color: #e2e8f0;
+}
+.analysis-config-banner:empty {
+    display: none;
+}
+.config-banner-sep {
+    color: #64748b;
+    margin: 0 4px;
+}
+.config-banner-item strong {
+    color: #c4b5fd;
+}
+
 .progress-bar-wrapper {
     width: 100%;
     height: 8px;

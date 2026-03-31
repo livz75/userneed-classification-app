@@ -3055,6 +3055,7 @@ let rankingSortDir = 1; // 1 = desc (meilleurs en haut), -1 = asc
 let _rankingAllRuns = [];
 let _rankingActiveModels = new Set(); // empty = all
 let _rankingMinArticles = 0; // filtre volume minimum du corpus
+let _rankingActivePrompts = new Set(); // empty = all
 
 async function renderRankingPage() {
     const el = document.getElementById('rankingContent');
@@ -3065,6 +3066,7 @@ async function renderRankingPage() {
         .filter(r => r.status !== 'running' && r.concordant_percent != null)
         .map(r => ({ ...r, _metrics: computeRunMetrics(r) }));
     _rankingActiveModels = new Set(); // reset = show all
+    _rankingActivePrompts = new Set();
 
     if (!_rankingAllRuns.length) {
         el.innerHTML = '<p class="tests-empty">Aucun test terminé à afficher.</p>';
@@ -3078,6 +3080,7 @@ async function renderRankingPage() {
             Les meilleurs tests se situent en haut à droite. Le nombre à l'intérieur de chaque point indique le nombre d'articles analysés.
         </p>
         ${buildModelFilters(_rankingAllRuns)}
+        ${buildPromptFilters(_rankingAllRuns)}
         ${buildVolumeFilter(_rankingAllRuns)}
         <div class="ranking-chart-wrap" id="scatterWrap">
             <div class="ranking-chart-title">Scatter plot — Concordance vs F1 macro</div>
@@ -3090,6 +3093,7 @@ async function renderRankingPage() {
 
     attachScatterEvents(_rankingAllRuns);
     attachModelFilterEvents();
+    attachPromptFilterEvents();
     attachVolumeFilterEvents();
 }
 
@@ -3136,6 +3140,50 @@ function attachModelFilterEvents() {
     });
 }
 
+function _getPromptName(r) {
+    return r.prompts?.name || r.prompt_id || '—';
+}
+
+function buildPromptFilters(runs) {
+    const prompts = new Set();
+    runs.forEach(r => prompts.add(_getPromptName(r)));
+    if (prompts.size <= 1) return '';
+    let html = '<div class="scatter-model-filters"><span class="filter-label">Filtrer par prompt :</span>';
+    html += `<button class="scatter-prompt-btn active" data-prompt="all">Tous</button>`;
+    prompts.forEach(name => {
+        html += `<button class="scatter-prompt-btn" data-prompt="${name}"><span class="scatter-filter-dot" style="background:#a78bfa"></span>${name}</button>`;
+    });
+    html += '</div>';
+    return html;
+}
+
+function attachPromptFilterEvents() {
+    document.querySelectorAll('.scatter-prompt-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const prompt = btn.dataset.prompt;
+            if (prompt === 'all') {
+                _rankingActivePrompts = new Set();
+                document.querySelectorAll('.scatter-prompt-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            } else {
+                document.querySelector('.scatter-prompt-btn[data-prompt="all"]')?.classList.remove('active');
+                btn.classList.toggle('active');
+                if (btn.classList.contains('active')) {
+                    _rankingActivePrompts.add(prompt);
+                } else {
+                    _rankingActivePrompts.delete(prompt);
+                }
+                if (_rankingActivePrompts.size === 0) {
+                    document.querySelector('.scatter-prompt-btn[data-prompt="all"]')?.classList.add('active');
+                }
+            }
+            refreshScatterChart();
+            const tableWrap = document.querySelector('.ranking-table-wrap');
+            if (tableWrap) tableWrap.innerHTML = buildRankingTable(getFilteredRankingRuns());
+        });
+    });
+}
+
 function buildVolumeFilter(runs) {
     const volumes = [...new Set(runs.map(r => r.analyzed_articles || 0))].sort((a, b) => a - b);
     if (volumes.length <= 1) return '';
@@ -3165,6 +3213,9 @@ function getFilteredRankingRuns() {
     let filtered = _rankingAllRuns;
     if (_rankingActiveModels.size > 0) {
         filtered = filtered.filter(r => _rankingActiveModels.has(getModelShortName(r.llm_model)));
+    }
+    if (_rankingActivePrompts.size > 0) {
+        filtered = filtered.filter(r => _rankingActivePrompts.has(_getPromptName(r)));
     }
     if (_rankingMinArticles > 0) {
         filtered = filtered.filter(r => (r.analyzed_articles || 0) >= _rankingMinArticles);

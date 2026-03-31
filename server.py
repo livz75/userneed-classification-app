@@ -26,6 +26,11 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         if not is_auth_enabled():
             return True
 
+        # Les endpoints API sont exemptés : la page HTML est déjà protégée
+        # et les appels fetch() depuis le JS n'ont pas besoin de re-authentifier
+        if self.path.startswith('/api/'):
+            return True
+
         auth_header = self.headers.get('Authorization', '')
 
         if not auth_header.startswith('Basic '):

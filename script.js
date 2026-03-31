@@ -3054,6 +3054,7 @@ let rankingSortDir = 1; // 1 = desc (meilleurs en haut), -1 = asc
 
 let _rankingAllRuns = [];
 let _rankingActiveModels = new Set(); // empty = all
+let _rankingMinArticles = 0; // filtre volume minimum du corpus
 
 async function renderRankingPage() {
     const el = document.getElementById('rankingContent');
@@ -3077,6 +3078,7 @@ async function renderRankingPage() {
             Les meilleurs tests se situent en haut à droite. Le nombre à l'intérieur de chaque point indique le nombre d'articles analysés.
         </p>
         ${buildModelFilters(_rankingAllRuns)}
+        ${buildVolumeFilter(_rankingAllRuns)}
         <div class="ranking-chart-wrap" id="scatterWrap">
             <div class="ranking-chart-title">Scatter plot — Concordance vs F1 macro</div>
             ${buildScatterSVG(_rankingAllRuns)}
@@ -3088,6 +3090,7 @@ async function renderRankingPage() {
 
     attachScatterEvents(_rankingAllRuns);
     attachModelFilterEvents();
+    attachVolumeFilterEvents();
 }
 
 function buildModelFilters(runs) {
@@ -3133,9 +3136,40 @@ function attachModelFilterEvents() {
     });
 }
 
+function buildVolumeFilter(runs) {
+    const volumes = [...new Set(runs.map(r => r.analyzed_articles || 0))].sort((a, b) => a - b);
+    if (volumes.length <= 1) return '';
+    const min = volumes[0], max = volumes[volumes.length - 1];
+    return `<div class="scatter-volume-filter">
+        <span class="filter-label">Volume min. d'articles :</span>
+        <input type="range" id="volumeFilterRange" min="${min}" max="${max}" value="${_rankingMinArticles || min}" step="1">
+        <span id="volumeFilterValue" class="volume-filter-value">≥ ${_rankingMinArticles || min} articles</span>
+    </div>`;
+}
+
+function attachVolumeFilterEvents() {
+    const range = document.getElementById('volumeFilterRange');
+    const label = document.getElementById('volumeFilterValue');
+    if (!range) return;
+    range.addEventListener('input', () => {
+        _rankingMinArticles = parseInt(range.value, 10);
+        label.textContent = `≥ ${_rankingMinArticles} articles`;
+        refreshScatterChart();
+        // Also refresh ranking table
+        const tableWrap = document.querySelector('.ranking-table-wrap');
+        if (tableWrap) tableWrap.innerHTML = buildRankingTable(getFilteredRankingRuns());
+    });
+}
+
 function getFilteredRankingRuns() {
-    if (_rankingActiveModels.size === 0) return _rankingAllRuns;
-    return _rankingAllRuns.filter(r => _rankingActiveModels.has(getModelShortName(r.llm_model)));
+    let filtered = _rankingAllRuns;
+    if (_rankingActiveModels.size > 0) {
+        filtered = filtered.filter(r => _rankingActiveModels.has(getModelShortName(r.llm_model)));
+    }
+    if (_rankingMinArticles > 0) {
+        filtered = filtered.filter(r => (r.analyzed_articles || 0) >= _rankingMinArticles);
+    }
+    return filtered;
 }
 
 function refreshScatterChart() {

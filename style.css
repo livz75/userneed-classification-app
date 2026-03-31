@@ -3096,6 +3096,30 @@ input[type="file"] {
     flex-shrink: 0;
 }
 
+/* Volume filter */
+.scatter-volume-filter {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.scatter-volume-filter .filter-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+.scatter-volume-filter input[type="range"] {
+    width: 180px;
+    accent-color: #8b5cf6;
+    cursor: pointer;
+}
+.volume-filter-value {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #c4b5fd;
+    min-width: 100px;
+}
+
 /* Ranking table */
 .ranking-table-wrap {
     overflow-x: auto;

@@ -3308,10 +3308,22 @@ function buildScatterSVG(runs) {
     grid += `<text x="${(L+R)/2}" y="${H-4}" text-anchor="middle" font-size="11" fill="#94a3b8" font-weight="600">Concordance (%)</text>`;
     grid += `<text x="12" y="${(T+B)/2}" text-anchor="middle" font-size="11" fill="#94a3b8" font-weight="600" transform="rotate(-90,12,${(T+B)/2})">F1 macro (%)</text>`;
 
-    // Find best run
-    const bestF1 = Math.max(...runs.map(r => r._metrics?.f1 ?? 0));
+    // Find best run : F1 max, en cas d'égalité on prend la concordance la plus élevée
+    let bestIdx = -1;
+    let bestF1 = -Infinity;
+    let bestConc = -Infinity;
+    runs.forEach((r, i) => {
+        const f1 = r._metrics?.f1 ?? null;
+        if (f1 === null) return;
+        const conc = r.concordant_percent ?? 0;
+        if (f1 > bestF1 || (f1 === bestF1 && conc > bestConc)) {
+            bestF1 = f1;
+            bestConc = conc;
+            bestIdx = i;
+        }
+    });
 
-    // Points with article count label inside — size proportional to article count
+    // Points with article count label inside + model name label below
     let points = '';
     runs.forEach((r, i) => {
         const conc = r.concordant_percent ?? 0;
@@ -3319,10 +3331,11 @@ function buildScatterSVG(runs) {
         if (f1 === null) return;
         const cx = toX(conc), cy = toY(f1);
         const color = getModelColor(r.llm_model);
-        const isBest = f1 === bestF1;
+        const isBest = i === bestIdx;
         const articleCount = r.analyzed_articles || 0;
         const rad = 16 + (isBest ? 2 : 0);
         const fontSize = 10;
+        const modelLabel = getModelShortName(r.llm_model);
         points += `<g class="scatter-point" data-idx="${i}" style="cursor:pointer">
             <circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${rad}"
                 fill="${color}" fill-opacity="0.85"
@@ -3330,6 +3343,8 @@ function buildScatterSVG(runs) {
                 stroke-width="${isBest ? 2.5 : 1.5}"/>
             <text x="${cx.toFixed(1)}" y="${(cy + fontSize * 0.35).toFixed(1)}" text-anchor="middle"
                 font-size="${fontSize}" font-weight="700" fill="#fff" pointer-events="none">${articleCount}</text>
+            <text x="${cx.toFixed(1)}" y="${(cy + rad + 12).toFixed(1)}" text-anchor="middle"
+                font-size="9" font-weight="600" fill="#cbd5e1" pointer-events="none">${modelLabel}</text>
         </g>`;
         if (isBest) {
             points += `<text x="${cx.toFixed(1)}" y="${(cy - rad - 4).toFixed(1)}" text-anchor="middle" font-size="11" pointer-events="none">🏆</text>`;

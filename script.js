@@ -111,7 +111,9 @@ const OUTPUT_TOKENS_50 = 6000;
 
 const MODELS = [
     // id, provider, name, speedLabel, speedStars(1-5), input$/M, output$/M, qualityStars, french(1-3), recommended, note
+    { id: 'anthropic/claude-opus-4.6',                  provider: 'Anthropic', name: 'Claude Opus 4.6',        speed: '⚡ Modéré',         input: 15.00, output: 75.00, quality: 5, french: 3, recommended: true,  note: 'Modèle le plus puissant Anthropic, raisonnement avancé' },
     { id: 'anthropic/claude-sonnet-4.6',                provider: 'Anthropic', name: 'Claude Sonnet 4.6',      speed: '⚡⚡ Rapide',        input: 3.00,  output: 15.00, quality: 5, french: 3, recommended: true,  note: 'Dernière génération Sonnet, qualité maximale' },
+    { id: 'google/gemini-3.1-pro',                      provider: 'Google',    name: 'Gemini 3.1 Pro',         speed: '⚡⚡ Rapide',        input: 1.25,  output: 5.00,  quality: 5, french: 3, recommended: true,  note: 'Dernière génération Gemini Pro, qualité supérieure' },
     { id: 'anthropic/claude-3.5-haiku',                 provider: 'Anthropic', name: 'Claude 3.5 Haiku',       speed: '⚡⚡⚡ Très rapide', input: 0.80,  output: 4.00,  quality: 5, french: 3, recommended: true,  note: 'Meilleur équilibre vitesse/qualité/français' },
     { id: 'openai/gpt-5.4-mini',                        provider: 'OpenAI',    name: 'GPT-5.4 Mini',           speed: '⚡⚡ Rapide',        input: 0.25,  output: 2.00,  quality: 5, french: 3, recommended: true,  note: 'Dernière génération GPT-5, compact et performant' },
     { id: 'openai/gpt-5-mini',                           provider: 'OpenAI',    name: 'GPT-5 Mini',             speed: '⚡⚡ Rapide',        input: 0.25,  output: 2.00,  quality: 5, french: 3, recommended: true,  note: 'Successeur o4-mini, raisonnement compact' },

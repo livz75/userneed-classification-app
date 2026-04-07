@@ -3335,7 +3335,6 @@ function buildScatterSVG(runs) {
         const articleCount = r.analyzed_articles || 0;
         const rad = 16 + (isBest ? 2 : 0);
         const fontSize = 10;
-        const modelLabel = getModelShortName(r.llm_model);
         points += `<g class="scatter-point" data-idx="${i}" style="cursor:pointer">
             <circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${rad}"
                 fill="${color}" fill-opacity="0.85"
@@ -3343,8 +3342,6 @@ function buildScatterSVG(runs) {
                 stroke-width="${isBest ? 2.5 : 1.5}"/>
             <text x="${cx.toFixed(1)}" y="${(cy + fontSize * 0.35).toFixed(1)}" text-anchor="middle"
                 font-size="${fontSize}" font-weight="700" fill="#fff" pointer-events="none">${articleCount}</text>
-            <text x="${cx.toFixed(1)}" y="${(cy + rad + 12).toFixed(1)}" text-anchor="middle"
-                font-size="9" font-weight="600" fill="#cbd5e1" pointer-events="none">${modelLabel}</text>
         </g>`;
         if (isBest) {
             points += `<text x="${cx.toFixed(1)}" y="${(cy - rad - 4).toFixed(1)}" text-anchor="middle" font-size="11" pointer-events="none">🏆</text>`;
@@ -3403,7 +3400,15 @@ function buildRankingTable(runsRaw) {
     const runs = [...runsRaw].sort((a, b) => {
         const va = colValue(a, rankingSortCol);
         const vb = colValue(b, rankingSortCol);
-        return rankingSortDir * (vb - va);
+        const diff = rankingSortDir * (vb - va);
+        if (diff !== 0) return diff;
+        // Tie-break : on departage par concordance descendante, puis par F1 descendant
+        const ca = a.concordant_percent ?? 0;
+        const cb = b.concordant_percent ?? 0;
+        if (ca !== cb) return cb - ca;
+        const fa = a._metrics?.f1 ?? 0;
+        const fb = b._metrics?.f1 ?? 0;
+        return fb - fa;
     });
     const maxF1   = Math.max(...runs.map(r => r._metrics?.f1 ?? 0));
     const maxConc = Math.max(...runs.map(r => r.concordant_percent ?? 0));

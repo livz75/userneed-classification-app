@@ -1,6 +1,6 @@
 # Guide utilisateur — Application "Analyse IA des Userneeds Franceinfo"
 
-**Mise à jour :** 11 mars 2026
+**Mise à jour :** 10 avril 2026
 
 ---
 
@@ -35,7 +35,7 @@ L'application se déroule en 5 étapes.
 
 ### Étape 1 — Classifier des articles
 
-La liste des articles Franceinfo s'affiche directement sur la page d'accueil, filtrée par défaut sur les **articles non classifiés**. Les articles sont importés automatiquement toutes les 30 minutes depuis les flux RSS de Franceinfo.
+La liste des articles Franceinfo s'affiche directement sur la page d'accueil, filtrée par défaut sur les **articles non classifiés**. Les articles sont importés automatiquement toutes les 30 minutes depuis les flux RSS de Franceinfo. Vous pouvez également **ajouter un article manuellement par son URL** via la zone d'import prévue dans la page Articles.
 
 **Pour classifier un article :**
 
@@ -64,7 +64,7 @@ Un indicateur de couleur (vert / orange / rouge) résume l'équilibre global du 
 
 ### Étape 2 — Choisir un modèle IA
 
-Cliquez sur le bouton **"🤖 LLM"** dans le menu. Un tableau comparatif s'affiche avec les 14 principaux modèles du marché, classés du meilleur au moins bon pour cette application.
+Cliquez sur le bouton **"🤖 LLM"** dans le menu. Un tableau comparatif s'affiche avec plus de **27 modèles LLM** du marché, classés du meilleur au moins bon pour cette application.
 
 Pour chaque modèle, vous voyez :
 
@@ -110,9 +110,11 @@ Après une analyse, le bouton **"💡 Adapter le prompt"** soumet votre prompt a
 
 ### Étape 4 — Lancer une analyse IA
 
-Cliquez sur **"Analyse IA"** pour démarrer. L'IA analyse chaque article que vous avez classifié et prédit son User Need. Les résultats s'affichent au fur et à mesure.
+Cliquez sur **"Analyse IA"** pour démarrer. L'IA analyse chaque article que vous avez classifié et prédit son User Need. Les résultats s'affichent au fur et à mesure. Les articles sont analysés selon un **ordre de priorité par User Need** (EXPLAIN ME en premier) afin de couvrir rapidement les catégories les plus représentées.
 
 **Pendant l'analyse :**
+- Un **bandeau de configuration** affiche le modèle et le prompt actifs utilisés pour l'analyse en cours
+- Un chronomètre affiche le temps écoulé depuis le début de l'analyse
 - Une barre de progression indique l'avancement
 - La matrice de confusion et les statistiques se construisent en temps réel
 - Le bouton **"⏹ Stop"** permet d'interrompre l'analyse à tout moment — les résultats déjà obtenus sont conservés
@@ -147,7 +149,7 @@ Via le bouton **"📋 Tests"**, deux sous-pages sont disponibles :
 
 #### 🏆 Classement
 
-- Le **graphique de dispersion** positionne chaque run sur deux axes : *Concordance* (horizontal) et *F1 macro* (vertical). Les runs les plus performants apparaissent en haut à droite (zone verte). Le meilleur run est marqué 🏆.
+- Le **graphique de dispersion (scatter plot)** positionne chaque run sur deux axes : *Concordance* (horizontal) et *F1 macro* (vertical). Trois filtres permettent d'affiner la vue : **modèle**, **prompt** et **volume** (nombre minimum d'articles analysés). Les runs les plus performants apparaissent en haut à droite (zone verte). Un **unique trophée** marque le meilleur run global.
 - Le **tableau de classement** trie les runs du meilleur au moins bon (F1 macro décroissant) et affiche : modèle, prompt, concordance, précision, rappel et F1 macro. Cliquez sur un en-tête de colonne pour retrier.
 
 ---
@@ -174,3 +176,14 @@ La **précision** mesure la fiabilité des prédictions de l'IA : quand elle dit
 
 **Que signifie le F1 macro dans le classement ?**
 Le F1 macro est la moyenne harmonique de la précision et du rappel, calculée indépendamment pour chaque User Need puis moyennée. C'est la métrique de référence pour évaluer globalement un modèle sur des classes déséquilibrées.
+
+---
+
+## Accès à l'application
+
+L'application est déployée sur deux environnements de production :
+
+- **Render** : hébergement principal (backend Python + frontend statique)
+- **Hostinger VPS** : hébergement alternatif sur serveur dédié
+
+Consultez le fichier `CONFIG.md` pour les détails de configuration de chaque environnement.

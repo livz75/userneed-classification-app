@@ -2,7 +2,7 @@
 
 **Destinataire :** Équipe de développement chargée de la mise en production
 **Auteur :** Product Owner — Direction de l'Information, France Télévisions
-**Date :** Mars 2026
+**Date :** 05 mars 2026
 **Statut :** POC fonctionnel — non destiné à la production en l'état
 
 ---
@@ -80,7 +80,7 @@ L'application affiche :
 ┌─────────────────────────────────────────────────────────────┐
 │                        FRONTEND                             │
 │              (HTML / CSS / JavaScript vanilla)              │
-│                   Hébergé sur Vercel                        │
+│                   Hébergé sur Render.com                    │
 └────────────────────────┬────────────────────────────────────┘
                          │ fetch() API calls
            ┌─────────────┴──────────────┐
@@ -89,16 +89,16 @@ L'application affiche :
 ┌──────────────────┐         ┌──────────────────────┐
 │   SERVEUR PROXY  │         │       SUPABASE        │
 │   (Python HTTP)  │         │    (PostgreSQL BaaS)  │
-│  Lancé en local  │         │   Hébergé dans le     │
-│  python server.py│         │   cloud Supabase      │
+│  server.py       │         │   Hébergé dans le     │
+│  Render.com      │         │   cloud Supabase      │
 └────────┬─────────┘         └──────────────────────┘
          │ HTTPS                        ▲
          ▼                             │
-┌──────────────────┐         ┌─────────┴──────────┐
-│  OPENROUTER API  │         │  CRON LOCAL (crontab│
-│  (passerelle LLM)│         │  fetch_articles.py  │
-│  Accès à 200+    │         │  toutes les 30 min) │
-│  modèles IA      │         └─────────┬───────────┘
+┌──────────────────┐         ┌─────────┴──────────────┐
+│  OPENROUTER API  │         │  CRON LOCAL (launchd)  │
+│  (passerelle LLM)│         │  fetch_articles.py     │
+│  14 modèles LLM  │         │  toutes les 30 min     │
+│  via 1 clé API   │         └─────────┬──────────────┘
 └──────────────────┘                   │
                                ┌───────┴──────────┐
                                │   RSS FRANCEINFO  │
@@ -153,17 +153,22 @@ https://www.francetvinfo.fr/culture.rss
 
 Chaque feed fournit : titre, chapo, URL, date de publication. Les doublons cross-feeds sont supprimés par `external_id`. Un run typique ramène ~100 articles uniques.
 
-**Phase 2 — Scraping du corps** : pour chaque article, la page HTML publique est téléchargée et le corps est extrait depuis le bloc **JSON-LD** (`application/ld+json`, champ `articleBody`) que franceinfo expose nativement pour les moteurs de recherche. Cette méthode est propre (pas de parsing CSS fragile) et fournit le texte intégral. Un délai de 0,5 s est respecté entre chaque requête pour ne pas surcharger les serveurs.
+**Phase 2 — Scraping du corps et du type de média** : pour chaque article, la page HTML publique est téléchargée et deux informations sont extraites depuis le bloc **JSON-LD** (`application/ld+json`) que Franceinfo expose nativement :
+- `articleBody` → corps complet de l'article
+- `@type` → type de contenu, normalisé en `article` (NewsArticle, ReportageNewsArticle…), `video` (VideoObject), ou `autre`
 
-En pratique, ~97 % des articles ont un corps récupéré (les exceptions sont des formats sans texte : vidéos pures, liens externes). Le `word_count` est recalculé à partir du corps scrappé.
+Cette méthode est propre (pas de parsing CSS fragile) et fournit le texte intégral. Un délai de 0,5 s est respecté entre chaque requête.
 
-> **Historique :** L'API interne de publication franceinfo (`api-front.publish.franceinfo.francetvinfo.fr`) a été explorée en première intention mais s'est avérée inaccessible depuis toute IP publique (restriction au réseau interne France TV). La combinaison RSS + scraping JSON-LD constitue l'alternative retenue.
+En pratique, ~97 % des articles ont un corps récupéré (les exceptions : vidéos pures, liens externes). Le `word_count` est recalculé à partir du corps scrappé. Le `media_type` est stocké dans `metadata` (JSONB).
+
+> **Historique :** L'API interne de publication Franceinfo (`api-front.publish.franceinfo.francetvinfo.fr`) a été explorée en première intention mais s'est avérée inaccessible depuis toute IP publique (restriction au réseau interne France TV). La combinaison RSS + scraping JSON-LD constitue l'alternative retenue.
 
 **Options du script :**
 ```bash
-python3 fetch_articles.py              # tous les feeds + scraping corps
-python3 fetch_articles.py --feed monde # un seul feed
-python3 fetch_articles.py --no-scrape  # sans scraping (plus rapide, corps vide)
+python3 fetch_articles.py                   # tous les feeds + scraping corps
+python3 fetch_articles.py --feed monde      # un seul feed
+python3 fetch_articles.py --no-scrape       # sans scraping (plus rapide, corps vide)
+python3 fetch_articles.py --update-metadata # backfill media_type pour articles existants
 ```
 
 ### 3.5 Base de données — Supabase
@@ -182,7 +187,7 @@ articles
 ├── external_id (TEXT, UNIQUE) ← ID franceinfo extrait de l'URL
 ├── titre, chapo, corps, url, auteur, path
 ├── word_count, date_publication, date_modification
-├── metadata (JSONB) ← teams, source, pushed, breakingNews
+├── metadata (JSONB) ← { media_type: 'article'|'video'|'autre' }
 └── fetched_at, created_at
 
 human_classifications
@@ -317,8 +322,8 @@ Une matrice 8×8 est calculée à la fin de chaque test run. Les lignes représe
 | **Pas d'authentification** | Toutes les classifications sont anonymes (`classified_by = 'anonymous'`). Impossible de savoir qui a classifié quoi. |
 | **Utilisateur unique** | Le modèle de données prévoit `classified_by` mais l'interface ne demande pas l'identité. |
 | **Scraping du corps fragile** | Le corps est extrait via le JSON-LD public de franceinfo. Si franceinfo modifie la structure de ses pages ou bloque les scrapers, l'extraction cessera de fonctionner. ~3 % des articles (vidéos, liens externes) n'ont pas de corps disponible. |
-| **Cron local** | La récupération des articles tourne sur la machine de l'utilisateur. Si la machine est éteinte, les articles ne sont plus importés. |
-| **Pas de CI/CD** | Le déploiement est manuel (`vercel --prod`, `git push`). |
+| **Cron local** | La récupération des articles tourne via launchd sur la machine de l'utilisateur. Si la machine est éteinte, les articles ne sont plus importés. |
+| **Pas de CI/CD** | Le déploiement est manuel (`git push` → Render redéploie automatiquement). |
 | **Clés API en clair** | La clé OpenRouter est dans `config.json` et utilisée côté client dans le local storage. |
 | **Pas de logs structurés** | Les logs sont dans la console du navigateur et dans un fichier `.log` local. |
 | **Technologies POC** | JavaScript vanilla, Python stdlib — pas adapté à une montée en charge ou à un travail en équipe. |
@@ -375,6 +380,8 @@ Ce POC a validé la faisabilité de l'approche. Les choix suivants sont recomman
 **Pour la production**, deux options sont à évaluer par ordre de préférence :
 1. **API interne officielle** : demander à la DSI un accès à l'API de contenu France TV depuis le cloud (clé API ou IP whitelistée). C'est la solution la plus robuste et pérenne.
 2. **Maintenir le scraping JSON-LD** : si l'option 1 n'est pas disponible à court terme, le scraping actuel est fonctionnel et peut être conservé en production avec une surveillance des taux d'échec.
+
+
 
 ### 8.3 Authentification et multi-utilisateurs
 

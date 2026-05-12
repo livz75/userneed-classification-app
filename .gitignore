@@ -10,3 +10,9 @@ Thumbs.db
 
 # Vercel
 .vercel
+
+# Snapshots de classifications (donnees prod, ne pas publier)
+backups/*.json
+
+# Documents internes France Televisions
+*.pdf

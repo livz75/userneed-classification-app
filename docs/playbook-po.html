@@ -1,0 +1,2686 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Playbook PO — Construire une app de A à Z</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..900,0..100;1,9..144,300..900,0..100&family=DM+Sans:opsz,wght@9..40,300..700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-deep: #0F0D0A;
+  --bg-card: #1A1612;
+  --bg-elevated: #221C16;
+  --bg-hover: #2A2218;
+  --border: #2D2620;
+  --border-strong: #3D352B;
+  --text-primary: #F4EEE3;
+  --text-secondary: #B8AC9B;
+  --text-muted: #756A5C;
+  --text-faint: #4A4339;
+  --accent-amber: #D4A24C;
+  --accent-amber-dim: #8C6A2F;
+  --accent-rust: #B85C3F;
+  --accent-sage: #94A38A;
+  --accent-cream: #E8DCC4;
+  --accent-blue: #6B8CAE;
+
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'DM Sans', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --shadow-soft: 0 4px 24px rgba(0,0,0,0.4);
+  --shadow-deep: 0 12px 48px rgba(0,0,0,0.6);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.7;
+  font-feature-settings: 'kern', 'liga', 'ss01';
+  overflow-x: hidden;
+  background-image:
+    radial-gradient(ellipse at top left, rgba(212,162,76,0.04), transparent 60%),
+    radial-gradient(ellipse at bottom right, rgba(184,92,63,0.03), transparent 60%);
+  background-attachment: fixed;
+}
+
+/* ==== Layout ==== */
+
+.app {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  min-height: 100vh;
+}
+
+@media (max-width: 1024px) {
+  .app { grid-template-columns: 1fr; }
+  aside { display: none !important; }
+}
+
+/* ==== Top progress bar ==== */
+
+.progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(212,162,76,0.08);
+  z-index: 100;
+}
+.progress-bar::after {
+  content: '';
+  display: block;
+  height: 100%;
+  width: var(--progress, 0%);
+  background: linear-gradient(90deg, var(--accent-amber), var(--accent-rust));
+  transition: width 0.2s ease;
+}
+
+/* ==== Sidebar ==== */
+
+aside {
+  background: var(--bg-card);
+  border-right: 1px solid var(--border);
+  padding: 40px 28px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+aside::-webkit-scrollbar { width: 4px; }
+aside::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+
+.brand {
+  margin-bottom: 36px;
+}
+
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--accent-amber);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.brand-mark::before {
+  content: '';
+  width: 24px;
+  height: 1px;
+  background: var(--accent-amber);
+}
+
+.brand-title {
+  font-family: var(--font-display);
+  font-weight: 350;
+  font-size: 26px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  font-variation-settings: 'opsz' 144, 'SOFT' 50;
+}
+
+.brand-title em {
+  font-style: italic;
+  color: var(--accent-amber);
+  font-weight: 300;
+}
+
+.brand-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 12px;
+  letter-spacing: 0.02em;
+}
+
+.nav-group {
+  margin-bottom: 24px;
+}
+
+.nav-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--text-faint);
+  margin-bottom: 12px;
+  padding-left: 4px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 9px 12px;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  border-left: 2px solid transparent;
+  margin-bottom: 1px;
+  background: transparent;
+  border-top: none;
+  border-right: none;
+  border-bottom: none;
+  width: 100%;
+  text-align: left;
+  font-family: var(--font-body);
+  line-height: 1.4;
+}
+
+.nav-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.nav-item.active {
+  background: var(--bg-hover);
+  color: var(--accent-cream);
+  border-left-color: var(--accent-amber);
+}
+
+.nav-num {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--accent-amber-dim);
+  min-width: 22px;
+  font-weight: 400;
+}
+
+.nav-item.active .nav-num {
+  color: var(--accent-amber);
+}
+
+aside .footer-note {
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-faint);
+  font-style: italic;
+  font-family: var(--font-display);
+  line-height: 1.5;
+}
+
+/* ==== Main content ==== */
+
+main {
+  padding: 80px 80px 200px 80px;
+  max-width: 920px;
+  position: relative;
+}
+
+@media (max-width: 768px) {
+  main { padding: 40px 24px 160px 24px; }
+}
+
+.view {
+  display: none;
+  animation: fadeIn 0.4s ease;
+}
+
+.view.active { display: block; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ==== Typography ==== */
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--accent-amber);
+  margin-bottom: 28px;
+}
+
+.eyebrow::before {
+  content: '';
+  width: 32px;
+  height: 1px;
+  background: var(--accent-amber);
+}
+
+h1.display {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: clamp(48px, 6vw, 88px);
+  line-height: 0.95;
+  letter-spacing: -0.035em;
+  margin-bottom: 32px;
+  font-variation-settings: 'opsz' 144, 'SOFT' 100;
+}
+
+h1.display em {
+  font-style: italic;
+  color: var(--accent-amber);
+  font-weight: 300;
+}
+
+h2 {
+  font-family: var(--font-display);
+  font-weight: 350;
+  font-size: clamp(34px, 4vw, 52px);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin: 0 0 24px 0;
+  font-variation-settings: 'opsz' 144, 'SOFT' 50;
+}
+
+h2 em {
+  font-style: italic;
+  color: var(--accent-amber);
+}
+
+h3 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 26px;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  margin: 56px 0 20px 0;
+  color: var(--text-primary);
+}
+
+h3.section-num {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+
+h3 .num {
+  font-style: italic;
+  color: var(--accent-amber);
+  font-size: 22px;
+  font-weight: 300;
+}
+
+h4 {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 36px 0 14px 0;
+  color: var(--accent-cream);
+}
+
+p {
+  margin-bottom: 18px;
+  color: var(--text-secondary);
+}
+
+.lead {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 300;
+  line-height: 1.45;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  margin-bottom: 32px;
+  font-variation-settings: 'opsz' 144, 'SOFT' 80;
+  max-width: 720px;
+}
+
+.lead em {
+  font-style: italic;
+  color: var(--accent-amber);
+}
+
+strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+em {
+  font-family: var(--font-display);
+  font-style: italic;
+  color: var(--accent-cream);
+  font-weight: 400;
+}
+
+a {
+  color: var(--accent-amber);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+
+a:hover { border-bottom-color: var(--accent-amber); }
+
+ul, ol {
+  margin: 0 0 24px 24px;
+  color: var(--text-secondary);
+}
+
+ul li, ol li {
+  margin-bottom: 10px;
+  line-height: 1.65;
+}
+
+ul li::marker { color: var(--accent-amber-dim); }
+ol li::marker { color: var(--accent-amber); font-family: var(--font-display); font-style: italic; }
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: var(--bg-elevated);
+  padding: 2px 7px;
+  border-radius: 4px;
+  color: var(--accent-cream);
+  border: 1px solid var(--border);
+}
+
+pre {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent-amber);
+  padding: 20px 24px;
+  border-radius: 6px;
+  margin: 24px 0;
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-primary);
+}
+
+blockquote {
+  border-left: 2px solid var(--accent-amber);
+  padding: 8px 0 8px 28px;
+  margin: 32px 0;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 22px;
+  font-weight: 300;
+  line-height: 1.45;
+  color: var(--text-primary);
+  font-variation-settings: 'opsz' 144, 'SOFT' 80;
+}
+
+/* ==== Cover ==== */
+
+.cover {
+  min-height: calc(100vh - 160px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+}
+
+.cover-meta {
+  display: flex;
+  gap: 32px;
+  margin-bottom: 48px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+}
+
+.cover-meta span { display: flex; align-items: center; gap: 8px; }
+.cover-meta .dot {
+  width: 4px; height: 4px;
+  background: var(--accent-amber);
+  border-radius: 50%;
+}
+
+.cover-tagline {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 24px;
+  font-weight: 300;
+  color: var(--text-secondary);
+  margin: 32px 0 56px 0;
+  max-width: 600px;
+  line-height: 1.4;
+  font-variation-settings: 'opsz' 144, 'SOFT' 100;
+}
+
+.cover-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  margin: 48px 0;
+}
+
+@media (max-width: 768px) {
+  .cover-stats { grid-template-columns: repeat(2, 1fr); }
+}
+
+.stat {
+  background: var(--bg-deep);
+  padding: 28px 24px;
+}
+
+.stat-num {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 300;
+  font-size: 48px;
+  line-height: 1;
+  color: var(--accent-amber);
+  margin-bottom: 8px;
+  font-variation-settings: 'opsz' 144, 'SOFT' 100;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.cta-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 24px;
+  background: var(--accent-amber);
+  color: var(--bg-deep);
+  font-weight: 600;
+  font-size: 14px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+
+.cta:hover {
+  background: var(--accent-cream);
+  transform: translateY(-1px);
+}
+
+.cta.ghost {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+}
+
+.cta.ghost:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-amber);
+  color: var(--accent-amber);
+  transform: none;
+}
+
+/* ==== Cards ==== */
+
+.cards {
+  display: grid;
+  gap: 16px;
+  margin: 32px 0;
+}
+
+.cards.cols-2 { grid-template-columns: repeat(2, 1fr); }
+.cards.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.cards.cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+@media (max-width: 768px) {
+  .cards.cols-2, .cards.cols-3, .cards.cols-4 { grid-template-columns: 1fr; }
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px;
+  transition: all 0.2s;
+}
+
+.card:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-elevated);
+}
+
+.card-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--accent-amber);
+  margin-bottom: 8px;
+}
+
+.card-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.card-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* ==== Tables ==== */
+
+.table-wrap {
+  margin: 32px 0;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+th {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  font-weight: 500;
+  padding: 14px 18px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+}
+
+td {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  vertical-align: top;
+}
+
+tr:last-child td { border-bottom: none; }
+
+tr:hover td { background: var(--bg-card); }
+
+td strong { color: var(--text-primary); }
+
+/* ==== Callout ==== */
+
+.callout {
+  background: linear-gradient(135deg, rgba(212,162,76,0.06), transparent);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent-amber);
+  border-radius: 4px;
+  padding: 24px 28px;
+  margin: 32px 0;
+  position: relative;
+}
+
+.callout-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--accent-amber);
+  margin-bottom: 8px;
+}
+
+.callout p:last-child { margin-bottom: 0; }
+
+.callout.warn { border-left-color: var(--accent-rust); }
+.callout.warn .callout-label { color: var(--accent-rust); }
+
+.callout.tip { border-left-color: var(--accent-sage); }
+.callout.tip .callout-label { color: var(--accent-sage); }
+
+/* ==== Boussole (floating reminder) ==== */
+
+.boussole {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 20px;
+  max-width: 320px;
+  box-shadow: var(--shadow-deep);
+  z-index: 50;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-size: 13px;
+}
+
+.boussole:hover {
+  border-color: var(--accent-amber);
+  transform: translateY(-2px);
+}
+
+.boussole-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.boussole-icon {
+  width: 20px; height: 20px;
+  border: 1px solid var(--accent-amber);
+  border-radius: 50%;
+  position: relative;
+}
+
+.boussole-icon::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 1px; height: 8px;
+  background: var(--accent-amber);
+  transform: translate(-50%, -90%) rotate(35deg);
+  transform-origin: bottom;
+}
+
+.boussole-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--accent-amber);
+}
+
+.boussole-content {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.boussole-content strong {
+  display: block;
+  color: var(--text-primary);
+  font-style: normal;
+  font-family: var(--font-body);
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+@media (max-width: 768px) {
+  .boussole { display: none; }
+}
+
+/* ==== INVEST flip cards ==== */
+
+.invest-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  margin: 32px 0;
+}
+
+@media (max-width: 768px) {
+  .invest-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+.invest-card {
+  perspective: 1000px;
+  height: 160px;
+  cursor: pointer;
+}
+
+.invest-inner {
+  position: relative;
+  width: 100%; height: 100%;
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-style: preserve-3d;
+}
+
+.invest-card.flipped .invest-inner { transform: rotateY(180deg); }
+
+.invest-face {
+  position: absolute;
+  width: 100%; height: 100%;
+  backface-visibility: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+  text-align: center;
+  background: var(--bg-card);
+}
+
+.invest-face.back {
+  transform: rotateY(180deg);
+  background: var(--bg-elevated);
+  border-color: var(--accent-amber-dim);
+}
+
+.invest-letter {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 56px;
+  font-weight: 300;
+  color: var(--accent-amber);
+  line-height: 1;
+  font-variation-settings: 'opsz' 144, 'SOFT' 100;
+}
+
+.invest-name {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.invest-back-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--accent-cream);
+  margin-bottom: 8px;
+}
+
+.invest-back-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ==== Test pyramid SVG ==== */
+
+.test-pyramid {
+  display: flex;
+  justify-content: center;
+  margin: 40px 0;
+}
+
+.test-pyramid svg { max-width: 100%; height: auto; }
+
+/* ==== AARRR funnel ==== */
+
+.aarrr {
+  margin: 40px 0;
+}
+
+.aarrr-row {
+  display: grid;
+  grid-template-columns: 60px 1fr 1fr 200px;
+  gap: 16px;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.2s;
+}
+
+.aarrr-row:hover { background: var(--bg-card); }
+.aarrr-row:last-child { border-bottom: none; }
+
+@media (max-width: 768px) {
+  .aarrr-row { grid-template-columns: 50px 1fr; gap: 8px; }
+  .aarrr-row > div:nth-child(3),
+  .aarrr-row > div:nth-child(4) { display: none; }
+}
+
+.aarrr-letter {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 36px;
+  font-weight: 300;
+  color: var(--accent-amber);
+  text-align: center;
+  font-variation-settings: 'opsz' 144, 'SOFT' 100;
+}
+
+.aarrr-step {
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--text-primary);
+}
+
+.aarrr-question {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.aarrr-example {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent-cream);
+  background: var(--bg-card);
+  padding: 6px 10px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
+
+/* ==== RICE Calculator ==== */
+
+.rice-calc {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 28px;
+  margin: 32px 0;
+}
+
+.rice-calc-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  margin-bottom: 6px;
+}
+
+.rice-calc-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 24px;
+}
+
+.rice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+@media (max-width: 768px) {
+  .rice-grid { grid-template-columns: 1fr; }
+}
+
+.rice-field label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.rice-field label span {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 18px;
+  color: var(--accent-amber);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+input[type=range] {
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--accent-amber);
+  cursor: pointer;
+  border: 2px solid var(--bg-deep);
+  box-shadow: 0 0 0 1px var(--accent-amber);
+}
+
+input[type=range]::-moz-range-thumb {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--accent-amber);
+  cursor: pointer;
+  border: 2px solid var(--bg-deep);
+  box-shadow: 0 0 0 1px var(--accent-amber);
+}
+
+.rice-result {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.rice-result-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+}
+
+.rice-score {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 56px;
+  font-weight: 300;
+  color: var(--accent-amber);
+  line-height: 1;
+  font-variation-settings: 'opsz' 144, 'SOFT' 100;
+}
+
+.rice-formula {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+/* ==== DoR/DoD checkboxes ==== */
+
+.checklist {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px 28px;
+  margin: 24px 0;
+}
+
+.checklist-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  margin-bottom: 6px;
+}
+
+.checklist-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+}
+
+.check-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 0;
+  cursor: pointer;
+  user-select: none;
+  font-size: 14px;
+  color: var(--text-secondary);
+  transition: color 0.2s;
+}
+
+.check-item:hover { color: var(--text-primary); }
+
+.check-box {
+  flex-shrink: 0;
+  width: 18px; height: 18px;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  margin-top: 2px;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.check-item.checked .check-box {
+  background: var(--accent-amber);
+  border-color: var(--accent-amber);
+}
+
+.check-item.checked .check-box::after {
+  content: '';
+  position: absolute;
+  left: 5px; top: 1px;
+  width: 5px; height: 10px;
+  border: solid var(--bg-deep);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.check-item.checked { color: var(--text-muted); text-decoration: line-through; }
+
+.checklist-progress {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+}
+
+.checklist-progress strong { color: var(--accent-amber); font-weight: 600; }
+
+/* ==== Pirate metrics, mental map ==== */
+
+.mental-map {
+  margin: 60px 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 40px;
+}
+
+@media (max-width: 768px) {
+  .mental-map { padding: 24px; }
+}
+
+.mental-map svg { width: 100%; height: auto; }
+
+/* ==== Pull quote ==== */
+
+.pull {
+  margin: 48px 0;
+  padding: 0 0 0 32px;
+  border-left: 1px solid var(--accent-amber);
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 28px;
+  font-weight: 300;
+  line-height: 1.35;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  font-variation-settings: 'opsz' 144, 'SOFT' 100;
+  max-width: 760px;
+}
+
+.pull cite {
+  display: block;
+  margin-top: 18px;
+  font-style: normal;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-weight: 500;
+}
+
+/* ==== Section divider ==== */
+
+.divider {
+  margin: 80px 0;
+  text-align: center;
+  position: relative;
+}
+
+.divider::before {
+  content: '';
+  position: absolute;
+  top: 50%; left: 0; right: 0;
+  height: 1px;
+  background: var(--border);
+}
+
+.divider-mark {
+  position: relative;
+  display: inline-block;
+  background: var(--bg-deep);
+  padding: 0 24px;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 24px;
+  color: var(--accent-amber);
+}
+
+/* ==== Anchor nav inside parts ==== */
+
+.part-nav {
+  position: sticky;
+  top: 0;
+  background: var(--bg-deep);
+  padding: 16px 0;
+  margin: 0 -8px 32px -8px;
+  z-index: 10;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.part-nav a {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  padding: 6px 12px;
+  border-radius: 3px;
+  border-bottom: none;
+}
+
+.part-nav a:hover {
+  color: var(--accent-amber);
+  background: var(--bg-card);
+}
+
+/* ==== Part header ==== */
+
+.part-header {
+  margin-bottom: 60px;
+  padding-bottom: 40px;
+  border-bottom: 1px solid var(--border);
+}
+
+.part-num {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 300;
+  font-size: 96px;
+  line-height: 1;
+  color: var(--accent-amber);
+  letter-spacing: -0.03em;
+  font-variation-settings: 'opsz' 144, 'SOFT' 100;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 768px) {
+  .part-num { font-size: 64px; }
+}
+
+.part-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+/* ==== KPI / number callouts ==== */
+
+.numbers-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin: 32px 0;
+}
+
+@media (max-width: 768px) {
+  .numbers-row { grid-template-columns: 1fr; }
+}
+
+.number-block {
+  text-align: center;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+}
+
+.big-num {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 300;
+  font-size: 56px;
+  color: var(--accent-amber);
+  line-height: 1;
+  font-variation-settings: 'opsz' 144, 'SOFT' 100;
+}
+
+.big-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-top: 12px;
+}
+
+/* ==== Trap list ==== */
+
+.traps-list {
+  counter-reset: trap-counter;
+  list-style: none;
+  margin-left: 0;
+}
+
+.traps-list li {
+  counter-increment: trap-counter;
+  padding: 18px 0 18px 56px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+
+.traps-list li::before {
+  content: counter(trap-counter, decimal-leading-zero);
+  position: absolute;
+  left: 0;
+  top: 18px;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 24px;
+  color: var(--accent-amber);
+  font-weight: 300;
+}
+
+.traps-list li strong {
+  display: block;
+  font-size: 16px;
+  margin-bottom: 4px;
+  color: var(--text-primary);
+}
+
+.traps-list li {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* ==== Mobile menu toggle ==== */
+
+.mobile-toggle {
+  display: none;
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 200;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 10px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+@media (max-width: 1024px) {
+  .mobile-toggle { display: block; }
+  aside.mobile-open {
+    display: block !important;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 320px;
+    z-index: 150;
+    box-shadow: var(--shadow-deep);
+  }
+}
+
+/* ==== Scroll back-to-top ==== */
+
+.scroll-top {
+  position: fixed;
+  bottom: 24px; left: 24px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-amber);
+  cursor: pointer;
+  font-size: 18px;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s;
+  z-index: 50;
+}
+
+.scroll-top.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.scroll-top:hover {
+  border-color: var(--accent-amber);
+  transform: translateY(-2px);
+}
+
+/* ==== Misc ==== */
+
+hr.thin {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 32px 0;
+}
+
+.tag {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding: 3px 9px;
+  border-radius: 3px;
+  background: var(--bg-elevated);
+  color: var(--accent-amber);
+  border: 1px solid var(--border);
+  margin-right: 6px;
+}
+
+.tag.warn { color: var(--accent-rust); border-color: rgba(184,92,63,0.3); }
+.tag.ok { color: var(--accent-sage); border-color: rgba(148,163,138,0.3); }
+
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progressBar"></div>
+<button class="mobile-toggle" id="mobileToggle">Menu</button>
+
+<div class="app">
+
+  <aside id="sidebar">
+    <div class="brand">
+      <div class="brand-mark">Playbook</div>
+      <div class="brand-title">Construire <em>une app</em><br>de A à Z</div>
+      <div class="brand-subtitle">Un guide PO complet — Livio Ricci</div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">Ouverture</div>
+      <button class="nav-item active" data-target="cover"><span class="nav-num">·</span> Cover</button>
+      <button class="nav-item" data-target="preambule"><span class="nav-num">0</span> Préambule — le mindset</button>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">Les 8 parties</div>
+      <button class="nav-item" data-target="partie1"><span class="nav-num">I</span> Discovery</button>
+      <button class="nav-item" data-target="partie2"><span class="nav-num">II</span> Concevoir le produit</button>
+      <button class="nav-item" data-target="partie3"><span class="nav-num">III</span> Construire le backlog</button>
+      <button class="nav-item" data-target="partie4"><span class="nav-num">IV</span> Conduire la livraison</button>
+      <button class="nav-item" data-target="partie5"><span class="nav-num">V</span> Garantir la qualité</button>
+      <button class="nav-item" data-target="partie6"><span class="nav-num">VI</span> Mettre en production</button>
+      <button class="nav-item" data-target="partie7"><span class="nav-num">VII</span> Faire vivre le produit</button>
+      <button class="nav-item" data-target="partie8"><span class="nav-num">VIII</span> Sujets transverses</button>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">Ressources</div>
+      <button class="nav-item" data-target="annexes"><span class="nav-num">·</span> Templates &amp; pièges</button>
+      <button class="nav-item" data-target="synthese"><span class="nav-num">·</span> Synthèse</button>
+    </div>
+
+    <div class="footer-note">
+      « Quel problème je résous ?<br>
+      Pour qui ? Comment je sais<br>
+      que je l'ai résolu ? »
+    </div>
+  </aside>
+
+  <main id="main">
+
+    <!-- ====== COVER ====== -->
+    <section class="view active" id="cover">
+      <div class="cover">
+        <div class="cover-meta">
+          <span><span class="dot"></span>Édition 2026</span>
+          <span>~45 min de lecture</span>
+          <span>8 parties · 4 annexes</span>
+        </div>
+
+        <div class="eyebrow">Le playbook du Product Owner</div>
+
+        <h1 class="display">Construire<br>une app <em>de A&nbsp;à&nbsp;Z</em></h1>
+
+        <p class="cover-tagline">
+          Du problème initial à la vie en production —<br>
+          tout ce qu'un PO doit comprendre, dans l'ordre.
+        </p>
+
+        <div class="cta-row">
+          <button class="cta" data-target="preambule">Commencer →</button>
+          <button class="cta ghost" data-target="synthese">Voir la carte mentale</button>
+        </div>
+
+        <div class="cover-stats">
+          <div class="stat">
+            <div class="stat-num">8</div>
+            <div class="stat-label">Parties</div>
+          </div>
+          <div class="stat">
+            <div class="stat-num">7</div>
+            <div class="stat-label">Frameworks de prio</div>
+          </div>
+          <div class="stat">
+            <div class="stat-num">5</div>
+            <div class="stat-label">Rituels Scrum</div>
+          </div>
+          <div class="stat">
+            <div class="stat-num">11</div>
+            <div class="stat-label">Pièges à éviter</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====== PRÉAMBULE ====== -->
+    <section class="view" id="preambule">
+      <div class="part-header">
+        <div class="part-eyebrow">Préambule</div>
+        <div class="part-num">00</div>
+        <h2>Le <em>mindset</em> PO</h2>
+      </div>
+
+      <p class="lead">
+        Tu n'es pas un chef de projet. Tu n'es pas un proxy client. Tu es un <em>traducteur</em> entre trois langues : celle des utilisateurs, celle de la direction, celle de l'équipe. Ton boulot : qu'aucune ne se perde dans la traduction.
+      </p>
+
+      <h3>Ce que tu vends, ce que tu n'es pas</h3>
+      <p>Un chef de projet livre un périmètre dans un délai et un budget. Toi, tu livres <strong>de la valeur</strong>. C'est une nuance énorme : un projet "réussi" peut être un produit raté si la valeur n'est pas au rendez-vous.</p>
+
+      <h3>Les trois leviers que tu actionnes en permanence</h3>
+      <div class="cards cols-3">
+        <div class="card">
+          <div class="card-eyebrow">Levier 01</div>
+          <div class="card-title">Quoi</div>
+          <div class="card-text">Quelles fonctionnalités, dans quel ordre, à quel niveau de qualité.</div>
+        </div>
+        <div class="card">
+          <div class="card-eyebrow">Levier 02</div>
+          <div class="card-title">Pour qui</div>
+          <div class="card-text">Les utilisateurs cibles, les personas, les segments.</div>
+        </div>
+        <div class="card">
+          <div class="card-eyebrow">Levier 03</div>
+          <div class="card-title">Pourquoi</div>
+          <div class="card-text">La valeur attendue, les indicateurs de succès.</div>
+        </div>
+      </div>
+      <p>Tu ne pilotes <strong>jamais</strong> ni le « comment » (c'est le dev) ni le « comment ça doit être beau / utilisable » (c'est le designer). Si tu débordes sur leur terrain, tu casses leur autonomie et tu n'as plus le temps de faire ton job.</p>
+
+      <div class="callout warn">
+        <div class="callout-label">Le piège fondateur</div>
+        <p>Confondre <strong>livrer des fonctionnalités</strong> et <strong>résoudre un problème</strong>. Une feature peut être livrée à temps, parfaitement codée, et n'apporter aucune valeur. C'est un échec, même si personne ne le dit.</p>
+      </div>
+
+      <blockquote>
+        Boussole permanente :<br>
+        « Quel est le problème que je résous ? Pour qui ? Comment je sais que je l'ai résolu ? »
+      </blockquote>
+    </section>
+
+    <!-- ====== PARTIE 1 - DISCOVERY ====== -->
+    <section class="view" id="partie1">
+      <div class="part-header">
+        <div class="part-eyebrow">Partie I — La phase la plus négligée et la plus critique</div>
+        <div class="part-num">I</div>
+        <h2><em>Discovery</em><br>avant d'écrire la première ligne</h2>
+      </div>
+
+      <p class="lead">Investir 2 semaines ici peut sauver 6 mois plus tard. Comprendre, cadrer, contraindre — avant de coder.</p>
+
+      <h3 class="section-num"><span class="num">1.1</span> Comprendre le problème</h3>
+      <p>Avant de penser solution, tu écris un <strong>problem statement</strong> en une phrase :</p>
+      <pre><code>« [Persona] n'arrive pas à [action]
+parce que [obstacle],
+ce qui entraîne [conséquence]. »</code></pre>
+      <p>Si tu ne sais pas l'écrire, tu n'as pas encore le droit de coder.</p>
+
+      <h4>La technique des 5 pourquoi</h4>
+      <p>Demande "pourquoi ?" cinq fois de suite à un besoin exprimé. Tu remontes du symptôme à la cause racine.</p>
+      <div class="callout tip">
+        <div class="callout-label">Exemple</div>
+        <p>« Je veux un bouton CSV. » → Pour récupérer mes données. → Pour les retraiter dans Excel. → Pour faire un graphique. → Pour un comité direction. → <strong>Pour suivre l'avancement.</strong></p>
+        <p>Le vrai besoin n'est pas un bouton CSV : c'est un <em>dashboard direction</em>. Économie : des dizaines de tickets futurs.</p>
+      </div>
+
+      <h3 class="section-num"><span class="num">1.2</span> Cartographier les parties prenantes</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th></th><th>Faible influence</th><th>Forte influence</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Faible intérêt</strong></td><td>Ignorer (poliment)</td><td>Tenir informé</td></tr>
+            <tr><td><strong>Fort intérêt</strong></td><td>Tenir consulté</td><td><strong>Manager activement</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Pour chaque partie prenante en quadrant haut-droit : qu'attend-elle ? Quel est <em>son</em> critère de réussite ? Quelle est sa peur cachée (perdre du contrôle, du budget, du prestige) ?</p>
+
+      <h3 class="section-num"><span class="num">1.3</span> Définir la vision</h3>
+      <p>La vision tient en <strong>un paragraphe</strong> (template Geoffrey Moore). Si tu ne tiens pas en un paragraphe, ta vision est floue.</p>
+      <pre><code>Pour [utilisateurs cibles]
+Qui [problème ou opportunité]
+Notre produit [nom]
+Est [catégorie]
+Qui [bénéfice clé]
+Contrairement à [alternative actuelle]
+Notre produit [différenciateur].</code></pre>
+
+      <h3 class="section-num"><span class="num">1.4</span> Définir les objectifs (OKR)</h3>
+      <p><strong>Objective</strong> : qualitatif, ambitieux, inspirant. <strong>Key Results</strong> : 2 à 4 résultats mesurables qui prouvent que l'objective est atteint.</p>
+      <div class="callout">
+        <div class="callout-label">Exemple — Atelier PO</div>
+        <p><strong>Objective :</strong> Devenir 3× plus rapide à produire des US livrables.</p>
+        <p><strong>KR1 :</strong> Réduire le temps capture-à-export de 20 min → 7 min.<br>
+        <strong>KR2 :</strong> 90 % d'US exportées sans retouche post-export.<br>
+        <strong>KR3 :</strong> 100 % des US couvertes par les facettes obligatoires.</p>
+      </div>
+      <p>Une bonne KR a un <strong>chiffre</strong> et une <strong>direction</strong>. « Améliorer la qualité » n'est pas une KR.</p>
+
+      <h3 class="section-num"><span class="num">1.5</span> Étudier les utilisateurs</h3>
+      <p>Même pour un produit interne, tu fais des <strong>interviews utilisateurs</strong>. Au moins 5. Ouvertes, pas dirigées.</p>
+      <ul>
+        <li>Tu écoutes 80 %, tu parles 20 %.</li>
+        <li>Tu poses des questions sur le <em>passé</em> (« La dernière fois que… raconte-moi »), pas sur le futur (« Tu utiliserais ça ? »). Les gens mentent involontairement sur le futur.</li>
+        <li>Tu cherches les <em>émotions</em> (frustration, fierté, inquiétude). C'est là que sont les vrais besoins.</li>
+      </ul>
+
+      <h3 class="section-num"><span class="num">1.6</span> Étudier la concurrence</h3>
+      <p>Pas pour copier, pour comprendre les <strong>conventions</strong> (l'utilisateur arrivera avec ces attentes), les <strong>angles morts</strong> (ce que personne ne fait bien, ta différenciation potentielle), et les <strong>pièges</strong> (ce que tout le monde a essayé et abandonné).</p>
+
+      <h3 class="section-num"><span class="num">1.7</span> Identifier les contraintes</h3>
+      <div class="cards cols-2">
+        <div class="card"><div class="card-eyebrow">Tech</div><div class="card-title">Stack imposée ?</div><div class="card-text">Intégrations, performances, hébergement souverain.</div></div>
+        <div class="card"><div class="card-eyebrow">Légales</div><div class="card-title">RGPD &amp; RGAA</div><div class="card-text">Marchés publics, archivage, droit à l'oubli.</div></div>
+        <div class="card"><div class="card-eyebrow">Budget / temps</div><div class="card-title">Deadline absolue ?</div><div class="card-text">Plafond budgétaire, fenêtre de release.</div></div>
+        <div class="card"><div class="card-eyebrow">Politiques</div><div class="card-title">Qui peut bloquer ?</div><div class="card-text">Quel arbitrage est attendu en haut.</div></div>
+      </div>
+
+      <h3 class="section-num"><span class="num">1.8</span> Définir le scope (in / out)</h3>
+      <p>Tu écris <strong>explicitement</strong> ce qui est dans le scope <em>et</em> ce qui n'y est pas. Le « out of scope » est aussi important que le « in » : c'est ton bouclier contre le scope creep.</p>
+    </section>
+
+    <!-- ====== PARTIE 2 - CONCEVOIR ====== -->
+    <section class="view" id="partie2">
+      <div class="part-header">
+        <div class="part-eyebrow">Partie II — Du problème à la maquette validée</div>
+        <div class="part-num">II</div>
+        <h2>Concevoir<br>le <em>produit</em></h2>
+      </div>
+
+      <h3 class="section-num"><span class="num">2.1</span> Définir le MVP (et ses cousins)</h3>
+
+      <div class="cards cols-3">
+        <div class="card">
+          <div class="card-eyebrow">MVP</div>
+          <div class="card-title">Minimum Viable</div>
+          <div class="card-text">La plus petite version qui résout vraiment le problème pour un utilisateur réel. Pas un proto.</div>
+        </div>
+        <div class="card">
+          <div class="card-eyebrow">MMP</div>
+          <div class="card-title">Minimum Marketable</div>
+          <div class="card-text">La plus petite version qu'on ose présenter au marché.</div>
+        </div>
+        <div class="card">
+          <div class="card-eyebrow">MLP</div>
+          <div class="card-title">Minimum Lovable</div>
+          <div class="card-text">La plus petite version dont les utilisateurs <em>tombent amoureux</em>. Souvent le bon objectif.</div>
+        </div>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-label">Métaphore de la planche à roulettes</div>
+        <p><span class="tag warn">Mauvais MVP</span> roue → essieu → châssis → voiture.</p>
+        <p><span class="tag ok">Bon MVP</span> skate → trottinette → vélo → voiture.</p>
+        <p>À chaque étape, l'utilisateur peut <strong>avancer</strong>. C'est ça, livrer de la valeur incrémentalement.</p>
+      </div>
+
+      <h3 class="section-num"><span class="num">2.2</span> Construire l'expérience utilisateur</h3>
+      <p>Territoire du designer, mais tu participes activement.</p>
+      <h4>Outils UX que tu manipules</h4>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Outil</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><strong>User journey</strong></td><td>Le parcours d'un utilisateur, étape par étape, avec ses émotions.</td></tr>
+            <tr><td><strong>Wireframes</strong></td><td>Maquettes basse fidélité (papier ou Figma) — la structure, pas le visuel.</td></tr>
+            <tr><td><strong>Mockups</strong></td><td>Maquettes haute fidélité (look final).</td></tr>
+            <tr><td><strong>Prototypes</strong></td><td>Maquettes cliquables, testables.</td></tr>
+            <tr><td><strong>Information architecture</strong></td><td>Carte des écrans et de leurs liens.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pull">
+        Ne jamais lancer un dev sans avoir un design validé par au moins un utilisateur réel.<br>Coût d'un test de couloir : 1&nbsp;h. Coût d'un dev refait : des semaines.
+        <cite>Règle d'or</cite>
+      </div>
+
+      <h3 class="section-num"><span class="num">2.3</span> Choisir la stack technique</h3>
+      <p>Décision du dev, mais tu donnes les contraintes : performance, volumétrie, intégrations, budget, skills disponibles.</p>
+      <h4>Architecture Decision Records (ADR)</h4>
+      <p>Pour chaque grande décision technique, un ADR (1 page) : <strong>contexte / options / décision / conséquences</strong>. Tu valides ou challenges, mais surtout tu <em>archives</em>. Dans 18 mois, tu sauras pourquoi le choix a été fait.</p>
+
+      <h3 class="section-num"><span class="num">2.4</span> Non-Functional Requirements (NFR)</h3>
+      <p>Trop souvent oubliées. Tu les listes <strong>dès le cadrage</strong> parce qu'elles influencent la stack.</p>
+      <div class="cards cols-3">
+        <div class="card"><div class="card-title">Performance</div><div class="card-text">Temps de chargement &lt; 2 s, p99 &lt; 5 s.</div></div>
+        <div class="card"><div class="card-title">Disponibilité</div><div class="card-text">SLA 99,5 %, RTO &lt; 1 h, RPO &lt; 24 h.</div></div>
+        <div class="card"><div class="card-title">Sécurité</div><div class="card-text">Auth, TLS, chiffrement, audit logs.</div></div>
+        <div class="card"><div class="card-title">Accessibilité</div><div class="card-text">RGAA niveau AA (FTV).</div></div>
+        <div class="card"><div class="card-title">Compatibilité</div><div class="card-text">Navigateurs, devices.</div></div>
+        <div class="card"><div class="card-title">Scalabilité</div><div class="card-text">Charge max, comportement en pic.</div></div>
+        <div class="card"><div class="card-title">Observabilité</div><div class="card-text">Logs structurés, métriques, alertes.</div></div>
+        <div class="card"><div class="card-title">Maintenabilité</div><div class="card-text">Tests, doc, conventions.</div></div>
+        <div class="card"><div class="card-title">Conformité</div><div class="card-text">RGPD, archivage, droit à l'oubli.</div></div>
+      </div>
+    </section>
+
+    <!-- ====== PARTIE 3 - BACKLOG ====== -->
+    <section class="view" id="partie3">
+      <div class="part-header">
+        <div class="part-eyebrow">Partie III — L'art de la US livrable</div>
+        <div class="part-num">III</div>
+        <h2>Construire<br>le <em>backlog</em></h2>
+      </div>
+
+      <h3 class="section-num"><span class="num">3.1</span> L'anatomie d'une user story</h3>
+      <p>Format <strong>Connextra</strong> :</p>
+      <blockquote>En tant que [persona], je veux [action], afin de [bénéfice].</blockquote>
+
+      <h4>Les 6 critères INVEST <span style="font-size:11px;color:var(--text-muted);font-weight:400;letter-spacing:0.1em;">— clique pour révéler</span></h4>
+
+      <div class="invest-grid" id="investGrid">
+        <div class="invest-card" data-name="Independent" data-text="Peut être livrée seule, sans dépendre d'une autre US.">
+          <div class="invest-inner">
+            <div class="invest-face front">
+              <div class="invest-letter">I</div>
+              <div class="invest-name">Independent</div>
+            </div>
+            <div class="invest-face back">
+              <div class="invest-back-title">Independent</div>
+              <div class="invest-back-text">Peut être livrée seule, sans dépendre d'une autre US.</div>
+            </div>
+          </div>
+        </div>
+        <div class="invest-card">
+          <div class="invest-inner">
+            <div class="invest-face front">
+              <div class="invest-letter">N</div>
+              <div class="invest-name">Negotiable</div>
+            </div>
+            <div class="invest-face back">
+              <div class="invest-back-title">Negotiable</div>
+              <div class="invest-back-text">Le détail est négociable jusqu'au refinement. Pas un contrat figé.</div>
+            </div>
+          </div>
+        </div>
+        <div class="invest-card">
+          <div class="invest-inner">
+            <div class="invest-face front">
+              <div class="invest-letter">V</div>
+              <div class="invest-name">Valuable</div>
+            </div>
+            <div class="invest-face back">
+              <div class="invest-back-title">Valuable</div>
+              <div class="invest-back-text">Apporte de la valeur à un utilisateur ou au business.</div>
+            </div>
+          </div>
+        </div>
+        <div class="invest-card">
+          <div class="invest-inner">
+            <div class="invest-face front">
+              <div class="invest-letter">E</div>
+              <div class="invest-name">Estimable</div>
+            </div>
+            <div class="invest-face back">
+              <div class="invest-back-title">Estimable</div>
+              <div class="invest-back-text">L'équipe peut estimer la charge. Sinon : trop floue, à raffiner.</div>
+            </div>
+          </div>
+        </div>
+        <div class="invest-card">
+          <div class="invest-inner">
+            <div class="invest-face front">
+              <div class="invest-letter">S</div>
+              <div class="invest-name">Small</div>
+            </div>
+            <div class="invest-face back">
+              <div class="invest-back-title">Small</div>
+              <div class="invest-back-text">Tient dans un sprint, idéalement &lt; 50 % d'un sprint.</div>
+            </div>
+          </div>
+        </div>
+        <div class="invest-card">
+          <div class="invest-inner">
+            <div class="invest-face front">
+              <div class="invest-letter">T</div>
+              <div class="invest-name">Testable</div>
+            </div>
+            <div class="invest-face back">
+              <div class="invest-back-title">Testable</div>
+              <div class="invest-back-text">On sait dire si elle est livrée ou pas (AC clairs).</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p><strong>Si une US échoue à un seul critère INVEST, elle n'est pas Ready.</strong></p>
+
+      <h3 class="section-num"><span class="num">3.2</span> Les critères d'acceptation</h3>
+      <p>Le <strong>contrat</strong> entre toi et le dev. Forme la plus robuste : <strong>Gherkin</strong>.</p>
+      <pre><code>Étant donné que je suis dans l'inbox avec 3 idées
+Quand je clique sur "Raffiner" sur la 2ème idée
+Alors l'Atelier s'ouvre avec l'idée pré-chargée
+Et l'idée passe en statut "in_refinement"</code></pre>
+      <ul>
+        <li>1 critère = 1 comportement vérifiable</li>
+        <li>Pas de "et", "ou", "si possible"</li>
+        <li>Les nombres sont chiffrés (pas "rapide" mais "&lt; 2 secondes")</li>
+        <li>Les cas d'erreur sont aussi des critères d'acceptation</li>
+      </ul>
+
+      <h3 class="section-num"><span class="num">3.3</span> Story slicing — découper sans tuer la valeur</h3>
+      <p>Mauvaise méthode : découper par couche technique (front / back / DB). Bonne méthode : découper par <strong>scénario utilisateur</strong>, chaque tranche apporte de la valeur livrable.</p>
+
+      <h4>Technique SPIDR</h4>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Lettre</th><th>Découper par</th><th>Exemple</th></tr></thead>
+          <tbody>
+            <tr><td><strong style="color:var(--accent-amber);font-family:var(--font-display);font-style:italic;font-size:18px;">S</strong></td><td>Spike</td><td>Explorer la faisabilité (pas de livrable produit)</td></tr>
+            <tr><td><strong style="color:var(--accent-amber);font-family:var(--font-display);font-style:italic;font-size:18px;">P</strong></td><td>Path</td><td>Cas nominal d'abord, cas d'erreur ensuite</td></tr>
+            <tr><td><strong style="color:var(--accent-amber);font-family:var(--font-display);font-style:italic;font-size:18px;">I</strong></td><td>Interface</td><td>Formulaire texte avant éditeur WYSIWYG</td></tr>
+            <tr><td><strong style="color:var(--accent-amber);font-family:var(--font-display);font-style:italic;font-size:18px;">D</strong></td><td>Data</td><td>1 produit avant tous les produits</td></tr>
+            <tr><td><strong style="color:var(--accent-amber);font-family:var(--font-display);font-style:italic;font-size:18px;">R</strong></td><td>Rules</td><td>La règle simple avant les exceptions</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="section-num"><span class="num">3.4</span> Definition of Ready / Done</h3>
+      <p>Les <strong>deux portes</strong> du sprint.</p>
+
+      <div class="cards cols-2" style="align-items:start;">
+        <div class="checklist" id="dorChecklist">
+          <div class="checklist-title">Definition of <em>Ready</em></div>
+          <div class="checklist-sub">Quand une US peut entrer en sprint</div>
+          <div class="check-item"><div class="check-box"></div><div>Narratif clair (En tant que / Je veux / Afin de)</div></div>
+          <div class="check-item"><div class="check-box"></div><div>Critères d'acceptation rédigés en Gherkin</div></div>
+          <div class="check-item"><div class="check-box"></div><div>Maquettes attachées si UI</div></div>
+          <div class="check-item"><div class="check-box"></div><div>Dépendances identifiées</div></div>
+          <div class="check-item"><div class="check-box"></div><div>Estimée par l'équipe</div></div>
+          <div class="check-item"><div class="check-box"></div><div>Stratégie de tests définie</div></div>
+          <div class="check-item"><div class="check-box"></div><div>Facettes NFR remplies (RGAA, RGPD…)</div></div>
+          <div class="check-item"><div class="check-box"></div><div>Validée par les 3 amigos</div></div>
+          <div class="checklist-progress">
+            <span>Progression</span>
+            <span><strong class="progress-count">0</strong>/8</span>
+          </div>
+        </div>
+
+        <div class="checklist" id="dodChecklist">
+          <div class="checklist-title">Definition of <em>Done</em></div>
+          <div class="checklist-sub">Quand une US est terminée</div>
+          <div class="check-item"><div class="check-box"></div><div>Code mergé sur main</div></div>
+          <div class="check-item"><div class="check-box"></div><div>Tests unitaires écrits et passants</div></div>
+          <div class="check-item"><div class="check-box"></div><div>Tests d'intégration / E2E si pertinent</div></div>
+          <div class="check-item"><div class="check-box"></div><div>Revue de code faite</div></div>
+          <div class="check-item"><div class="check-box"></div><div>Documentation à jour</div></div>
+          <div class="check-item"><div class="check-box"></div><div>Critères d'acceptation validés par le PO</div></div>
+          <div class="check-item"><div class="check-box"></div><div>Déployée en recette</div></div>
+          <div class="check-item"><div class="check-box"></div><div>Démo faite ou planifiée</div></div>
+          <div class="check-item"><div class="check-box"></div><div>Pas de bug bloquant connu</div></div>
+          <div class="check-item"><div class="check-box"></div><div>Métriques d'observabilité en place</div></div>
+          <div class="checklist-progress">
+            <span>Progression</span>
+            <span><strong class="progress-count">0</strong>/10</span>
+          </div>
+        </div>
+      </div>
+
+      <h3 class="section-num"><span class="num">3.5</span> Estimer la charge</h3>
+      <p>Pas pour faire un planning à la journée près. Pour <strong>découper</strong>, <strong>prévoir</strong>, et <strong>détecter</strong> les US qu'on ne comprend pas. Toute estimation est fausse. Les estimations utiles sont <em>relatives</em>, pas absolues.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Méthode</th><th>Description</th><th>Quand l'utiliser</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Story points</strong></td><td>Fibonacci : 1, 2, 3, 5, 8, 13, 21</td><td>Équipes Scrum stables</td></tr>
+            <tr><td><strong>T-shirt sizing</strong></td><td>XS, S, M, L, XL, XXL</td><td>Phase amont, vue macro</td></tr>
+            <tr><td><strong>Heures / jours</strong></td><td>Estimation directe en temps</td><td>Tâches bien connues</td></tr>
+            <tr><td><strong>#NoEstimates</strong></td><td>On compte le nombre d'US livrées par semaine</td><td>Équipe mature</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout">
+        <div class="callout-label">Planning poker</div>
+        <p>L'intérêt n'est <strong>pas</strong> le chiffre. C'est la conversation que provoque l'écart.</p>
+      </div>
+
+      <h3 class="section-num"><span class="num">3.6</span> Prioriser — ta compétence la plus différenciante</h3>
+
+      <p>Mal prioriser = livrer beaucoup mais sans impact. Voici les principaux frameworks à connaître :</p>
+
+      <div class="cards cols-2">
+        <div class="card">
+          <div class="card-eyebrow">Framework</div>
+          <div class="card-title">MoSCoW</div>
+          <div class="card-text">Must / Should / Could / Won't. Simple. Piège : tout le monde veut tout en "Must". Discipline : Must = 60 % max.</div>
+        </div>
+        <div class="card">
+          <div class="card-eyebrow">Framework</div>
+          <div class="card-title">RICE</div>
+          <div class="card-text">Reach × Impact × Confidence / Effort. Force à raisonner sur la confiance et le coût. Excellent pour comparer des features hétérogènes.</div>
+        </div>
+        <div class="card">
+          <div class="card-eyebrow">Framework</div>
+          <div class="card-title">ICE</div>
+          <div class="card-text">Impact × Confidence × Ease. Version simplifiée de RICE. Plus rapide.</div>
+        </div>
+        <div class="card">
+          <div class="card-eyebrow">Framework</div>
+          <div class="card-title">Kano</div>
+          <div class="card-text">Must-be / Performance / Excitement. Pour penser au-delà du « résoudre un problème ».</div>
+        </div>
+        <div class="card">
+          <div class="card-eyebrow">Framework</div>
+          <div class="card-title">WSJF (SAFe)</div>
+          <div class="card-text">Cost of Delay / Job Size. Très utilisé en environnement scale.</div>
+        </div>
+        <div class="card">
+          <div class="card-eyebrow">Framework</div>
+          <div class="card-title">Value vs Effort</div>
+          <div class="card-text">Quadrant simple en 4 cases. Quick wins en haut-gauche. Visualisation puissante en atelier.</div>
+        </div>
+      </div>
+
+      <h4>Calculateur RICE interactif</h4>
+
+      <div class="rice-calc">
+        <div class="rice-calc-title">Mini-calculateur RICE</div>
+        <div class="rice-calc-sub">Joue avec les sliders pour ressentir le framework.</div>
+
+        <div class="rice-grid">
+          <div class="rice-field">
+            <label>Reach <span id="reachVal">1000</span></label>
+            <input type="range" id="reach" min="10" max="10000" step="10" value="1000">
+          </div>
+          <div class="rice-field">
+            <label>Impact <span id="impactVal">3</span></label>
+            <input type="range" id="impact" min="1" max="10" step="1" value="3">
+          </div>
+          <div class="rice-field">
+            <label>Confidence (%) <span id="confVal">80</span></label>
+            <input type="range" id="conf" min="10" max="100" step="10" value="80">
+          </div>
+          <div class="rice-field">
+            <label>Effort (jours) <span id="effortVal">10</span></label>
+            <input type="range" id="effort" min="1" max="100" step="1" value="10">
+          </div>
+        </div>
+
+        <div class="rice-result">
+          <div>
+            <div class="rice-result-label">Score RICE</div>
+            <div class="rice-formula">(R × I × C) / E</div>
+          </div>
+          <div class="rice-score" id="riceScore">240</div>
+        </div>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-label">Le critère méta</div>
+        <p>Au-delà des frameworks, deux questions :</p>
+        <p><strong>1.</strong> « Qu'est-ce qui se passe si je ne le fais pas ? » Si la réponse est « rien de grave », priorité faible.</p>
+        <p><strong>2.</strong> « Quel apprentissage je gagne en le faisant ? » Une US à fort apprentissage justifie une priorité élevée même si la valeur immédiate paraît faible.</p>
+      </div>
+    </section>
+
+    <!-- ====== PARTIE 4 - LIVRAISON ====== -->
+    <section class="view" id="partie4">
+      <div class="part-header">
+        <div class="part-eyebrow">Partie IV — Cadence et arbitrage</div>
+        <div class="part-num">IV</div>
+        <h2>Conduire<br>la <em>livraison</em></h2>
+      </div>
+
+      <h3 class="section-num"><span class="num">4.1</span> Scrum, Kanban, ou hybride</h3>
+
+      <div class="cards cols-3">
+        <div class="card">
+          <div class="card-eyebrow">Méthode</div>
+          <div class="card-title">Scrum</div>
+          <div class="card-text"><strong>Cycles fixes</strong> (1-4 semaines, le plus souvent 2). Engagement sur un périmètre. 4 rituels.</div>
+          <hr class="thin">
+          <div class="card-text" style="font-size:12px;color:var(--text-muted);">+ Cadence prévisible<br>− Rigide pour les imprévus</div>
+        </div>
+        <div class="card">
+          <div class="card-eyebrow">Méthode</div>
+          <div class="card-title">Kanban</div>
+          <div class="card-text"><strong>Flux continu</strong>. Pas de sprint. Limite de WIP. Pull, pas push.</div>
+          <hr class="thin">
+          <div class="card-text" style="font-size:12px;color:var(--text-muted);">+ Souplesse maximale<br>− Moins de cadence</div>
+        </div>
+        <div class="card" style="border-color:var(--accent-amber-dim);">
+          <div class="card-eyebrow" style="color:var(--accent-amber);">Méthode (recommandée)</div>
+          <div class="card-title">Hybride</div>
+          <div class="card-text">Scrum pour le delivery + Kanban pour les bugs / urgences. Le plus courant en pratique.</div>
+        </div>
+      </div>
+
+      <h3 class="section-num"><span class="num">4.2</span> Les 5 rituels</h3>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Rituel</th><th>Quand</th><th>Durée</th><th>Sortie</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Refinement</strong></td><td>1× / sem</td><td>1 h</td><td>Backlog "Ready" pour 2 sprints</td></tr>
+            <tr><td><strong>Sprint planning</strong></td><td>Début sprint</td><td>1-2 h</td><td>Sprint backlog engagé</td></tr>
+            <tr><td><strong>Daily</strong></td><td>Tous les jours</td><td>15 min</td><td>Visibilité, déblocage</td></tr>
+            <tr><td><strong>Sprint review (démo)</strong></td><td>Fin sprint</td><td>1 h</td><td>Validation + retours stakeholders</td></tr>
+            <tr><td><strong>Rétrospective</strong></td><td>Fin sprint</td><td>1 h</td><td>1-3 actions concrètes</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout warn">
+        <div class="callout-label">Anti-pattern</div>
+        <p>Transformer le daily en réunion de status pour le PO. Le daily appartient à l'équipe.</p>
+      </div>
+
+      <div class="pull">
+        Si rien ne change après une rétro, c'est qu'elle a été inutile. Tu dois en sortir avec des actions assignées et datées.
+        <cite>Règle d'or</cite>
+      </div>
+
+      <h3 class="section-num"><span class="num">4.3</span> Suivre l'avancement</h3>
+
+      <div class="cards cols-2">
+        <div class="card">
+          <div class="card-title">Burndown chart</div>
+          <div class="card-text">Story points restants en fonction du temps. Stagnation en fin de sprint = alerte. Montée = scope creep.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Cumulative Flow Diagram</div>
+          <div class="card-text">Pour Kanban. Détecte les goulots (colonne qui s'épaissit = blocage).</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Lead / Cycle time</div>
+          <div class="card-text">Lead : création → prod. Cycle : début dev → fini. Tendance à la baisse = équipe qui mûrit.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Throughput</div>
+          <div class="card-text">Nombre d'US livrées par semaine. Base pour des forecasts probabilistes (Monte Carlo).</div>
+        </div>
+      </div>
+
+      <h3 class="section-num"><span class="num">4.4</span> Risques &amp; impediments</h3>
+      <p>Tu tiens un <strong>registre des risques</strong> simple : description, probabilité (1-5), impact (1-5), score (= P × I), plan de mitigation. Revue 1× par sprint.</p>
+      <p>Pour les <strong>impediments</strong> : qui est bloqué, quoi, depuis quand, qui débloque, date cible. C'est <em>ton</em> rôle de chasser les impediments.</p>
+
+      <h3 class="section-num"><span class="num">4.5</span> Stakeholder management</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Stakeholder</th><th>Fréquence</th><th>Format</th></tr></thead>
+          <tbody>
+            <tr><td>Direction (sponsor)</td><td>Mensuel</td><td>Slides courtes, focus risques + livrables</td></tr>
+            <tr><td>Direction étendue</td><td>Trimestriel</td><td>Comité produit, démo</td></tr>
+            <tr><td>Utilisateurs cibles</td><td>Continu</td><td>Slack / mail / café</td></tr>
+            <tr><td>Équipes voisines</td><td>Bimensuel</td><td>Mail, rituel d'inter-équipe</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout warn">
+        <div class="callout-label">Anti-pattern fréquent</div>
+        <p>Se présenter à un comité <strong>sans demande</strong>. C'est un comité de pilotage, pas un compte-rendu. Si tu n'as rien à demander, tu n'as rien à faire là.</p>
+      </div>
+    </section>
+
+    <!-- ====== PARTIE 5 - QUALITÉ ====== -->
+    <section class="view" id="partie5">
+      <div class="part-header">
+        <div class="part-eyebrow">Partie V — La pyramide et les portes</div>
+        <div class="part-num">V</div>
+        <h2>Garantir<br>la <em>qualité</em></h2>
+      </div>
+
+      <h3 class="section-num"><span class="num">5.1</span> La pyramide de tests</h3>
+      <p>Beaucoup de tests unitaires (rapides), quelques tests d'intégration, peu de tests E2E (lents, fragiles). L'inverse — l'ice cream cone — coûte cher.</p>
+
+      <div class="test-pyramid">
+        <svg viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg">
+          <!-- E2E layer -->
+          <polygon points="240,20 360,20 380,80 220,80" fill="#1A1612" stroke="#D4A24C" stroke-width="1.5"/>
+          <text x="300" y="58" font-family="DM Sans" font-size="14" fill="#D4A24C" text-anchor="middle" font-weight="600">E2E</text>
+          <text x="430" y="58" font-family="JetBrains Mono" font-size="11" fill="#756A5C">peu, lents, coûteux</text>
+
+          <!-- Integration layer -->
+          <polygon points="220,80 380,80 410,180 190,180" fill="#1A1612" stroke="#B85C3F" stroke-width="1.5"/>
+          <text x="300" y="138" font-family="DM Sans" font-size="14" fill="#B85C3F" text-anchor="middle" font-weight="600">Intégration</text>
+          <text x="430" y="138" font-family="JetBrains Mono" font-size="11" fill="#756A5C">modérés</text>
+
+          <!-- Unit layer -->
+          <polygon points="190,180 410,180 460,320 140,320" fill="#1A1612" stroke="#94A38A" stroke-width="1.5"/>
+          <text x="300" y="258" font-family="DM Sans" font-size="14" fill="#94A38A" text-anchor="middle" font-weight="600">Unitaires</text>
+          <text x="490" y="258" font-family="JetBrains Mono" font-size="11" fill="#756A5C">beaucoup, rapides</text>
+
+          <!-- Base -->
+          <line x1="80" y1="350" x2="520" y2="350" stroke="#2D2620" stroke-width="1"/>
+
+          <!-- Annotations gauche -->
+          <text x="100" y="58" font-family="JetBrains Mono" font-size="10" fill="#756A5C" text-anchor="end">~10%</text>
+          <line x1="105" y1="55" x2="218" y2="55" stroke="#2D2620" stroke-width="1"/>
+
+          <text x="100" y="138" font-family="JetBrains Mono" font-size="10" fill="#756A5C" text-anchor="end">~25%</text>
+          <line x1="105" y1="135" x2="195" y2="135" stroke="#2D2620" stroke-width="1"/>
+
+          <text x="100" y="258" font-family="JetBrains Mono" font-size="10" fill="#756A5C" text-anchor="end">~65%</text>
+          <line x1="105" y1="255" x2="148" y2="255" stroke="#2D2620" stroke-width="1"/>
+
+          <text x="300" y="385" font-family="DM Sans" font-style="italic" font-size="13" fill="#B8AC9B" text-anchor="middle">Distribution recommandée</text>
+        </svg>
+      </div>
+
+      <h3 class="section-num"><span class="num">5.2</span> Les 6 types de tests</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Type</th><th>Qui</th><th>Quoi</th><th>Quand</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Unitaires</strong></td><td>Dev</td><td>Une fonction, isolée</td><td>À chaque commit</td></tr>
+            <tr><td><strong>Intégration</strong></td><td>Dev</td><td>Plusieurs modules ensemble</td><td>Commit ou nuit</td></tr>
+            <tr><td><strong>End-to-end (E2E)</strong></td><td>Dev / QA</td><td>Parcours complet</td><td>Avant chaque release</td></tr>
+            <tr><td><strong>UAT</strong></td><td>PO + utilisateurs</td><td>Validation fonctionnelle</td><td>Avant release</td></tr>
+            <tr><td><strong>Performance</strong></td><td>Dev / Ops</td><td>Charge, latence, scalabilité</td><td>Avant prod, périodique</td></tr>
+            <tr><td><strong>Sécurité</strong></td><td>Dev / Sec</td><td>Pentests, OWASP</td><td>Avant prod, périodique</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout">
+        <div class="callout-label">Test exploratoire</div>
+        <p>À ne pas oublier : laisser un humain (toi ou un QA) <strong>explorer</strong> librement le produit. Beaucoup de bugs sont trouvés ici, jamais par les tests automatisés.</p>
+      </div>
+
+      <h3 class="section-num"><span class="num">5.3</span> Bug triage</h3>
+      <div class="cards cols-4">
+        <div class="card"><div class="card-eyebrow" style="color:var(--accent-rust);">Critique</div><div class="card-title">Hot patch</div><div class="card-text">Produit inutilisable, perte de données, faille sécurité.</div></div>
+        <div class="card"><div class="card-eyebrow" style="color:var(--accent-amber);">Majeur</div><div class="card-title">Sprint max</div><div class="card-text">Fonction importante cassée, contournement difficile.</div></div>
+        <div class="card"><div class="card-eyebrow" style="color:var(--accent-blue);">Mineur</div><div class="card-title">Backlog</div><div class="card-text">Gêne, contournement facile.</div></div>
+        <div class="card"><div class="card-eyebrow" style="color:var(--text-muted);">Cosmétique</div><div class="card-title">Quand on a le temps</div><div class="card-text">Visuel, pas bloquant.</div></div>
+      </div>
+    </section>
+
+    <!-- ====== PARTIE 6 - MISE EN PROD ====== -->
+    <section class="view" id="partie6">
+      <div class="part-header">
+        <div class="part-eyebrow">Partie VI — Du dev à la vraie vie</div>
+        <div class="part-num">VI</div>
+        <h2>Mettre<br>en <em>production</em></h2>
+      </div>
+
+      <h3 class="section-num"><span class="num">6.1</span> Stratégies de release</h3>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Stratégie</th><th>Description</th><th>Quand</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Big bang</strong></td><td>Tout d'un coup, à tous</td><td>Petits produits, peu de risques</td></tr>
+            <tr><td><strong>Phased rollout</strong></td><td>Par groupes (région, équipe, segment)</td><td>Risques métiers</td></tr>
+            <tr><td><strong>Canary release</strong></td><td>1 % → 10 % → 100 %, mesure à chaque étape</td><td>Produits scale, risques tech</td></tr>
+            <tr><td><strong>Blue-green</strong></td><td>Deux environnements, bascule instantanée</td><td>Apps critiques, rollback rapide</td></tr>
+            <tr><td><strong>Feature flags</strong></td><td>Activable/désactivable par utilisateur</td><td><strong>Standard moderne</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-label">Recommandation</div>
+        <p><strong>Feature flags partout, par défaut.</strong> Tu peux livrer du code sans l'activer, faire des A/B, faire un rollback instantané sans redéployer.</p>
+      </div>
+
+      <h3 class="section-num"><span class="num">6.2</span> Documentation — 3 publics, 3 docs</h3>
+      <div class="cards cols-3">
+        <div class="card">
+          <div class="card-eyebrow">Pour les utilisateurs</div>
+          <div class="card-title">Doc utilisateur</div>
+          <div class="card-text">Tutoriels, FAQ, vidéos.<br><span class="tag">PO + designer</span></div>
+        </div>
+        <div class="card">
+          <div class="card-eyebrow">Pour les devs</div>
+          <div class="card-title">Doc technique</div>
+          <div class="card-text">Architecture, API, schéma DB, ADRs.<br><span class="tag">Devs</span></div>
+        </div>
+        <div class="card">
+          <div class="card-eyebrow">Pour les ops</div>
+          <div class="card-title">Runbook</div>
+          <div class="card-text">Comment déployer, debugger, que faire si X tombe.<br><span class="tag">Devs / ops</span></div>
+        </div>
+      </div>
+
+      <div class="pull">
+        Test du bus : si une personne clé "tombe sous un bus" demain, est-ce que le produit peut continuer à vivre ?
+      </div>
+
+      <h3 class="section-num"><span class="num">6.3</span> Communication &amp; change management</h3>
+      <ol>
+        <li><strong>J-15</strong> — Annonce préalable : ce qui change, pourquoi.</li>
+        <li><strong>J-7</strong> — Formation, tutoriel, sessions live si besoin.</li>
+        <li><strong>Day 1</strong> — Communication active, support renforcé.</li>
+        <li><strong>J+30</strong> — Retours, ajustements, communication de bilan.</li>
+      </ol>
+
+      <h3 class="section-num"><span class="num">6.4</span> Plan de bascule (si tu remplaces un outil)</h3>
+      <ul>
+        <li><strong>Période de double run</strong> — durée, qui, pourquoi</li>
+        <li><strong>Plan de migration des données</strong></li>
+        <li><strong>Plan de rollback</strong> — si le nouveau échoue</li>
+        <li><strong>Date de coupure</strong> de l'ancien outil</li>
+        <li><strong>Support transition</strong></li>
+      </ul>
+    </section>
+
+    <!-- ====== PARTIE 7 - VIVRE ====== -->
+    <section class="view" id="partie7">
+      <div class="part-header">
+        <div class="part-eyebrow">Partie VII — Le produit après le lancement</div>
+        <div class="part-num">VII</div>
+        <h2>Faire <em>vivre</em><br>le produit</h2>
+      </div>
+
+      <h3 class="section-num"><span class="num">7.1</span> Monitoring &amp; observabilité — les 3 piliers</h3>
+      <div class="cards cols-3">
+        <div class="card"><div class="card-title">Logs</div><div class="card-text">Qu'est-ce qui se passe, dans le détail, traçable.</div></div>
+        <div class="card"><div class="card-title">Métriques</div><div class="card-text">Combien, à quelle fréquence, quelle évolution.</div></div>
+        <div class="card"><div class="card-title">Traces</div><div class="card-text">Le chemin complet d'une requête à travers le système.</div></div>
+      </div>
+      <p>Outils typiques : Sentry (erreurs), Datadog ou Grafana (métriques), logs structurés JSON.</p>
+
+      <h3 class="section-num"><span class="num">7.2</span> Mesurer le succès — Pirate Metrics (AARRR)</h3>
+
+      <div class="aarrr">
+        <div class="aarrr-row">
+          <div class="aarrr-letter">A</div>
+          <div class="aarrr-step">Acquisition</div>
+          <div class="aarrr-question">Comment les utilisateurs trouvent le produit ?</div>
+          <div class="aarrr-example">trafic, sources, CAC</div>
+        </div>
+        <div class="aarrr-row">
+          <div class="aarrr-letter">A</div>
+          <div class="aarrr-step">Activation</div>
+          <div class="aarrr-question">Première expérience réussie ?</div>
+          <div class="aarrr-example">aha-moment, 1ère US créée</div>
+        </div>
+        <div class="aarrr-row">
+          <div class="aarrr-letter">R</div>
+          <div class="aarrr-step">Retention</div>
+          <div class="aarrr-question">Reviennent-ils ?</div>
+          <div class="aarrr-example">D7, D30, churn</div>
+        </div>
+        <div class="aarrr-row">
+          <div class="aarrr-letter">R</div>
+          <div class="aarrr-step">Referral</div>
+          <div class="aarrr-question">Le recommandent-ils ?</div>
+          <div class="aarrr-example">NPS, viral coefficient</div>
+        </div>
+        <div class="aarrr-row">
+          <div class="aarrr-letter">R</div>
+          <div class="aarrr-step">Revenue</div>
+          <div class="aarrr-question">Génère-t-il de la valeur ?</div>
+          <div class="aarrr-example">ARPU, LTV, ROI</div>
+        </div>
+      </div>
+
+      <div class="callout">
+        <div class="callout-label">Pour un produit interne</div>
+        <p>Remplace <strong>Revenue</strong> par <strong>Impact</strong> — temps gagné, qualité améliorée, taux d'erreur réduit. La logique reste : mesurer la valeur réellement créée.</p>
+      </div>
+
+      <h3 class="section-num"><span class="num">7.3</span> Vanity vs actionnables</h3>
+      <div class="cards cols-2">
+        <div class="card" style="border-color:rgba(184,92,63,0.3);">
+          <div class="card-eyebrow" style="color:var(--accent-rust);">À éviter</div>
+          <div class="card-title">Vanity metrics</div>
+          <div class="card-text">Grossit toujours, ne dit rien. Ex : « nombre total d'inscriptions ».</div>
+        </div>
+        <div class="card" style="border-color:rgba(148,163,138,0.3);">
+          <div class="card-eyebrow" style="color:var(--accent-sage);">À privilégier</div>
+          <div class="card-title">Actionnables</div>
+          <div class="card-text">Reflète une santé réelle. Ex : « taux de retour à 7 jours ».</div>
+        </div>
+      </div>
+
+      <h3 class="section-num"><span class="num">7.4</span> Build / Measure / Learn</h3>
+      <div class="callout tip">
+        <div class="callout-label">Loop d'apprentissage</div>
+        <p>Idée → Build → Mesure → Apprentissage → Idée raffinée → …</p>
+        <p>L'objectif n'est <strong>pas</strong> de livrer plus, c'est <em>d'apprendre plus vite</em>.</p>
+      </div>
+
+      <h4>Pivot ou persévère</h4>
+      <p>Tous les 3-6 mois, tu te poses la question : est-ce que les hypothèses se vérifient ? Si oui, on persévère. Si non, on <strong>pivote</strong>. Pivoter n'est pas un échec, c'est une réussite d'apprentissage.</p>
+    </section>
+
+    <!-- ====== PARTIE 8 - TRANSVERSE ====== -->
+    <section class="view" id="partie8">
+      <div class="part-header">
+        <div class="part-eyebrow">Partie VIII — Ce qui s'applique à tout</div>
+        <div class="part-num">VIII</div>
+        <h2>Sujets<br><em>transverses</em></h2>
+      </div>
+
+      <h3 class="section-num"><span class="num">8.1</span> RGAA — accessibilité</h3>
+      <p>Référentiel Général d'Amélioration de l'Accessibilité, obligatoire pour les services publics. Niveau visé : <strong>AA</strong>.</p>
+
+      <h4>Les 13 thématiques</h4>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin:16px 0;">
+        <span class="tag">01 Images</span>
+        <span class="tag">02 Cadres</span>
+        <span class="tag">03 Couleurs</span>
+        <span class="tag">04 Multimédia</span>
+        <span class="tag">05 Tableaux</span>
+        <span class="tag">06 Liens</span>
+        <span class="tag">07 Scripts</span>
+        <span class="tag">08 Éléments obligatoires</span>
+        <span class="tag">09 Structuration</span>
+        <span class="tag">10 Présentation</span>
+        <span class="tag">11 Formulaires</span>
+        <span class="tag">12 Navigation</span>
+        <span class="tag">13 Consultation</span>
+      </div>
+
+      <div class="callout warn">
+        <div class="callout-label">Implication PO</div>
+        <p>Chaque US qui touche à une UI doit avoir une note RGAA explicite. Le designer maîtrise les bases (contraste, alternatives textuelles), mais c'est <strong>toi</strong> qui garantis qu'on ne livre rien qui régresse l'accessibilité. Audit annuel obligatoire.</p>
+      </div>
+
+      <h3 class="section-num"><span class="num">8.2</span> RGPD</h3>
+      <p>Pour chaque traitement de données personnelles :</p>
+      <ul>
+        <li><strong>Base légale</strong> (consentement, contrat, intérêt légitime…)</li>
+        <li><strong>Finalité</strong> explicite</li>
+        <li><strong>Durée de conservation</strong></li>
+        <li><strong>Destinataires</strong></li>
+        <li><strong>Droits utilisateurs</strong> (accès, rectification, oubli, portabilité)</li>
+      </ul>
+
+      <div class="callout tip">
+        <div class="callout-label">Privacy by design</div>
+        <p>Tu réfléchis aux données dès la conception, pas à la fin. Question rituelle : <em>« Est-ce que cette donnée est strictement nécessaire ? »</em> Si non, tu ne la collectes pas.</p>
+      </div>
+
+      <h3 class="section-num"><span class="num">8.3</span> Sécurité — les bases</h3>
+      <div class="cards cols-3">
+        <div class="card"><div class="card-title">Authentification</div><div class="card-text">Mots de passe, MFA, SSO.</div></div>
+        <div class="card"><div class="card-title">Autorisation</div><div class="card-text">Rôles, permissions, RBAC.</div></div>
+        <div class="card"><div class="card-title">Chiffrement</div><div class="card-text">En transit (TLS) et au repos (DB chiffrée).</div></div>
+        <div class="card"><div class="card-title">Audit logs</div><div class="card-text">Qui a fait quoi, quand.</div></div>
+        <div class="card"><div class="card-title">Gestion des secrets</div><div class="card-text">Pas de clés API en clair dans le code.</div></div>
+        <div class="card"><div class="card-title">MAJ de sécurité</div><div class="card-text">Snyk, Dependabot, scans réguliers.</div></div>
+      </div>
+      <p>OWASP Top 10 : les 10 vulnérabilités les plus communes. À connaître par le dev, à challenger par le PO.</p>
+
+      <h3 class="section-num"><span class="num">8.4</span> Documentation &amp; knowledge management</h3>
+      <p>Tu maintiens <strong>3 documents vivants</strong> :</p>
+      <ol>
+        <li>Le <strong>PRD</strong> (vision, scope, NFRs) — référence stratégique</li>
+        <li>Le <strong>backlog</strong> (US prioritisées) — référence opérationnelle</li>
+        <li>Le <strong>journal de décisions</strong> (ADRs + arbitrages) — mémoire du projet</li>
+      </ol>
+
+      <div class="pull">
+        Loi de Conway : « Les organisations qui conçoivent des systèmes sont contraintes de produire des designs qui sont des copies de leurs structures de communication. »<br>
+        <span style="font-size:14px;color:var(--text-secondary);font-style:normal;font-family:var(--font-body);">Si ta doc est un bordel, ton produit le sera aussi.</span>
+      </div>
+    </section>
+
+    <!-- ====== ANNEXES ====== -->
+    <section class="view" id="annexes">
+      <div class="part-header">
+        <div class="part-eyebrow">Annexes</div>
+        <div class="part-num">·</div>
+        <h2>Templates &amp; <em>pièges</em></h2>
+      </div>
+
+      <h3 class="section-num"><span class="num">A.1</span> Template d'US</h3>
+      <pre><code>## [TITRE]
+
+**Persona** :
+**Narratif** : En tant que..., je veux..., afin de...
+
+**Critères d'acceptation** :
+- Étant donné... quand... alors...
+
+**Tests** :
+- Unitaires : ...
+- Intégration : ...
+- E2E : ...
+- UAT : ...
+
+**Facettes** :
+- RGAA : ...
+- RGPD : ...
+- Observabilité : ...
+- Feature flag : ...
+
+**Liens** :
+- Maquettes :
+- Preuves / POC :
+
+**Estimation** : X points
+**RICE** : R/I/C/E → score
+**Lot** :
+**Tags** :</code></pre>
+
+      <h3 class="section-num"><span class="num">A.2</span> Risk log</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>Risque</th><th>Probabilité (1-5)</th><th>Impact (1-5)</th><th>Score</th><th>Mitigation</th><th>Statut</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>R1</td>
+              <td>Droits API Jira non accordés</td>
+              <td>4</td><td>3</td><td>12</td>
+              <td>Export manuel par défaut</td>
+              <td><span class="tag warn">Actif</span></td>
+            </tr>
+            <tr>
+              <td>R2</td>
+              <td>Coût Anthropic en prod</td>
+              <td>2</td><td>4</td><td>8</td>
+              <td>Caching, rate limiting, alarmes</td>
+              <td><span class="tag ok">Mitigé</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="section-num"><span class="num">A.3</span> Les 11 pièges courants</h3>
+
+      <ol class="traps-list">
+        <li><strong>Confondre output et outcome.</strong> Livrer 50 US sans que personne n'utilise mieux le produit = échec.</li>
+        <li><strong>Le scope creep silencieux.</strong> Petites demandes en réunion qui s'accumulent. Bloquer en pointant le backlog.</li>
+        <li><strong>Le PO orchestre tout.</strong> Si l'équipe ne peut rien faire sans toi, tu as échoué à les autonomiser.</li>
+        <li><strong>Le sprint zero qui devient le sprint trois.</strong> "On fait du cadrage" pendant 3 mois. Time-box brutalement.</li>
+        <li><strong>Les rituels qui meurent.</strong> Au bout de 6 mois, les rétros deviennent vides. Change le format.</li>
+        <li><strong>Le backlog poubelle.</strong> 800 US dont 500 dataient d'il y a 2 ans. Nettoyage trimestriel.</li>
+        <li><strong>L'estimation comme engagement.</strong> Une estimation est probabiliste, pas un contrat.</li>
+        <li><strong>Le perfectionnisme.</strong> Les utilisateurs préfèrent imparfait et utile à parfait et inexistant.</li>
+        <li><strong>Le silence stakeholder.</strong> Pas de nouvelles, mauvais signe : ils doutent en silence.</li>
+        <li><strong>Confondre vélocité et productivité.</strong> Gonfler les estimations ne change rien à la valeur livrée.</li>
+        <li><strong>Refuser le NO.</strong> Tu vas dire non beaucoup. C'est le signe d'un PO compétent, pas bloquant.</li>
+      </ol>
+
+      <h3 class="section-num"><span class="num">A.4</span> Glossaire</h3>
+      <div class="cards cols-2">
+        <div class="card"><div class="card-title">ADR</div><div class="card-text">Architecture Decision Record. Doc court actant une décision technique.</div></div>
+        <div class="card"><div class="card-title">AC</div><div class="card-text">Acceptance Criteria. Critères d'acceptation d'une US.</div></div>
+        <div class="card"><div class="card-title">DoR / DoD</div><div class="card-text">Definition of Ready / Done. Critères d'entrée et de sortie d'une US.</div></div>
+        <div class="card"><div class="card-title">Epic</div><div class="card-text">Ensemble cohérent d'US, plus gros qu'une US, plus petit qu'un produit.</div></div>
+        <div class="card"><div class="card-title">Feature flag</div><div class="card-text">Interrupteur permettant d'activer/désactiver une feature en prod.</div></div>
+        <div class="card"><div class="card-title">Gherkin</div><div class="card-text">Syntaxe Given/When/Then pour AC et tests lisibles.</div></div>
+        <div class="card"><div class="card-title">INVEST</div><div class="card-text">Critères de qualité d'une US.</div></div>
+        <div class="card"><div class="card-title">MVP / MMP / MLP</div><div class="card-text">Versions minimales (Viable / Marketable / Lovable).</div></div>
+        <div class="card"><div class="card-title">NFR</div><div class="card-text">Non-Functional Requirement.</div></div>
+        <div class="card"><div class="card-title">OKR</div><div class="card-text">Objectives and Key Results.</div></div>
+        <div class="card"><div class="card-title">RICE</div><div class="card-text">Reach × Impact × Confidence / Effort.</div></div>
+        <div class="card"><div class="card-title">Spike</div><div class="card-text">US d'investigation technique, sans livrable produit.</div></div>
+        <div class="card"><div class="card-title">UAT</div><div class="card-text">User Acceptance Test.</div></div>
+        <div class="card"><div class="card-title">Vélocité</div><div class="card-text">Nombre de points livrés par sprint en moyenne.</div></div>
+      </div>
+    </section>
+
+    <!-- ====== SYNTHÈSE ====== -->
+    <section class="view" id="synthese">
+      <div class="part-header">
+        <div class="part-eyebrow">Synthèse</div>
+        <div class="part-num">·</div>
+        <h2>La <em>carte</em><br>mentale du PO</h2>
+      </div>
+
+      <p class="lead">Toutes les pièces, en une seule vue. À chaque étape, la même boussole.</p>
+
+      <div class="mental-map">
+        <svg viewBox="0 0 800 720" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+              <path d="M0,0 L10,5 L0,10 z" fill="#8C6A2F"/>
+            </marker>
+          </defs>
+
+          <!-- Vision -->
+          <rect x="320" y="20" width="160" height="56" rx="3" fill="#1A1612" stroke="#D4A24C" stroke-width="1.5"/>
+          <text x="400" y="44" font-family="DM Sans" font-size="11" fill="#756A5C" text-anchor="middle" letter-spacing="2">VISION</text>
+          <text x="400" y="62" font-family="Fraunces" font-style="italic" font-size="14" fill="#F4EEE3" text-anchor="middle">Pourquoi exister ?</text>
+
+          <line x1="400" y1="78" x2="400" y2="108" stroke="#8C6A2F" stroke-width="1" marker-end="url(#arrow)"/>
+
+          <!-- OKRs -->
+          <rect x="320" y="112" width="160" height="56" rx="3" fill="#1A1612" stroke="#D4A24C" stroke-width="1"/>
+          <text x="400" y="136" font-family="DM Sans" font-size="11" fill="#756A5C" text-anchor="middle" letter-spacing="2">OBJECTIFS</text>
+          <text x="400" y="154" font-family="Fraunces" font-style="italic" font-size="14" fill="#F4EEE3" text-anchor="middle">OKRs</text>
+
+          <line x1="400" y1="170" x2="400" y2="200" stroke="#8C6A2F" stroke-width="1" marker-end="url(#arrow)"/>
+
+          <!-- Discovery -->
+          <rect x="280" y="204" width="240" height="56" rx="3" fill="#1A1612" stroke="#94A38A" stroke-width="1"/>
+          <text x="400" y="228" font-family="DM Sans" font-size="11" fill="#756A5C" text-anchor="middle" letter-spacing="2">DISCOVERY</text>
+          <text x="400" y="246" font-family="Fraunces" font-style="italic" font-size="14" fill="#F4EEE3" text-anchor="middle">Problème, users, contraintes</text>
+
+          <line x1="400" y1="262" x2="400" y2="292" stroke="#8C6A2F" stroke-width="1" marker-end="url(#arrow)"/>
+
+          <!-- Conception -->
+          <rect x="280" y="296" width="240" height="56" rx="3" fill="#1A1612" stroke="#94A38A" stroke-width="1"/>
+          <text x="400" y="320" font-family="DM Sans" font-size="11" fill="#756A5C" text-anchor="middle" letter-spacing="2">CONCEPTION</text>
+          <text x="400" y="338" font-family="Fraunces" font-style="italic" font-size="14" fill="#F4EEE3" text-anchor="middle">MVP, UX, archi, NFRs</text>
+
+          <line x1="400" y1="354" x2="400" y2="384" stroke="#8C6A2F" stroke-width="1" marker-end="url(#arrow)"/>
+
+          <!-- Backlog -->
+          <rect x="280" y="388" width="240" height="56" rx="3" fill="#1A1612" stroke="#D4A24C" stroke-width="1"/>
+          <text x="400" y="412" font-family="DM Sans" font-size="11" fill="#756A5C" text-anchor="middle" letter-spacing="2">BACKLOG</text>
+          <text x="400" y="430" font-family="Fraunces" font-style="italic" font-size="14" fill="#F4EEE3" text-anchor="middle">US, estimation, prio</text>
+
+          <!-- Branches Delivery / Qualité -->
+          <line x1="400" y1="446" x2="400" y2="478" stroke="#8C6A2F" stroke-width="1"/>
+          <line x1="220" y1="478" x2="580" y2="478" stroke="#8C6A2F" stroke-width="1"/>
+          <line x1="220" y1="478" x2="220" y2="498" stroke="#8C6A2F" stroke-width="1" marker-end="url(#arrow)"/>
+          <line x1="580" y1="478" x2="580" y2="498" stroke="#8C6A2F" stroke-width="1" marker-end="url(#arrow)"/>
+
+          <!-- Delivery -->
+          <rect x="120" y="502" width="200" height="56" rx="3" fill="#1A1612" stroke="#B85C3F" stroke-width="1"/>
+          <text x="220" y="526" font-family="DM Sans" font-size="11" fill="#756A5C" text-anchor="middle" letter-spacing="2">DELIVERY</text>
+          <text x="220" y="544" font-family="Fraunces" font-style="italic" font-size="13" fill="#F4EEE3" text-anchor="middle">Sprints, rituels, stakeholders</text>
+
+          <!-- Qualité -->
+          <rect x="480" y="502" width="200" height="56" rx="3" fill="#1A1612" stroke="#B85C3F" stroke-width="1"/>
+          <text x="580" y="526" font-family="DM Sans" font-size="11" fill="#756A5C" text-anchor="middle" letter-spacing="2">QUALITÉ</text>
+          <text x="580" y="544" font-family="Fraunces" font-style="italic" font-size="13" fill="#F4EEE3" text-anchor="middle">Tests, DoR/DoD, NFRs</text>
+
+          <!-- Rejoindre -->
+          <line x1="220" y1="558" x2="220" y2="580" stroke="#8C6A2F" stroke-width="1"/>
+          <line x1="580" y1="558" x2="580" y2="580" stroke="#8C6A2F" stroke-width="1"/>
+          <line x1="220" y1="580" x2="580" y2="580" stroke="#8C6A2F" stroke-width="1"/>
+          <line x1="400" y1="580" x2="400" y2="600" stroke="#8C6A2F" stroke-width="1" marker-end="url(#arrow)"/>
+
+          <!-- Release -->
+          <rect x="320" y="604" width="160" height="40" rx="3" fill="#1A1612" stroke="#D4A24C" stroke-width="1.5"/>
+          <text x="400" y="630" font-family="Fraunces" font-style="italic" font-size="16" fill="#D4A24C" text-anchor="middle">Release</text>
+
+          <line x1="400" y1="644" x2="400" y2="664" stroke="#8C6A2F" stroke-width="1" marker-end="url(#arrow)"/>
+
+          <!-- Run -->
+          <rect x="240" y="668" width="320" height="40" rx="3" fill="#1A1612" stroke="#94A38A" stroke-width="1"/>
+          <text x="400" y="694" font-family="Fraunces" font-style="italic" font-size="14" fill="#F4EEE3" text-anchor="middle">RUN — monitoring, KPIs, feedback, itération</text>
+
+          <!-- Loop arrow back to top -->
+          <path d="M 560 688 Q 720 688 720 350 Q 720 50 500 50" stroke="#8C6A2F" stroke-width="1" fill="none" stroke-dasharray="4,4"/>
+          <text x="730" y="370" font-family="Fraunces" font-style="italic" font-size="13" fill="#D4A24C" text-anchor="end">↺ apprendre</text>
+        </svg>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-label">À chaque étape, la même boussole</div>
+        <p style="font-family:var(--font-display);font-style:italic;font-size:20px;line-height:1.4;color:var(--text-primary);">
+          Quel problème je résous ?<br>
+          Pour qui ?<br>
+          Comment je sais que je l'ai résolu ?
+        </p>
+      </div>
+
+      <div class="divider">
+        <span class="divider-mark">·  ·  ·</span>
+      </div>
+
+      <p style="text-align:center;font-family:var(--font-display);font-style:italic;font-size:24px;color:var(--text-secondary);margin-top:48px;">
+        Bonne route.
+      </p>
+    </section>
+
+  </main>
+</div>
+
+<!-- Boussole flottante -->
+<div class="boussole" id="boussole" title="La boussole permanente du PO">
+  <div class="boussole-header">
+    <div class="boussole-icon"></div>
+    <div class="boussole-label">Boussole</div>
+  </div>
+  <div class="boussole-content">
+    Quel problème je résous ?<br>
+    Pour qui ?<br>
+    Comment je sais que je l'ai résolu ?
+    <strong>Toujours, à chaque étape.</strong>
+  </div>
+</div>
+
+<!-- Scroll to top -->
+<div class="scroll-top" id="scrollTop" title="Retour en haut">↑</div>
+
+<script>
+// ===== Navigation =====
+const views = document.querySelectorAll('.view');
+const navItems = document.querySelectorAll('.nav-item');
+const ctaBtns = document.querySelectorAll('[data-target]');
+const sidebar = document.getElementById('sidebar');
+const mobileToggle = document.getElementById('mobileToggle');
+
+function navigate(target) {
+  views.forEach(v => v.classList.remove('active'));
+  navItems.forEach(n => n.classList.remove('active'));
+
+  const view = document.getElementById(target);
+  if (view) view.classList.add('active');
+
+  navItems.forEach(n => {
+    if (n.dataset.target === target) n.classList.add('active');
+  });
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  sidebar.classList.remove('mobile-open');
+}
+
+ctaBtns.forEach(btn => {
+  btn.addEventListener('click', () => navigate(btn.dataset.target));
+});
+
+mobileToggle.addEventListener('click', () => {
+  sidebar.classList.toggle('mobile-open');
+});
+
+// ===== Reading progress =====
+const progressBar = document.getElementById('progressBar');
+const scrollTop = document.getElementById('scrollTop');
+
+window.addEventListener('scroll', () => {
+  const scrolled = (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
+  progressBar.style.setProperty('--progress', Math.min(scrolled, 100) + '%');
+
+  if (window.scrollY > 600) scrollTop.classList.add('visible');
+  else scrollTop.classList.remove('visible');
+});
+
+scrollTop.addEventListener('click', () => {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+// ===== INVEST flip cards =====
+document.querySelectorAll('.invest-card').forEach(card => {
+  card.addEventListener('click', () => card.classList.toggle('flipped'));
+});
+
+// ===== DoR / DoD checkboxes =====
+document.querySelectorAll('.checklist').forEach(list => {
+  const items = list.querySelectorAll('.check-item');
+  const counter = list.querySelector('.progress-count');
+
+  items.forEach(item => {
+    item.addEventListener('click', () => {
+      item.classList.toggle('checked');
+      const checked = list.querySelectorAll('.check-item.checked').length;
+      if (counter) counter.textContent = checked;
+    });
+  });
+});
+
+// ===== RICE Calculator =====
+const reach = document.getElementById('reach');
+const impact = document.getElementById('impact');
+const conf = document.getElementById('conf');
+const effort = document.getElementById('effort');
+
+const reachVal = document.getElementById('reachVal');
+const impactVal = document.getElementById('impactVal');
+const confVal = document.getElementById('confVal');
+const effortVal = document.getElementById('effortVal');
+const riceScore = document.getElementById('riceScore');
+
+function updateRice() {
+  const r = parseInt(reach.value);
+  const i = parseInt(impact.value);
+  const c = parseInt(conf.value);
+  const e = parseInt(effort.value);
+
+  reachVal.textContent = r.toLocaleString('fr-FR');
+  impactVal.textContent = i;
+  confVal.textContent = c;
+  effortVal.textContent = e;
+
+  const score = Math.round((r * i * (c/100)) / e);
+  riceScore.textContent = score.toLocaleString('fr-FR');
+}
+
+[reach, impact, conf, effort].forEach(el => {
+  if (el) el.addEventListener('input', updateRice);
+});
+updateRice();
+
+// ===== Boussole click hide =====
+let boussoleHidden = false;
+document.getElementById('boussole').addEventListener('click', () => {
+  document.getElementById('boussole').style.opacity = boussoleHidden ? '1' : '0.3';
+  boussoleHidden = !boussoleHidden;
+});
+
+// ===== Keyboard nav =====
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') sidebar.classList.remove('mobile-open');
+});
+</script>
+
+</body>
+</html>

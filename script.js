@@ -54,52 +54,70 @@ let currentViewedRun = null;
 // ===================================
 
 /**
- * Vérifie que le serveur proxy local est actif et fonctionnel
- * Affiche une alerte si le serveur n'est pas accessible
+ * Vérifie que le serveur proxy est actif et fonctionnel.
+ * Sur Render free tier le dyno peut être en cold start (~25 s) :
+ * on retente plusieurs fois avant d'afficher une erreur, et le message
+ * dépend du contexte (local vs hébergé).
  */
 async function checkServerHealth() {
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
+    const host = window.location.hostname;
+    const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '';
+    const perAttemptTimeoutMs = isLocal ? 3000 : 30000;
+    const attempts = isLocal ? 1 : 3;
 
-        const response = await fetch('/api/health', {
-            method: 'GET',
-            signal: controller.signal
-        });
+    const errorDiv = document.getElementById('error');
+    const showWakingUp = () => {
+        if (!errorDiv || isLocal) return;
+        errorDiv.style.display = 'block';
+        errorDiv.innerHTML = `
+            <div style="background: rgba(245, 158, 11, 0.1); border: 2px solid #f59e0b; border-radius: 12px; padding: 16px; margin: 20px 0;">
+                <p style="margin: 0;">⏳ Démarrage du service en cours (Render free tier, peut prendre jusqu'à 30 s)…</p>
+            </div>
+        `;
+    };
 
-        clearTimeout(timeoutId);
-
-        if (response.ok) {
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+        if (!isLocal && attempt > 1) showWakingUp();
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), perAttemptTimeoutMs);
+            const response = await fetch('/api/health', { method: 'GET', signal: controller.signal });
+            clearTimeout(timeoutId);
+            if (!response.ok) throw new Error(`Status ${response.status}`);
             const data = await response.json();
             console.log('✅ Serveur proxy détecté et fonctionnel');
             console.log(`📦 Modèle configuré : ${data.model}`);
+            if (errorDiv) { errorDiv.style.display = 'none'; errorDiv.innerHTML = ''; }
             return true;
-        } else {
-            throw new Error(`Status ${response.status}`);
-        }
-    } catch (error) {
-        console.error('❌ Serveur proxy non accessible:', error.message);
-
-        // Afficher une alerte visuelle à l'utilisateur
-        const errorDiv = document.getElementById('error');
-        if (errorDiv) {
-            errorDiv.style.display = 'block';
-            errorDiv.innerHTML = `
-                <div style="background: rgba(239, 68, 68, 0.1); border: 2px solid var(--accent-red); border-radius: 12px; padding: 20px; margin: 20px 0;">
-                    <h3 style="color: var(--accent-red); margin-top: 0;">⚠️ SERVEUR NON DÉMARRÉ</h3>
-                    <p style="margin-bottom: 15px;">Le serveur local doit être lancé pour utiliser cette application.</p>
-                    <p style="font-weight: 600; margin-bottom: 10px;">Ouvrez un terminal et exécutez :</p>
-                    <pre style="background: var(--bg-darker); padding: 15px; border-radius: 8px; overflow-x: auto;">cd "/Users/livioricci/Documents/FRANCETV/App qualif user needs"
+        } catch (error) {
+            console.error(`❌ Health check tentative ${attempt}/${attempts} échouée :`, error.message);
+            if (attempt === attempts) {
+                if (errorDiv) {
+                    errorDiv.style.display = 'block';
+                    errorDiv.innerHTML = isLocal
+                        ? `
+                            <div style="background: rgba(239, 68, 68, 0.1); border: 2px solid var(--accent-red); border-radius: 12px; padding: 20px; margin: 20px 0;">
+                                <h3 style="color: var(--accent-red); margin-top: 0;">⚠️ SERVEUR LOCAL NON DÉMARRÉ</h3>
+                                <p style="margin-bottom: 15px;">Le serveur proxy local doit être lancé pour utiliser cette application en mode développement.</p>
+                                <p style="font-weight: 600; margin-bottom: 10px;">Ouvrez un terminal et exécutez :</p>
+                                <pre style="background: var(--bg-darker); padding: 15px; border-radius: 8px; overflow-x: auto;">cd "/Users/livioricci/Documents/FRANCETV/App qualif user needs"
 python3 server.py</pre>
-                    <p style="margin-top: 15px; font-size: 0.9em; color: var(--text-secondary);">
-                        💡 Une fois le serveur démarré, rechargez cette page.
-                    </p>
-                </div>
-            `;
+                                <p style="margin-top: 15px; font-size: 0.9em; color: var(--text-secondary);">💡 Une fois le serveur démarré, rechargez cette page.</p>
+                            </div>
+                        `
+                        : `
+                            <div style="background: rgba(239, 68, 68, 0.1); border: 2px solid var(--accent-red); border-radius: 12px; padding: 20px; margin: 20px 0;">
+                                <h3 style="color: var(--accent-red); margin-top: 0;">⚠️ SERVICE INDISPONIBLE</h3>
+                                <p style="margin-bottom: 15px;">Le service ne répond pas après plusieurs tentatives. Le serveur Render est peut-être en cours de redéploiement ou indisponible.</p>
+                                <p style="margin-top: 15px; font-size: 0.9em; color: var(--text-secondary);">💡 Patientez 30 s puis rechargez la page. Si le problème persiste, vérifiez le statut sur Render.</p>
+                            </div>
+                        `;
+                }
+                return false;
+            }
         }
-
-        return false;
     }
+    return false;
 }
 
 // Les 8 userneeds dans l'ordre

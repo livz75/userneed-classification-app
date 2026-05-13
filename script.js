@@ -163,36 +163,46 @@ const USERNEEDS = [
     'UPDATE ME',
     'EXPLAIN ME',
     'GIVE ME PERSPECTIVE',
-    'GIVE ME A BREAK',
-    'GIVE ME CONCERNING NEWS',
+    'DIVERT ME',
+    'GUIDE ME',
     'INSPIRE ME',
-    'MAKE ME FEEL THE NEWS',
-    'REVEAL NEWS'
+    'FEEL',
+    'VERIFY'
 ];
 
 const USERNEED_COLORS = {
-    'UPDATE ME':               '#3b82f6',
-    'EXPLAIN ME':              '#10b981',
-    'GIVE ME PERSPECTIVE':     '#8b5cf6',
-    'GIVE ME A BREAK':         '#f59e0b',
-    'GIVE ME CONCERNING NEWS': '#ef4444',
-    'INSPIRE ME':              '#f97316',
-    'MAKE ME FEEL THE NEWS':   '#ec4899',
-    'REVEAL NEWS':             '#06b6d4',
+    'UPDATE ME':           '#3b82f6',
+    'EXPLAIN ME':          '#10b981',
+    'GIVE ME PERSPECTIVE': '#8b5cf6',
+    'DIVERT ME':           '#f59e0b',
+    'GUIDE ME':            '#ef4444',
+    'INSPIRE ME':          '#f97316',
+    'FEEL':                '#ec4899',
+    'VERIFY':              '#06b6d4',
 };
 
-// Mapping des variantes de userneeds vers leur forme canonique
+// Mapping des variantes de userneeds vers leur forme canonique.
+// On accepte aussi les anciens labels (REVEAL NEWS, MAKE ME FEEL THE NEWS,
+// GIVE ME A BREAK, GIVE ME CONCERNING NEWS) pour rester robuste si une
+// réponse LLM stockée ou un prompt ancien les renvoie encore.
 const USERNEED_VARIANTS = {
-    'CONCERNING NEWS': 'GIVE ME CONCERNING NEWS',
-    'GIVE ME CONCERNING NEWS': 'GIVE ME CONCERNING NEWS',
-    'MAKE ME FEEL': 'MAKE ME FEEL THE NEWS',
-    'MAKE ME FEEL THE NEWS': 'MAKE ME FEEL THE NEWS',
-    'REVEAL ME': 'REVEAL NEWS',
-    'REVEAL NEWS': 'REVEAL NEWS',
+    // Nouveaux libellés canoniques
+    'VERIFY': 'VERIFY',
+    'FEEL': 'FEEL',
+    'DIVERT ME': 'DIVERT ME',
+    'GUIDE ME': 'GUIDE ME',
+    // Anciens libellés et variantes — remappés vers les nouveaux
+    'REVEAL NEWS': 'VERIFY',
+    'REVEAL ME': 'VERIFY',
+    'MAKE ME FEEL THE NEWS': 'FEEL',
+    'MAKE ME FEEL': 'FEEL',
+    'GIVE ME A BREAK': 'DIVERT ME',
+    'GIVE ME CONCERNING NEWS': 'GUIDE ME',
+    'CONCERNING NEWS': 'GUIDE ME',
+    // Userneeds inchangés
     'UPDATE ME': 'UPDATE ME',
     'EXPLAIN ME': 'EXPLAIN ME',
     'GIVE ME PERSPECTIVE': 'GIVE ME PERSPECTIVE',
-    'GIVE ME A BREAK': 'GIVE ME A BREAK',
     'INSPIRE ME': 'INSPIRE ME'
 };
 
@@ -211,10 +221,10 @@ function parseAIResponse(responseText) {
     if (!text) return null;
 
     // Regex universelle pour capturer tous les formats possibles:
-    // Format 1: "Le userneed principal est GIVE ME CONCERNING NEWS, avec un score de 50."
+    // Format 1: "Le userneed principal est GUIDE ME, avec un score de 50."
     // Format 2: "Userneed principal : UPDATE ME (80 points)"
-    // Format 3: "Userneed principal : GIVE CONCERNING NEWS (score : 60)"
-    // Format 4: "Userneed principal : REVEAL NEWS (score 70)"
+    // Format 3: "Userneed principal : GUIDE ME (score : 60)"
+    // Format 4: "Userneed principal : VERIFY (score 70)"
 
     let principalMatch = text.match(/userneed\s+principal\s*(?:est\s+|:\s*)([A-Z\s]+?)[\s,]*(?:avec\s+un\s+score\s+de\s+|\(score\s*:?\s*|\()(\d+)/i);
     let secondaireMatch = text.match(/userneed\s+secondaire\s*(?:est\s+|:\s*)([A-Z\s]+?)[\s,]*(?:avec\s+un\s+score\s+de\s+|\(score\s*:?\s*|\()(\d+)/i);
@@ -232,7 +242,7 @@ function parseAIResponse(responseText) {
         const trimmed = name.trim().toUpperCase();
         // 1. Correspondance exacte via la table de variantes connues
         if (USERNEED_VARIANTS[trimmed]) return USERNEED_VARIANTS[trimmed];
-        // 2. Correspondance partielle (ex: "GIVE ME CONCERNING" → "GIVE ME CONCERNING NEWS")
+        // 2. Correspondance partielle (ex: "GIVE ME CONCERNING" → "GUIDE ME")
         for (const [variant, canonical] of Object.entries(USERNEED_VARIANTS)) {
             if (trimmed.includes(variant) || variant.includes(trimmed)) return canonical;
         }
@@ -558,15 +568,15 @@ Tu es un expert en data analyse et IA spécialisé dans la classification édito
 
 3. GIVE ME PERSPECTIVE - Analyse approfondie avec différents points de vue. Second niveau de compréhension pour ceux qui connaissent déjà le sujet.
 
-4. GIVE ME A BREAK - Contenus légers et divertissants. Insolite, étonnant, drôle, curiosité.
+4. DIVERT ME - Contenus légers et divertissants. Insolite, étonnant, drôle, curiosité.
 
-5. GIVE ME CONCERNING NEWS - Contenus qui touchent à la sphère privée, dans l'air du temps, utiles au quotidien.
+5. GUIDE ME - Contenus qui touchent à la sphère privée, dans l'air du temps, utiles au quotidien.
 
 6. INSPIRE ME - Récits inspirants et solutions. Histoires positives, résilience, espoir, journalisme de solution.
 
-7. MAKE ME FEEL THE NEWS - Témoignages et expériences vécues. Récits de première main qui provoquent une émotion.
+7. FEEL - Témoignages et expériences vécues. Récits de première main qui provoquent une émotion.
 
-8. REVEAL NEWS - Enquêtes et révélations exclusives. Information obtenue par France Télévisions/franceinfo/Radio France.
+8. VERIFY - Enquêtes et révélations exclusives. Information obtenue par France Télévisions/franceinfo/Radio France.
 
 #TÂCHE
 
@@ -579,11 +589,11 @@ Userneeds disponibles :
 - UPDATE ME
 - EXPLAIN ME
 - GIVE ME PERSPECTIVE
-- GIVE ME A BREAK
-- GIVE ME CONCERNING NEWS
+- DIVERT ME
+- GUIDE ME
 - INSPIRE ME
-- MAKE ME FEEL THE NEWS
-- REVEAL NEWS
+- FEEL
+- VERIFY
 
 Règle CRITIQUE : Tu dois répondre EXACTEMENT avec le format ci-dessus. Commence par "USERNEED:" suivi du nom, puis sur une nouvelle ligne "JUSTIFICATION:" suivi de ton explication. Ne rajoute AUCUN texte avant ou après.`,
             userneeds: [...USERNEEDS],
@@ -1843,11 +1853,11 @@ function getShortName(userneed) {
         'UPDATE ME': 'Update me',
         'EXPLAIN ME': 'Explain me',
         'GIVE ME PERSPECTIVE': 'Give me perspective',
-        'GIVE ME A BREAK': 'Give me a break',
-        'GIVE ME CONCERNING NEWS': 'Concerning news',
+        'DIVERT ME': 'Divert me',
+        'GUIDE ME': 'Guide me',
         'INSPIRE ME': 'Inspire me',
-        'MAKE ME FEEL THE NEWS': 'Make me feel',
-        'REVEAL NEWS': 'Reveal news'
+        'FEEL': 'Feel',
+        'VERIFY': 'Verify'
     };
     return names[normalized] || normalized;
 }
@@ -1891,11 +1901,11 @@ async function analyzeWithAI() {
         'EXPLAIN ME': 1,
         'UPDATE ME': 2,
         'GIVE ME PERSPECTIVE': 3,
-        'GIVE ME CONCERNING NEWS': 4,
+        'GUIDE ME': 4,
         'INSPIRE ME': 5,
-        'MAKE ME FEEL THE NEWS': 6,
-        'REVEAL NEWS': 7,
-        'GIVE ME A BREAK': 8,
+        'FEEL': 6,
+        'VERIFY': 7,
+        'DIVERT ME': 8,
     };
     classifiedArticles.sort((a, b) => {
         const unA = a.human_classifications?.[0]?.userneed || '';

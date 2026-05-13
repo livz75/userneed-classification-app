@@ -32,8 +32,8 @@ CREATE TABLE human_classifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   article_id UUID NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
   userneed TEXT NOT NULL CHECK (userneed IN (
-    'UPDATE ME', 'EXPLAIN ME', 'GIVE ME PERSPECTIVE', 'GIVE ME A BREAK',
-    'GIVE ME CONCERNING NEWS', 'INSPIRE ME', 'MAKE ME FEEL THE NEWS', 'REVEAL NEWS'
+    'UPDATE ME', 'EXPLAIN ME', 'GIVE ME PERSPECTIVE', 'DIVERT ME',
+    'GUIDE ME', 'INSPIRE ME', 'FEEL', 'VERIFY'
   )),
   classified_by TEXT DEFAULT 'anonymous',
   classified_at TIMESTAMPTZ DEFAULT now(),

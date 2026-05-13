@@ -95,7 +95,7 @@ Les **règles métier** sont des contraintes ou logiques qui ne changent jamais.
 | ID | Règle métier | Implémentation actuelle | Critique ? |
 |----|--------------|-------------------------|------------|
 | R1 | Le total des 3 scores (principal + secondaire + tertiaire) DOIT être égal à 100 | Prompt demande au LLM, mais pas de validation code | ⚠️ OUI |
-| R2 | Les userneeds DOIVENT être normalisés (ex: "CONCERNING NEWS" → "GIVE ME CONCERNING NEWS") | Fonction `normalizeUserneed()` | ✅ OUI |
+| R2 | Les userneeds DOIVENT être normalisés (ex: "CONCERNING NEWS" → "GUIDE ME") | Fonction `normalizeUserneed()` | ✅ OUI |
 | R3 | La matrice de confusion est 8x8 (8 userneeds) | Hard-codé dans `displayConfusionMatrix()` | ✅ OUI |
 | R4 | Un article peut avoir max 3 userneeds (principal, secondaire, tertiaire) | Structure de données `predictions[]` | ✅ OUI |
 

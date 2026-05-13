@@ -81,11 +81,11 @@ Liste des règles métier critiques à respecter :
    - UPDATE ME
    - EXPLAIN ME
    - GIVE ME PERSPECTIVE
-   - GIVE ME A BREAK
-   - GIVE ME CONCERNING NEWS
+   - DIVERT ME
+   - GUIDE ME
    - INSPIRE ME
-   - MAKE ME FEEL THE NEWS
-   - REVEAL NEWS
+   - FEEL
+   - VERIFY
 
 3. **[RG-003] Justification longueur** : Chaque justification doit contenir maximum 10 mots pour garantir la concision.
 
@@ -145,7 +145,7 @@ Userneed attendu (principal): UPDATE ME
 ```
 Titre: "Le sauvetage héroïque d'un chat coincé dans un arbre"
 Contenu: "Un pompier a sauvé..."
-Userneed attendu: GIVE ME A BREAK
+Userneed attendu: DIVERT ME
 ```
 
 **API Key de test** :
@@ -328,7 +328,7 @@ Titre: "Inflation : Les prix de l'alimentation augmentent de 15%"
 Contenu: "Selon l'INSEE, les prix de l'alimentation ont connu une hausse..."
 ```
 
-**Cas 2 : Article détente (GIVE ME A BREAK attendu)** :
+**Cas 2 : Article détente (DIVERT ME attendu)** :
 ```
 Titre: "Les 10 plus belles plages de France à découvrir cet été"
 Contenu: "Pour les vacances, voici notre sélection de plages paradisiaques..."

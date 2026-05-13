@@ -46,11 +46,11 @@ Le référentiel de classification comporte 8 catégories exclusives :
 | **UPDATE ME** | Tenir informé d'une actualité en cours |
 | **EXPLAIN ME** | Comprendre un sujet, un contexte |
 | **GIVE ME PERSPECTIVE** | Analyse, mise en recul, opinion |
-| **GIVE ME A BREAK** | Contenu léger, divertissant |
-| **GIVE ME CONCERNING NEWS** | Alerte, information préoccupante |
+| **DIVERT ME** | Contenu léger, divertissant |
+| **GUIDE ME** | Alerte, information préoccupante |
 | **INSPIRE ME** | Histoire positive, exemple à suivre |
-| **MAKE ME FEEL THE NEWS** | Contenu émotionnel, témoignage, immersion |
-| **REVEAL NEWS** | Enquête, révélation, information exclusive |
+| **FEEL** | Contenu émotionnel, témoignage, immersion |
+| **VERIFY** | Enquête, révélation, information exclusive |
 
 ### 2.2 Parcours utilisateur
 

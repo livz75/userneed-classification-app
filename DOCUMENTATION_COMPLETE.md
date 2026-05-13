@@ -27,11 +27,11 @@ France Télévisions utilise une taxonomie de 8 "userneeds" pour classifier le c
 1. **UPDATE ME** - Actualités et mises à jour
 2. **EXPLAIN ME** - Explications et pédagogie
 3. **GIVE ME PERSPECTIVE** - Analyses et contexte
-4. **GIVE ME A BREAK** - Divertissement et pause
-5. **GIVE ME CONCERNING NEWS** - Actualités préoccupantes
+4. **DIVERT ME** - Divertissement et pause
+5. **GUIDE ME** - Actualités préoccupantes
 6. **INSPIRE ME** - Inspiration et découverte
-7. **MAKE ME FEEL THE NEWS** - Émotion et vécu
-8. **REVEAL NEWS** - Révélations et enquêtes
+7. **FEEL** - Émotion et vécu
+8. **VERIFY** - Révélations et enquêtes
 
 ### ✨ Fonctionnalités principales
 

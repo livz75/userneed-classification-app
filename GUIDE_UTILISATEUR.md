@@ -19,11 +19,11 @@ Vous classifiez vous-même des articles, puis vous lancez une analyse IA et comp
 | **UPDATE ME** | L'article tient informé sur une actu en cours |
 | **EXPLAIN ME** | L'article explique un sujet ou un contexte |
 | **GIVE ME PERSPECTIVE** | L'article offre une analyse ou une mise en recul |
-| **GIVE ME A BREAK** | L'article est léger ou divertissant |
-| **GIVE ME CONCERNING NEWS** | L'article alerte sur quelque chose de préoccupant |
+| **DIVERT ME** | L'article est léger ou divertissant |
+| **GUIDE ME** | L'article alerte sur quelque chose de préoccupant |
 | **INSPIRE ME** | L'article raconte une histoire positive |
-| **MAKE ME FEEL THE NEWS** | L'article est émotionnel, immersif, un témoignage |
-| **REVEAL NEWS** | L'article révèle une enquête ou une info exclusive |
+| **FEEL** | L'article est émotionnel, immersif, un témoignage |
+| **VERIFY** | L'article révèle une enquête ou une info exclusive |
 
 ---
 

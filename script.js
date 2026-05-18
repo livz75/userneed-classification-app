@@ -167,7 +167,8 @@ const USERNEEDS = [
     'GUIDE ME',
     'INSPIRE ME',
     'FEEL',
-    'VERIFY'
+    'VERIFY',
+    'SUMMARIZE'
 ];
 
 const USERNEED_COLORS = {
@@ -179,6 +180,7 @@ const USERNEED_COLORS = {
     'INSPIRE ME':          '#f97316',
     'FEEL':                '#ec4899',
     'VERIFY':              '#06b6d4',
+    'SUMMARIZE':           '#14b8a6',
 };
 
 // Mapping des variantes de userneeds vers leur forme canonique.
@@ -191,6 +193,7 @@ const USERNEED_VARIANTS = {
     'FEEL': 'FEEL',
     'DIVERT ME': 'DIVERT ME',
     'GUIDE ME': 'GUIDE ME',
+    'SUMMARIZE': 'SUMMARIZE',
     // Anciens libellés et variantes — remappés vers les nouveaux
     'REVEAL NEWS': 'VERIFY',
     'REVEAL ME': 'VERIFY',
@@ -1857,7 +1860,8 @@ function getShortName(userneed) {
         'GUIDE ME': 'Guide me',
         'INSPIRE ME': 'Inspire me',
         'FEEL': 'Feel',
-        'VERIFY': 'Verify'
+        'VERIFY': 'Verify',
+        'SUMMARIZE': 'Summarize'
     };
     return names[normalized] || normalized;
 }
@@ -1906,6 +1910,7 @@ async function analyzeWithAI() {
         'FEEL': 6,
         'VERIFY': 7,
         'DIVERT ME': 8,
+        'SUMMARIZE': 9,
     };
     classifiedArticles.sort((a, b) => {
         const unA = a.human_classifications?.[0]?.userneed || '';

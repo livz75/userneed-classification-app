@@ -2770,20 +2770,21 @@ function renderFilteredArticles() {
             .then(({ count }) => { if (count != null && statsSpan) statsSpan.textContent = `${count} classifiés`; });
     }
 
-    // Gestion du graphique de répartition selon le filtre
+    // Gestion du graphique de répartition selon le filtre.
+    // Le bouton reste toujours visible (pour pouvoir ouvrir/fermer la répartition
+    // sous n'importe quel filtre). Le filtre "Classifiés" continue d'auto-ouvrir
+    // le graphique, et "Non classifiés" force sa fermeture (rien à afficher).
     const corpusBtn = document.getElementById('corpusChartBtn');
     const corpusPanel = document.getElementById('corpusChart');
-    if (articleFilter === 'classified') {
-        // Filtre "Classifiés" : afficher automatiquement le graphique, masquer le bouton
-        if (corpusBtn) corpusBtn.style.display = 'none';
-        if (corpusPanel) corpusPanel.classList.remove('hidden');
-    } else if (articleFilter === 'unclassified') {
-        // Filtre "Non classifiés" : tout masquer
-        if (corpusBtn) corpusBtn.style.display = 'none';
-        if (corpusPanel) corpusPanel.classList.add('hidden');
-    } else {
-        // Filtre "Tous" : bouton visible, graphique sur demande
-        if (corpusBtn) corpusBtn.style.display = '';
+    if (corpusBtn) corpusBtn.style.display = '';
+    if (articleFilter === 'classified' && corpusPanel) {
+        corpusPanel.classList.remove('hidden');
+    } else if (articleFilter === 'unclassified' && corpusPanel) {
+        corpusPanel.classList.add('hidden');
+    }
+    // Synchroniser l'état "active" du bouton avec la visibilité du graphique
+    if (corpusBtn && corpusPanel) {
+        corpusBtn.classList.toggle('active', !corpusPanel.classList.contains('hidden'));
     }
 
     // Rendu

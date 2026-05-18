@@ -40,6 +40,7 @@ class handler(BaseHTTPRequestHandler):
 
 OPTIONS :
 - UPDATE ME
+- SUMMARIZE
 - EXPLAIN ME
 - GIVE ME PERSPECTIVE
 - DIVERT ME

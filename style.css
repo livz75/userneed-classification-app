@@ -718,7 +718,7 @@ input[type="file"] {
 
 .matrix-y-labels {
     display: grid;
-    grid-template-rows: repeat(8, 1fr);
+    grid-template-rows: repeat(9, 1fr);
     gap: 3px;
 }
 
@@ -739,11 +739,11 @@ input[type="file"] {
 
 .matrix-grid {
     display: grid;
-    grid-template-columns: repeat(8, 1fr);
-    grid-template-rows: repeat(8, 1fr);
+    grid-template-columns: repeat(9, 1fr);
+    grid-template-rows: repeat(9, 1fr);
     gap: 3px;
-    width: 400px;
-    height: 400px;
+    width: 450px;
+    height: 450px;
 }
 
 .matrix-cell {
@@ -787,11 +787,11 @@ input[type="file"] {
 
 .matrix-x-labels {
     display: grid;
-    grid-template-columns: repeat(8, 1fr);
+    grid-template-columns: repeat(9, 1fr);
     gap: 3px;
-    width: 400px;
+    width: 450px;
     margin-top: 8px;
-    margin-left: calc(100% - 400px - 60px);
+    margin-left: calc(100% - 450px - 60px);
 }
 
 .x-label {
@@ -813,8 +813,8 @@ input[type="file"] {
     text-align: center;
     margin-top: 8px;
     font-weight: 600;
-    width: 400px;
-    margin-left: calc(100% - 400px - 60px);
+    width: 450px;
+    margin-left: calc(100% - 450px - 60px);
 }
 
 /* ============================= */

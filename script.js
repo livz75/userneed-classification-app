@@ -120,7 +120,6 @@ python3 server.py</pre>
     return false;
 }
 
-// Les 8 userneeds dans l'ordre
 // MODELS — triés du meilleur au moins bon pour cette application
 // Coût estimé pour 50 articles : 50 × (400 tokens entrée + 120 tokens sortie)
 // = 20 000 tokens entrée + 6 000 tokens sortie
@@ -547,7 +546,7 @@ class PromptManager {
         const defaultPrompt = {
             id: 'prompt_default_system',
             name: 'Prompt système Franceinfo',
-            description: 'Prompt d\'origine avec 8 userneeds standards',
+            description: 'Prompt d\'origine avec 9 userneeds standards',
             isDefault: true,
             isActive: true,
             createdAt: new Date().toISOString(),
@@ -1174,7 +1173,8 @@ function initConfusionMatrix() {
     const matrixGrid = document.getElementById('confusionMatrix');
     matrixGrid.innerHTML = '';
 
-    for (let i = 0; i < 64; i++) {
+    const cellCount = USERNEEDS.length * USERNEEDS.length;
+    for (let i = 0; i < cellCount; i++) {
         const cell = document.createElement('div');
         cell.className = 'matrix-cell';
         cell.textContent = '0';

@@ -33,7 +33,7 @@ CREATE TABLE human_classifications (
   article_id UUID NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
   userneed TEXT NOT NULL CHECK (userneed IN (
     'UPDATE ME', 'EXPLAIN ME', 'GIVE ME PERSPECTIVE', 'DIVERT ME',
-    'GUIDE ME', 'INSPIRE ME', 'FEEL', 'VERIFY'
+    'GUIDE ME', 'INSPIRE ME', 'FEEL', 'VERIFY', 'SUMMARIZE'
   )),
   classified_by TEXT DEFAULT 'anonymous',
   classified_at TIMESTAMPTZ DEFAULT now(),

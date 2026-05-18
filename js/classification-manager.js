@@ -9,7 +9,7 @@ class ClassificationManager {
     /**
      * Classifie un article avec un userneed
      * @param {string} articleId - UUID Supabase de l'article
-     * @param {string} userneed - Un des 8 userneeds
+     * @param {string} userneed - Un des 9 userneeds
      * @param {string} classifiedBy - Identifiant de l'utilisateur (défaut: 'anonymous')
      */
     async classify(articleId, userneed, classifiedBy = 'anonymous') {

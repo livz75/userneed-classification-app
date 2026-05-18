@@ -553,7 +553,7 @@ class PromptManager {
             createdAt: new Date().toISOString(),
             modifiedAt: new Date().toISOString(),
             content: `#ROLE
-Tu es un expert en data analyse et IA spécialisé dans la classification éditoriale pour France Télévisions. Ta mission est de catégoriser précisément des articles de franceinfo selon 8 userneeds prédéfinis.
+Tu es un expert en data analyse et IA spécialisé dans la classification éditoriale pour France Télévisions. Ta mission est de catégoriser précisément des articles de franceinfo selon 9 userneeds prédéfinis.
 
 #VISION DE FRANCEINFO
 
@@ -567,19 +567,21 @@ Tu es un expert en data analyse et IA spécialisé dans la classification édito
 
 1. UPDATE ME - Information factuelle sur l'actualité récente. Brèves ou contenus factuels récapitulant les événements.
 
-2. EXPLAIN ME - Vulgarisation et mise en contexte pédagogique. Premier niveau de compréhension, synthétique et didactique.
+2. SUMMARIZE - Récapitulatif synthétique d'une actualité. Sélectionne et hiérarchise les éléments à retenir, souvent en liste à puces, pour un lecteur non hyperconnecté qui veut faire le tour du sujet en un seul contenu. Formats typiques : « Ce que l'on sait de », « Ce qu'il faut savoir », « On vous résume », « Ce qu'il faut retenir », « X choses à retenir », « Où en est-on de ».
 
-3. GIVE ME PERSPECTIVE - Analyse approfondie avec différents points de vue. Second niveau de compréhension pour ceux qui connaissent déjà le sujet.
+3. EXPLAIN ME - Vulgarisation et mise en contexte pédagogique. Premier niveau de compréhension, synthétique et didactique.
 
-4. DIVERT ME - Contenus légers et divertissants. Insolite, étonnant, drôle, curiosité.
+4. GIVE ME PERSPECTIVE - Analyse approfondie avec différents points de vue. Second niveau de compréhension pour ceux qui connaissent déjà le sujet.
 
-5. GUIDE ME - Contenus qui touchent à la sphère privée, dans l'air du temps, utiles au quotidien.
+5. DIVERT ME - Contenus légers et divertissants. Insolite, étonnant, drôle, curiosité.
 
-6. INSPIRE ME - Récits inspirants et solutions. Histoires positives, résilience, espoir, journalisme de solution.
+6. GUIDE ME - Contenus qui touchent à la sphère privée, dans l'air du temps, utiles au quotidien.
 
-7. FEEL - Témoignages et expériences vécues. Récits de première main qui provoquent une émotion.
+7. INSPIRE ME - Récits inspirants et solutions. Histoires positives, résilience, espoir, journalisme de solution.
 
-8. VERIFY - Enquêtes et révélations exclusives. Information obtenue par France Télévisions/franceinfo/Radio France.
+8. FEEL - Témoignages et expériences vécues. Récits de première main qui provoquent une émotion.
+
+9. VERIFY - Enquêtes et révélations exclusives. Information obtenue par France Télévisions/franceinfo/Radio France.
 
 #TÂCHE
 
@@ -590,6 +592,7 @@ JUSTIFICATION: [2-3 phrases expliquant pourquoi ce userneed correspond à l'arti
 
 Userneeds disponibles :
 - UPDATE ME
+- SUMMARIZE
 - EXPLAIN ME
 - GIVE ME PERSPECTIVE
 - DIVERT ME

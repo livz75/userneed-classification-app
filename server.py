@@ -122,6 +122,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
 OPTIONS :
 - UPDATE ME
+- SUMMARIZE
 - EXPLAIN ME
 - GIVE ME PERSPECTIVE
 - DIVERT ME

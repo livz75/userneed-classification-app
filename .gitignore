@@ -10,3 +10,9 @@ Thumbs.db
 
 # Vercel
 .vercel
+
+# Backups locaux (logs cron, snapshots JSON)
+backups/
+
+# Documents PDF (references locales)
+*.pdf

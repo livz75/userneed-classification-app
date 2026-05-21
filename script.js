@@ -30,6 +30,7 @@ let articleFilter = 'unclassified'; // 'all' | 'classified' | 'unclassified'
 let articleCategoryFilter = 'all'; // 'all' | '<category>'
 let articleMediaTypeFilter = 'all'; // 'all' | 'article' | 'video' | 'autre'
 let articleTitleSearch = ''; // recherche libre sur le titre
+let articleUserneedFilter = 'all'; // 'all' | <USERNEED> — actif seulement en mode "classified"
 
 // Variables pour le filtrage de la matrice
 let matrixFilter = {
@@ -2627,6 +2628,13 @@ function setArticleFilter(filter) {
     document.querySelectorAll('.article-filter-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.filter === filter);
     });
+    // Le sous-filtre User Need n'a de sens qu'en mode "classified" — reset sinon
+    if (filter !== 'classified') articleUserneedFilter = 'all';
+    renderFilteredArticles();
+}
+
+function setArticleUserneedFilter(userneed) {
+    articleUserneedFilter = userneed;
     renderFilteredArticles();
 }
 
@@ -2716,6 +2724,52 @@ async function refreshArticlesList(retries = 4) {
     document.getElementById('articlesList').innerHTML = '<p class="articles-empty">Erreur de chargement. Cliquez sur ↻ Actualiser pour réessayer.</p>';
 }
 
+function renderUserneedFilterChips(allArticles) {
+    const row = document.getElementById('userneedFilterRow');
+    const container = document.getElementById('userneedFilterChips');
+    if (!row || !container) return;
+
+    if (articleFilter !== 'classified') {
+        row.style.display = 'none';
+        return;
+    }
+    row.style.display = 'flex';
+
+    // Compteurs basés sur le corpus classifié entier (non re-filtré par catégorie/média/titre)
+    const counts = {};
+    USERNEEDS.forEach(un => counts[un] = 0);
+    let totalClassified = 0;
+    allArticles.forEach(a => {
+        const hc = a.human_classifications?.[0];
+        if (!hc) return;
+        const un = normalizeUserneed(hc.userneed);
+        if (un in counts) {
+            counts[un]++;
+            totalClassified++;
+        }
+    });
+
+    const chips = [];
+    chips.push(
+        `<button class="userneed-filter-chip ${articleUserneedFilter === 'all' ? 'active' : ''}"
+                 onclick="setArticleUserneedFilter('all')">
+            Tous <span class="chip-count">(${totalClassified})</span>
+         </button>`
+    );
+    USERNEEDS.forEach(un => {
+        const n = counts[un];
+        const isActive = articleUserneedFilter === un;
+        const disabledAttr = n === 0 ? 'disabled' : '';
+        chips.push(
+            `<button class="userneed-filter-chip ${isActive ? 'active' : ''}"
+                     onclick="setArticleUserneedFilter('${un}')" ${disabledAttr}>
+                ${un} <span class="chip-count">(${n})</span>
+             </button>`
+        );
+    });
+    container.innerHTML = chips.join('');
+}
+
 function renderFilteredArticles() {
     const listContainer = document.getElementById('articlesList');
     const statsSpan = document.getElementById('articleStats');
@@ -2741,6 +2795,16 @@ function renderFilteredArticles() {
             });
     } else if (articleFilter === 'unclassified') {
         filtered = articles.filter(a => !a.human_classifications || a.human_classifications.length === 0);
+    }
+
+    // Sous-filtre par User Need (uniquement en mode "classified")
+    // On reconstruit la barre de chips d'abord, puis on applique le filtre
+    renderUserneedFilterChips(articles);
+    if (articleFilter === 'classified' && articleUserneedFilter !== 'all') {
+        filtered = filtered.filter(a => {
+            const hc = a.human_classifications?.[0];
+            return hc && normalizeUserneed(hc.userneed) === articleUserneedFilter;
+        });
     }
 
     // Filtre catégorie

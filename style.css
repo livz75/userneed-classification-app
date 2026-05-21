@@ -2553,6 +2553,54 @@ input[type="file"] {
     color: var(--text-primary);
 }
 
+.articles-userneed-filter-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+
+.userneed-filter-chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.userneed-filter-chip {
+    padding: 3px 10px;
+    border-radius: 16px;
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    font-family: 'Poppins', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.userneed-filter-chip.active {
+    background: var(--accent-blue);
+    color: white;
+    border-color: var(--accent-blue);
+}
+
+.userneed-filter-chip:hover:not(.active):not(:disabled) {
+    border-color: var(--accent-blue);
+    color: var(--text-primary);
+}
+
+.userneed-filter-chip:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.userneed-filter-chip .chip-count {
+    opacity: 0.7;
+    font-size: 0.68rem;
+    margin-left: 4px;
+}
+
 .category-filter-select {
     padding: 4px 10px;
     border-radius: 20px;

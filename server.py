@@ -357,8 +357,15 @@ Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
     def log_message(self, format, *args):
         print(f"{self.address_string()} - {format % args}")
 
-class ReusableTCPServer(socketserver.TCPServer):
+class ReusableTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    # Multi-thread : chaque requête est traitée dans son propre thread.
+    # Sans ça (TCPServer mono-thread), une analyse batch (488 POST /api/analyze
+    # serialisés) bloque tout autre appel — ex. "Adapter le prompt" — qui finit
+    # coupé par le timeout edge (~100s) et renvoie un corps vide au front.
+    # Les requêtes sont I/O-bound (attente OpenRouter/Supabase), pas d'état
+    # mutable partagé : le threading est sûr ici.
     allow_reuse_address = True
+    daemon_threads = True
 
 if __name__ == '__main__':
     os.chdir(os.path.dirname(os.path.abspath(__file__)))

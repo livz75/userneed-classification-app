@@ -1263,8 +1263,11 @@ function updateConfusionMatrixDisplay() {
  * Active ou désactive le filtrage du tableau
  */
 function handleMatrixCellClick(cellIndex) {
-    const rowIndex = Math.floor(cellIndex / 8);
-    const colIndex = cellIndex % 8;
+    // Grille N×N où N = nombre de user needs (9). Ne PAS coder 8 en dur :
+    // l'ajout de SUMMARIZE (9e need) avait decale le mapping case→filtre.
+    const n = USERNEEDS.length;
+    const rowIndex = Math.floor(cellIndex / n);
+    const colIndex = cellIndex % n;
 
     const sourceUserneed = USERNEEDS[rowIndex];
     const predictionUserneed = USERNEEDS[colIndex];

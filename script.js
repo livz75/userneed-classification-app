@@ -150,7 +150,6 @@ const MODELS = [
     { id: 'google/gemini-flash-1.5',                    provider: 'Google',    name: 'Gemini Flash 1.5',       speed: '⚡⚡⚡ Très rapide', input: 0.075, output: 0.30,  quality: 3, french: 2, recommended: false, note: 'Le moins cher du marché' },
     { id: 'deepseek/deepseek-chat',                     provider: 'DeepSeek',  name: 'DeepSeek V3',            speed: '⚡⚡ Rapide',        input: 0.14,  output: 0.28,  quality: 4, french: 2, recommended: false, note: 'Très bon pour le prix' },
     { id: 'meta-llama/llama-3.3-70b-instruct',          provider: 'Meta',      name: 'Llama 3.3 70B',          speed: '⚡⚡ Rapide',        input: 0.13,  output: 0.40,  quality: 4, french: 2, recommended: false, note: 'Open source, bonne qualité' },
-    { id: 'anthropic/claude-3.5-sonnet',                provider: 'Anthropic', name: 'Claude 3.5 Sonnet',      speed: '⚡ Modéré',         input: 3.00,  output: 15.00, quality: 5, french: 3, recommended: false, note: 'Qualité maximale, idéal pour valider' },
     { id: 'openai/gpt-4o',                              provider: 'OpenAI',    name: 'GPT-4o',                 speed: '⚡ Modéré',         input: 2.50,  output: 10.00, quality: 5, french: 3, recommended: false, note: 'Très bonne qualité, coût élevé' },
     { id: 'google/gemini-pro-1.5',                      provider: 'Google',    name: 'Gemini Pro 1.5',         speed: '⚡ Modéré',         input: 1.25,  output: 5.00,  quality: 4, french: 2, recommended: false, note: 'Bon compromis qualité/prix' },
     { id: 'qwen/qwen-2.5-72b-instruct',                 provider: 'Alibaba',   name: 'Qwen 2.5 72B',           speed: '⚡ Modéré',         input: 0.40,  output: 0.40,  quality: 3, french: 2, recommended: false, note: 'Alternatif économique' },
@@ -170,6 +169,12 @@ const USERNEEDS = [
     'VERIFY',
     'SUMMARIZE'
 ];
+
+// Modèle utilisé pour les tâches "méta" (résumé comparatif, propositions
+// d'adaptation de prompt) — indépendant du modèle testé. Doit rester un slug
+// OpenRouter valide : l'ancien 'anthropic/claude-3.5-sonnet' a été retiré, ce
+// qui faisait échouer silencieusement ces fonctionnalités.
+const META_LLM_MODEL = 'anthropic/claude-sonnet-4.6';
 
 const USERNEED_COLORS = {
     'UPDATE ME':           '#3b82f6',
@@ -4274,7 +4279,7 @@ Sois direct, concis, et parle comme un expert qui s'adresse à une équipe édit
 
     try {
         const payload = providerManager.getRequestPayload(prompt);
-        payload.model = 'anthropic/claude-3.5-sonnet';
+        payload.model = META_LLM_MODEL;
         payload.system = '';  // Pas de system message de classification
 
         const response = await fetch('/api/analyze', {
@@ -4284,6 +4289,7 @@ Sois direct, concis, et parle comme un expert qui s'adresse à une équipe édit
         });
 
         const data = await response.json();
+        if (!response.ok) throw new Error(data.error?.message || data.error || `HTTP ${response.status}`);
         const text = data.content || data.choices?.[0]?.message?.content || 'Aucune réponse.';
 
         const el = document.getElementById('comparisonAISummary');
@@ -4362,11 +4368,13 @@ Ne génère pas encore le prompt complet. Sois direct et actionnable.`;
 
     try {
         const payload = providerManager.getRequestPayload(proposalPrompt);
-        payload.model = 'anthropic/claude-3.5-sonnet';
+        payload.model = META_LLM_MODEL;
         payload.system = '';
         const res = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message || data.error || `HTTP ${res.status}`);
         const proposals = (data.content || '').trim();
+        if (!proposals) throw new Error('Réponse vide du modèle');
         openAdaptPage(currentContent, proposals, null, run, promptName);
     } catch (err) {
         openAdaptPage(currentContent, `Erreur : ${err.message}`, null, run, promptName);
@@ -4411,11 +4419,12 @@ RÈGLES :
 
     try {
         const payload = providerManager.getRequestPayload(finalPrompt);
-        payload.model = 'anthropic/claude-3.5-sonnet';
+        payload.model = META_LLM_MODEL;
         payload.system = '';
         payload.max_tokens = 6000;
         const res = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message || data.error || `HTTP ${res.status}`);
         const diffOutput = (data.content || '').trim();
 
         // Appliquer les diffs au prompt original

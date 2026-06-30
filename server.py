@@ -85,7 +85,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 'status': 'ok',
                 'timestamp': int(__import__('time').time() * 1000),
                 'provider': 'openrouter',
-                'default_model': 'anthropic/claude-3.5-haiku'
+                'default_model': 'anthropic/claude-haiku-4.5'
             }).encode('utf-8'))
             return
 
@@ -192,7 +192,7 @@ Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
                 request_data = json.loads(post_data.decode('utf-8'))
                 api_key = request_data['apiKey']
                 prompt = request_data['prompt']
-                model = request_data.get('model', 'anthropic/claude-3.5-haiku')
+                model = request_data.get('model', 'anthropic/claude-haiku-4.5')
                 system = request_data.get('system', None)
                 max_tokens = request_data.get('max_tokens', 4096)
 

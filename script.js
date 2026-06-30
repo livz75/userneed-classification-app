@@ -155,7 +155,7 @@ const MODELS = [
     { id: 'qwen/qwen-2.5-72b-instruct',                 provider: 'Alibaba',   name: 'Qwen 2.5 72B',           speed: '⚡ Modéré',         input: 0.40,  output: 0.40,  quality: 3, french: 2, recommended: false, note: 'Alternatif économique' },
     { id: 'mistralai/mistral-medium',                   provider: 'Mistral',   name: 'Mistral Medium',         speed: '⚡ Modéré',         input: 0.40,  output: 1.20,  quality: 3, french: 3, recommended: false, note: 'Bon français, moins récent' },
     { id: 'meta-llama/llama-3.1-8b-instruct',           provider: 'Meta',      name: 'Llama 3.1 8B',           speed: '⚡⚡⚡ Très rapide', input: 0,     output: 0,     quality: 2, french: 1, recommended: false, note: 'Gratuit, qualité limitée' },
-    { id: 'anthropic/claude-3-opus',                    provider: 'Anthropic', name: 'Claude 3 Opus',          speed: '🐢 Lent',           input: 15.00, output: 75.00, quality: 5, french: 3, recommended: false, note: 'Le plus puissant, très coûteux' },
+    { id: 'anthropic/claude-opus-4.8',                  provider: 'Anthropic', name: 'Claude Opus 4.8',        speed: '⚡ Modéré',         input: 5.00,  output: 25.00, quality: 5, french: 3, recommended: true,  note: 'Flagship Anthropic le plus récent, raisonnement avancé' },
 ];
 
 const USERNEEDS = [

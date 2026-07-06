@@ -345,6 +345,31 @@ def update_missing_media_types(config):
 
 
 # ── Main ─────────────────────────────────────────────────────────────
+def is_import_enabled(config):
+    """Lit le flag app_settings.import_enabled dans Supabase.
+
+    Retourne True si l'import est autorisé. Fail-open : en cas d'erreur de
+    lecture (table absente, réseau, quota), on autorise l'import — un souci
+    transitoire ne doit pas figer l'import indéfiniment. La pause volontaire
+    passe par value='false', explicite.
+    """
+    url = config['supabase_url']
+    key = config['supabase_anon_key']
+    req = urllib.request.Request(
+        f'{url}/rest/v1/app_settings?key=eq.import_enabled&select=value',
+        headers={'apikey': key, 'Authorization': f'Bearer {key}'},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            rows = json.loads(resp.read().decode())
+        if rows:
+            return str(rows[0].get('value')).strip().lower() not in ('false', '0', 'off', 'no')
+        return True  # flag absent → comportement historique (import actif)
+    except Exception as e:
+        print(f'  ⚠️  Lecture du flag import_enabled impossible ({e}) — import autorisé par défaut')
+        return True
+
+
 def main():
     import time
 
@@ -369,6 +394,14 @@ def main():
         feeds = RSS_FEEDS
 
     config = load_config()
+
+    # Kill-switch : import désactivable via le flag Supabase app_settings.import_enabled
+    # (basculable depuis le bouton "Import" dans l'app). Aucun fetch/scraping/upsert si off.
+    if not is_import_enabled(config):
+        now = datetime.now().strftime('%H:%M:%S')
+        print(f'[{now}] ⏸  Import désactivé (app_settings.import_enabled=false) — aucun fetch ni upsert.')
+        return
+
     now = datetime.now().strftime('%H:%M:%S')
     print(f'[{now}] 🚀 Fetch RSS Franceinfo ({len(feeds)} feed(s))...')
 

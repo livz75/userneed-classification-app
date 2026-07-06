@@ -932,6 +932,67 @@ let sourceDistribution = {};
 let predictionDistribution = {};
 
 // Charger la clé API depuis le fichier config.json au démarrage
+// ── Toggle import automatique des articles (flag Supabase app_settings.import_enabled) ──
+// Le cron fetch_articles.py lit ce flag avant chaque import ; ce bouton le bascule.
+async function fetchImportEnabled() {
+    if (!isSupabaseAvailable()) return null;
+    const { data, error } = await supabaseClient
+        .from('app_settings').select('value').eq('key', 'import_enabled').maybeSingle();
+    if (error) { console.warn('⚠️ Lecture import_enabled:', error.message); return null; }
+    if (!data) return true; // flag absent → import considéré actif (comportement historique)
+    return String(data.value).trim().toLowerCase() !== 'false';
+}
+
+function renderImportToggle(enabled) {
+    const btn = document.getElementById('importToggleBtn');
+    if (!btn) return;
+    if (enabled === null) {
+        btn.textContent = '⏳ Import ?';
+        btn.className = 'nav-btn';
+        btn.title = 'État de l\'import inconnu (Supabase indisponible)';
+        btn.disabled = true;
+        return;
+    }
+    btn.disabled = false;
+    if (enabled) {
+        btn.textContent = '⏸ Import actif';
+        btn.className = 'nav-btn nav-btn-success';
+        btn.title = 'Import automatique ACTIF — cliquer pour mettre en pause';
+    } else {
+        btn.textContent = '▶ Import en pause';
+        btn.className = 'nav-btn nav-btn-warning';
+        btn.title = 'Import automatique EN PAUSE — cliquer pour réactiver';
+    }
+}
+
+async function setImportEnabled(enabled) {
+    const { error } = await supabaseClient.from('app_settings').upsert(
+        { key: 'import_enabled', value: enabled ? 'true' : 'false', updated_at: new Date().toISOString() },
+        { onConflict: 'key' }
+    );
+    if (error) {
+        console.error('❌ MAJ import_enabled:', error.message);
+        alert('Impossible de mettre à jour l\'état de l\'import : ' + error.message);
+        return false;
+    }
+    return true;
+}
+
+async function initImportToggle() {
+    const btn = document.getElementById('importToggleBtn');
+    if (!btn) return;
+    renderImportToggle(await fetchImportEnabled());
+    btn.addEventListener('click', async () => {
+        const current = await fetchImportEnabled();
+        const next = current !== true; // inconnu/pause → activer ; actif → pause
+        const verb = next ? 'RÉACTIVER' : 'METTRE EN PAUSE';
+        if (!confirm(`${verb} l'import automatique des articles ?\n\n(Prend effet au prochain passage du cron sur le serveur, d'ici quelques minutes.)`)) return;
+        btn.disabled = true;
+        const ok = await setImportEnabled(next);
+        renderImportToggle(ok ? next : current);
+    });
+}
+
 window.addEventListener('DOMContentLoaded', async () => {
     console.log('🚀 Démarrage de l\'application...');
 
@@ -943,6 +1004,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     // 1. Initialiser Supabase
     const supabaseOk = await initSupabase();
     console.log(supabaseOk ? '✅ Supabase connecté' : '⚠️ Supabase indisponible (mode localStorage)');
+
+    // Bouton d'activation/désactivation de l'import automatique des articles
+    initImportToggle();
 
     // 2. Initialiser le gestionnaire de prompts (sync = localStorage)
     promptManager = new PromptManager();

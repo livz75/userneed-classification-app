@@ -2797,6 +2797,93 @@ async function refreshArticlesList(retries = 4) {
     document.getElementById('articlesList').innerHTML = '<p class="articles-empty">Erreur de chargement. Cliquez sur ↻ Actualiser pour réessayer.</p>';
 }
 
+// ============================================
+// EXPORT DES ARTICLES CLASSÉS (ID + User Need)
+// ============================================
+
+/**
+ * Construit les lignes d'export [external_id, userNeed] pour tous les
+ * articles classés, dédupliquées par external_id.
+ */
+function getClassifiedExportRows() {
+    const seen = new Set();
+    const rows = [];
+    (currentArticles || []).forEach(a => {
+        if (!a.human_classifications || a.human_classifications.length === 0) return;
+        const un = normalizeUserneed(a.human_classifications[0].userneed);
+        if (!un) return;
+        const id = a.external_id;
+        if (id == null || id === '' || seen.has(id)) return;
+        seen.add(id);
+        // Coercer les IDs purement numériques en Number : Excel les traite alors
+        // comme des nombres (pas d'avertissement « nombre stocké en texte »).
+        rows.push([/^\d+$/.test(String(id)) ? Number(id) : id, un]);
+    });
+    return rows;
+}
+
+/** Déclenche le téléchargement d'un Blob dans le navigateur. */
+function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** Charge SheetJS (xlsx) à la demande, uniquement au premier export Excel. */
+function loadSheetJS() {
+    return new Promise((resolve, reject) => {
+        if (window.XLSX) return resolve(window.XLSX);
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+        s.onload = () => window.XLSX ? resolve(window.XLSX) : reject(new Error('XLSX indisponible'));
+        s.onerror = () => reject(new Error('Impossible de charger la librairie Excel'));
+        document.head.appendChild(s);
+    });
+}
+
+/**
+ * Exporte les articles classés (ID article + User Need) au format 'csv' ou 'xlsx'.
+ */
+async function exportClassifiedArticles(format) {
+    const rows = getClassifiedExportRows();
+    if (rows.length === 0) {
+        showToast('Aucun article classé à exporter.', 'error');
+        return;
+    }
+
+    const header = ['ID article', 'User Need'];
+    const dateStr = new Date().toISOString().slice(0, 10);
+
+    try {
+        if (format === 'csv') {
+            const escapeCsv = v => `"${String(v).replace(/"/g, '""')}"`;
+            const csv = '\uFEFF' + [header, ...rows]
+                .map(r => r.map(escapeCsv).join(';'))
+                .join('\r\n');
+            downloadBlob(
+                new Blob([csv], { type: 'text/csv;charset=utf-8;' }),
+                `articles-classes-userneeds-${dateStr}.csv`
+            );
+        } else {
+            const XLSX = await loadSheetJS();
+            const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+            ws['!cols'] = [{ wch: 14 }, { wch: 22 }];
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Articles classés');
+            XLSX.writeFile(wb, `articles-classes-userneeds-${dateStr}.xlsx`);
+        }
+        showToast(`${rows.length} articles exportés (${format.toUpperCase()}).`, 'success');
+    } catch (err) {
+        console.error('Erreur export:', err);
+        showToast(`Échec de l'export : ${err.message}`, 'error');
+    }
+}
+
 function renderUserneedFilterChips(allArticles) {
     const row = document.getElementById('userneedFilterRow');
     const container = document.getElementById('userneedFilterChips');

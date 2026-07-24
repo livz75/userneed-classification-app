@@ -2643,6 +2643,25 @@ input[type="file"] {
     color: var(--accent-purple);
 }
 
+/* Export buttons (CSV / Excel) */
+.articles-export-btn {
+    padding: 5px 12px;
+    border-radius: 8px;
+    border: 1.5px solid var(--border-color);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-family: 'Poppins', sans-serif;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s, background 0.2s;
+    margin-left: 8px;
+}
+.articles-export-btn:hover {
+    border-color: var(--accent-green, #34d399);
+    color: var(--accent-green, #34d399);
+    background: rgba(52, 211, 153, 0.08);
+}
+
 /* Corpus distribution chart toggle button */
 .articles-corpus-btn {
     padding: 5px 12px;

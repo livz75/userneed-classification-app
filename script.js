@@ -1684,10 +1684,11 @@ function createTableRow(article) {
         });
 
         // Modèle de décision : les scores sont des probabilités brutes, leur somme
-        // est donc < 100. On l'affiche pour que l'écart avec les LLM (qui sont, eux,
-        // contraints à un total de 100) ne se lise pas comme une sous-performance.
-        if (article.decisionsModel && article.probabilitiesTotal != null) {
-            const residual = 100 - article.probabilitiesTotal;
+        // peut donc être < 100. En pratique Jev concentre presque toujours sa
+        // probabilité sur le top 3 (somme = 100), donc on n'affiche la ligne que
+        // lorsqu'il reste vraiment du résidu — sinon c'est du bruit visuel.
+        const residual = 100 - (article.probabilitiesTotal ?? 100);
+        if (article.decisionsModel && residual > 0) {
             const totalRow = document.createElement('div');
             totalRow.className = 'prediction-total';
             totalRow.textContent = `total ${article.probabilitiesTotal}/100 — ${residual} % sur les 6 autres`;

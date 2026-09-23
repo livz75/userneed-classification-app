@@ -204,6 +204,142 @@ function isDecisionsModel(modelId) {
     return MODELS.find(m => m.id === modelId)?.api === 'decisions';
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PROMPT DE DÉCISION — système de prompt propre aux modèles de décision (Jev).
+//
+// Il est volontairement SÉPARÉ des prompts LLM : un modèle de décision n'exécute
+// pas d'arbre séquentiel, il évalue les 9 options en parallèle. Mesuré sur les
+// 501 articles labellisés, lui envoyer le prompt LLM complet fait tomber la
+// concordance de 71,7 % à 68,3 % et multiplie le coût par 5,4.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const DECISION_PROMPT_ID = 'decision_prompt_jev';
+
+const DECISION_INSTRUCTIONS_DEFAULT =
+    "Quel est le besoin principal (userneed) auquel cet article répond pour le lecteur de franceinfo ?";
+
+class DecisionPromptManager {
+    constructor() {
+        this.instructions = DECISION_INSTRUCTIONS_DEFAULT;
+        this.criteria = { ...USERNEED_CRITERIA };
+        this.supabaseReady = false;
+        this.loadFromStorage();
+    }
+
+    // Les libellés ne sont JAMAIS modifiables : ce sont les clés renvoyées par le
+    // modèle, et c'est ce qui rend un userneed non reconnu impossible.
+    setCriterion(userneed, texte) {
+        if (!USERNEEDS.includes(userneed)) return false;
+        this.criteria[userneed] = texte;
+        return true;
+    }
+
+    // Refuse un état incomplet : un critère vide dégraderait silencieusement le tri.
+    validate() {
+        const erreurs = [];
+        if (!this.instructions || !this.instructions.trim()) {
+            erreurs.push('La question posée au modèle ne peut pas être vide.');
+        }
+        USERNEEDS.forEach(u => {
+            if (!this.criteria[u] || !this.criteria[u].trim()) {
+                erreurs.push(`La définition de « ${u} » est vide.`);
+            }
+        });
+        return erreurs;
+    }
+
+    resetToDefaults() {
+        this.instructions = DECISION_INSTRUCTIONS_DEFAULT;
+        this.criteria = { ...USERNEED_CRITERIA };
+    }
+
+    isModified() {
+        return this.instructions !== DECISION_INSTRUCTIONS_DEFAULT
+            || USERNEEDS.some(u => this.criteria[u] !== USERNEED_CRITERIA[u]);
+    }
+
+    toJSON() {
+        return { instructions: this.instructions, criteria: this.criteria };
+    }
+
+    applyJSON(obj) {
+        if (!obj) return;
+        if (typeof obj.instructions === 'string') this.instructions = obj.instructions;
+        if (obj.criteria) {
+            // On ne reprend que les libellés canoniques : une clé inconnue venant
+            // d'une sauvegarde ancienne ou corrompue est ignorée, pas propagée.
+            USERNEEDS.forEach(u => {
+                if (typeof obj.criteria[u] === 'string' && obj.criteria[u].trim()) {
+                    this.criteria[u] = obj.criteria[u];
+                }
+            });
+        }
+    }
+
+    saveToStorage() {
+        try {
+            localStorage.setItem(DECISION_PROMPT_ID, JSON.stringify(this.toJSON()));
+        } catch (e) {
+            console.warn('Prompt de décision : échec de la sauvegarde locale', e);
+        }
+    }
+
+    loadFromStorage() {
+        try {
+            const brut = localStorage.getItem(DECISION_PROMPT_ID);
+            if (brut) this.applyJSON(JSON.parse(brut));
+        } catch (e) {
+            console.warn('Prompt de décision : sauvegarde locale illisible, retour aux valeurs par défaut', e);
+        }
+    }
+
+    // Persistance Supabase : réutilise la table `prompts` sous un id réservé, pour
+    // que le prompt de décision suive l'utilisateur entre local, Hostinger et Render.
+    // `promptManager` filtre cet id afin de ne pas l'afficher comme un prompt LLM.
+    async initializeAsync() {
+        if (!isSupabaseAvailable()) {
+            console.log('🎯 Prompt de décision : mode localStorage uniquement');
+            return;
+        }
+        try {
+            const { data, error } = await supabaseClient
+                .from('prompts').select('content').eq('id', DECISION_PROMPT_ID).maybeSingle();
+            if (error) throw error;
+            if (data && data.content) {
+                this.applyJSON(typeof data.content === 'string' ? JSON.parse(data.content) : data.content);
+                this.saveToStorage();
+            }
+            this.supabaseReady = true;
+            console.log('✅ Prompt de décision synchronisé avec Supabase');
+        } catch (e) {
+            console.warn('⚠️ Prompt de décision : fallback localStorage —', e.message);
+        }
+    }
+
+    async save() {
+        this.saveToStorage();
+        if (!isSupabaseAvailable()) return;
+        try {
+            const { error } = await supabaseClient.from('prompts').upsert({
+                id: DECISION_PROMPT_ID,
+                name: 'Prompt de décision — Jev',
+                description: 'Question et définitions envoyées aux modèles de décision (API Decisions)',
+                content: JSON.stringify(this.toJSON()),
+                is_default: false,
+                is_active: false,
+                userneeds: USERNEEDS,
+                metadata: { kind: 'decision' },
+                modified_at: new Date().toISOString()
+            });
+            if (error) throw error;
+        } catch (e) {
+            console.warn('⚠️ Prompt de décision : sauvegarde Supabase impossible —', e.message);
+        }
+    }
+}
+
+let decisionPromptManager = new DecisionPromptManager();
+
 // Modèle utilisé pour les tâches "méta" (résumé comparatif, propositions
 // d'adaptation de prompt) — indépendant du modèle testé. Doit rester un slug
 // OpenRouter valide : l'ancien 'anthropic/claude-3.5-sonnet' a été retiré, ce
@@ -526,7 +662,9 @@ class PromptManager {
         }
 
         if (data && data.length > 0) {
-            this.prompts = data.map(row => ({
+            // Le prompt de décision (Jev) vit dans la même table sous un id réservé,
+            // mais ce n'est pas un prompt LLM : il ne doit jamais apparaître ici.
+            this.prompts = data.filter(row => row.id !== DECISION_PROMPT_ID).map(row => ({
                 id: row.id,
                 name: row.name,
                 description: row.description || '',
@@ -944,17 +1082,17 @@ class ProviderManager {
     }
 
     getRequestPayload(prompt, article = null) {
-        // Modèle de décision (Jev) : pas de prompt libre. L'article part en `state`
-        // (données brutes) et le prompt éditable part en `instructions` (la question
-        // posée), les options étant décrites une à une dans `criteria`.
+        // Modèle de décision (Jev) : il a son PROPRE système de prompt, distinct des
+        // prompts LLM. L'article part en `state`, la question en `instructions` et
+        // les 9 définitions en `criteria` — voir DecisionPromptManager.
         if (article && isDecisionsModel(this.selectedModel)) {
             return {
                 apiKey: this.openrouterApiKey,
                 model: this.selectedModel,
                 api: 'decisions',
                 state: { titre: article.titre, chapo: article.chapo, corps: article.corps },
-                instructions: promptManager.getActivePrompt()?.content || '',
-                criteria: USERNEED_CRITERIA
+                instructions: decisionPromptManager.instructions,
+                criteria: decisionPromptManager.criteria
             };
         }
 
@@ -1062,6 +1200,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     // 3. Synchroniser les prompts avec Supabase (async)
     if (supabaseOk) {
         await promptManager.initializeAsync();
+        await decisionPromptManager.initializeAsync();
     }
 
     // 4. Initialiser le gestionnaire de provider
@@ -2401,6 +2540,9 @@ async function _doAnalyzeArticle(apiKey, titre, chapo, corps, attempt = 1) {
     try {
         addLog(`🔌 Provider: OpenRouter`, 'info');
         addLog(`🤖 Modèle: ${providerManager.selectedModel}`, 'info');
+        addLog(isDecisionsModel(providerManager.selectedModel)
+            ? `🎯 Prompt de décision (les prompts LLM ne sont pas utilisés)`
+            : `📝 Prompt LLM : ${promptManager.getActivePrompt()?.name || '—'}`, 'info');
         addLog(`🔑 Vérification de la clé API (longueur: ${apiKey.length} caractères)`, 'info');
         addLog(`🌐 Connexion au serveur proxy...`, 'info');
 
@@ -5041,6 +5183,35 @@ function renderModelPicker() {
             renderModelPicker();
         });
     });
+
+    renderDecisionBanner();
+}
+
+// Bandeau affiché dès qu'un modèle de décision est sélectionné : sans lui, rien
+// ne signale que l'éditeur de prompt LLM n'a plus aucun effet sur l'analyse.
+function renderDecisionBanner() {
+    const banner = document.getElementById('decisionModelBanner');
+    if (!banner) return;
+
+    const modele = MODELS.find(m => m.id === providerManager?.selectedModel);
+    if (!modele || modele.api !== 'decisions') {
+        banner.style.display = 'none';
+        return;
+    }
+
+    const modifie = decisionPromptManager.isModified();
+    banner.style.display = '';
+    banner.innerHTML = `
+        <span class="decision-banner-icon">🎯</span>
+        <div class="decision-banner-text">
+            <strong>${modele.name} — modèle de décision.</strong>
+            Il n'utilise pas les prompts LLM mais son <strong>propre prompt de décision</strong> :
+            une question et les 9 définitions de user needs.
+            ${modifie ? '<em>Définitions modifiées par rapport à la référence.</em>' : ''}
+        </div>
+        <button type="button" class="decision-banner-link" onclick="openPromptPanel()">
+            Voir / modifier
+        </button>`;
 }
 
 function initializeProviderUI() {
@@ -5220,17 +5391,119 @@ function savePrompt() {
     refreshPromptList();
 }
 
+// Carte du prompt de décision — système distinct des prompts LLM, rendu en tête
+// de liste. Les 9 LIBELLÉS ne sont pas éditables (ce sont les clés renvoyées par
+// le modèle) ; seules leurs définitions le sont.
+function buildDecisionPromptCard(decisionActif) {
+    const card = document.createElement('div');
+    card.className = 'decision-prompt-card' + (decisionActif ? ' active' : ' dimmed');
+
+    const dpm = decisionPromptManager;
+    const badge = decisionActif
+        ? '<span class="dp-badge active">● ACTIF</span>'
+        : '<span class="dp-badge">inactif</span>';
+    const sousTitre = decisionActif
+        ? "Utilisé par le modèle de décision sélectionné"
+        : "Utilisé uniquement par les modèles de décision (Jev)";
+
+    card.innerHTML = `
+        <div class="dp-header">
+            <div class="dp-title">🎯 Prompt de décision — Jev 1.13</div>
+            ${badge}
+        </div>
+        <div class="dp-subtitle">${sousTitre}</div>
+
+        <label class="dp-label" for="dpInstructions">Question posée au modèle</label>
+        <textarea id="dpInstructions" class="dp-textarea" rows="2"></textarea>
+
+        <button type="button" class="dp-toggle" id="dpToggle">▸ Les 9 définitions</button>
+        <div id="dpCriteria" class="dp-criteria" style="display:none;"></div>
+
+        <div class="dp-actions">
+            <button type="button" class="dp-btn primary" id="dpSave">Enregistrer</button>
+            <button type="button" class="dp-btn" id="dpReset">Réinitialiser aux définitions officielles</button>
+            <span class="dp-status" id="dpStatus">${dpm.isModified() ? 'Modifié' : 'Référence officielle'}</span>
+        </div>`;
+
+    card.querySelector('#dpInstructions').value = dpm.instructions;
+
+    const zone = card.querySelector('#dpCriteria');
+    USERNEEDS.forEach(u => {
+        const bloc = document.createElement('div');
+        bloc.className = 'dp-criterion';
+        const lab = document.createElement('div');
+        lab.className = 'dp-criterion-label';
+        lab.textContent = u;                       // libellé figé, non éditable
+        const ta = document.createElement('textarea');
+        ta.className = 'dp-criterion-text';
+        ta.rows = 4;
+        ta.value = dpm.criteria[u] || '';
+        ta.dataset.userneed = u;
+        bloc.appendChild(lab);
+        bloc.appendChild(ta);
+        zone.appendChild(bloc);
+    });
+
+    card.querySelector('#dpToggle').addEventListener('click', (e) => {
+        const ouvert = zone.style.display !== 'none';
+        zone.style.display = ouvert ? 'none' : '';
+        e.target.textContent = (ouvert ? '▸' : '▾') + ' Les 9 définitions';
+    });
+
+    card.querySelector('#dpSave').addEventListener('click', async () => {
+        dpm.instructions = card.querySelector('#dpInstructions').value;
+        zone.querySelectorAll('textarea[data-userneed]').forEach(ta => {
+            dpm.setCriterion(ta.dataset.userneed, ta.value);
+        });
+        const erreurs = dpm.validate();
+        if (erreurs.length) {
+            // On ne sauvegarde pas un état incomplet : un critère vide dégraderait
+            // le tri sans que rien ne le signale à l'analyse.
+            dpm.loadFromStorage();
+            alert('Enregistrement refusé :\n\n' + erreurs.join('\n'));
+            refreshPromptList();
+            return;
+        }
+        await dpm.save();
+        refreshPromptList();
+        renderDecisionBanner();
+    });
+
+    card.querySelector('#dpReset').addEventListener('click', async () => {
+        if (!confirm('Revenir aux 9 définitions officielles et à la question par défaut ?')) return;
+        dpm.resetToDefaults();
+        await dpm.save();
+        refreshPromptList();
+        renderDecisionBanner();
+    });
+
+    return card;
+}
+
 function refreshPromptList() {
     const promptList = document.getElementById('promptList');
     const promptCount = document.getElementById('promptCount');
     const prompts = promptManager.prompts;
-    
+    const decisionActif = isDecisionsModel(providerManager?.selectedModel);
+
     promptCount.textContent = prompts.length;
     promptList.innerHTML = '';
+
+    // Deux systèmes de prompt distincts, séparés visuellement pour qu'on ne puisse
+    // pas éditer un prompt qui n'est pas lu par le modèle sélectionné.
+    promptList.appendChild(buildDecisionPromptCard(decisionActif));
+
+    const separateur = document.createElement('div');
+    separateur.className = 'prompt-section-separator' + (decisionActif ? ' dimmed' : '');
+    separateur.textContent = decisionActif
+        ? 'Prompts LLM — non utilisés par le modèle sélectionné'
+        : 'Prompts LLM';
+    promptList.appendChild(separateur);
 
     prompts.forEach(prompt => {
         const card = document.createElement('div');
         card.className = 'prompt-card';
+        if (decisionActif) card.classList.add('dimmed');
         if (prompt.isActive) card.classList.add('active');
 
         const header = document.createElement('div');

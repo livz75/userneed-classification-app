@@ -4625,3 +4625,184 @@ input[type="file"] {
     margin: 4px 0 0 0;
     line-height: 1.5;
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   PROMPT DE DÉCISION (modèles type Jev)
+   Système de prompt distinct des prompts LLM. Le contraste visuel entre les
+   deux blocs est fonctionnel : il empêche d'éditer un prompt que le modèle
+   sélectionné ne lit pas.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.decision-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: linear-gradient(90deg, rgba(139, 92, 246, 0.18), rgba(59, 130, 246, 0.10));
+    border: 1px solid var(--accent-purple);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 14px;
+}
+
+.decision-banner-icon { font-size: 1.3rem; line-height: 1; flex-shrink: 0; }
+
+.decision-banner-text {
+    flex: 1;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--text-primary);
+}
+
+.decision-banner-text em {
+    display: inline-block;
+    margin-left: 4px;
+    color: var(--accent-blue);
+    font-style: normal;
+    font-weight: 600;
+}
+
+.decision-banner-link {
+    flex-shrink: 0;
+    background: var(--accent-purple);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 7px 14px;
+    font-size: 0.78rem;
+    font-family: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter 0.2s ease;
+}
+
+.decision-banner-link:hover { filter: brightness(1.15); }
+
+.decision-prompt-card {
+    background: var(--bg-darker);
+    border: 2px solid var(--accent-purple);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 18px;
+    transition: opacity 0.3s ease, border-color 0.3s ease;
+}
+
+.decision-prompt-card.dimmed { opacity: 0.5; border-color: var(--border-color); }
+.decision-prompt-card.dimmed:hover { opacity: 0.85; }
+
+.dp-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.dp-title { font-weight: 600; font-size: 0.95rem; color: var(--text-primary); }
+
+.dp-badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.dp-badge.active { background: var(--accent-purple); color: #fff; }
+
+.dp-subtitle { font-size: 0.74rem; color: var(--text-secondary); margin: 4px 0 14px; }
+
+.dp-label {
+    display: block;
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+}
+
+.dp-textarea,
+.dp-criterion-text {
+    width: 100%;
+    background: var(--bg-dark);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 9px 11px;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    resize: vertical;
+}
+
+.dp-textarea:focus,
+.dp-criterion-text:focus { outline: none; border-color: var(--accent-purple); }
+
+.dp-toggle {
+    background: none;
+    border: none;
+    color: var(--accent-blue);
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 12px 0 6px;
+}
+
+.dp-criteria {
+    border-top: 1px solid var(--border-color);
+    padding-top: 12px;
+    margin-bottom: 6px;
+}
+
+.dp-criterion { margin-bottom: 14px; }
+
+/* Le libellé est un intitulé figé, pas un champ : il ne doit pas ressembler
+   à quelque chose d'éditable. */
+.dp-criterion-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: var(--accent-purple);
+    margin-bottom: 5px;
+}
+
+.dp-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    border-top: 1px solid var(--border-color);
+    padding-top: 12px;
+}
+
+.dp-btn {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 7px 13px;
+    font-family: inherit;
+    font-size: 0.76rem;
+    cursor: pointer;
+    transition: filter 0.2s ease;
+}
+
+.dp-btn:hover { filter: brightness(1.2); }
+.dp-btn.primary { background: var(--accent-purple); border-color: var(--accent-purple); color: #fff; font-weight: 600; }
+.dp-status { font-size: 0.72rem; color: var(--text-secondary); margin-left: auto; font-style: italic; }
+
+.prompt-section-separator {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 6px;
+    margin: 4px 0 14px;
+}
+
+.prompt-section-separator.dimmed { opacity: 0.6; }
+.prompt-card.dimmed { opacity: 0.45; }
+.prompt-card.dimmed:hover { opacity: 0.8; }
+
+@media (max-width: 640px) {
+    .decision-banner { flex-wrap: wrap; }
+    .decision-banner-link { width: 100%; }
+    .dp-status { margin-left: 0; width: 100%; }
+}

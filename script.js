@@ -2161,7 +2161,28 @@ function hideError() {
 let currentTestRunId = null; // ID du test run en cours
 let totalClassifiedArticles = 0; // Nombre total d'articles classifiés pour l'analyse en cours
 
+// Garde de réentrance. Sans elle, tout second déclenchement pendant qu'une
+// analyse tourne lance une SECONDE boucle concurrente sur les mêmes articles :
+// chaque article est analysé deux fois (coût API doublé), la matrice de confusion
+// et la liste live comptent double, et `ai_analyses` reçoit des lignes en double.
+// Masquer le bouton ne suffit pas : il ne l'est qu'après le chargement des
+// articles (plusieurs secondes), et les chemins pause/reprise le ré-affichent.
+let analysisInProgress = false;
+
 async function analyzeWithAI() {
+    if (analysisInProgress) {
+        addLog('⚠️ Une analyse est déjà en cours — ce lancement est ignoré.', 'error');
+        return;
+    }
+    analysisInProgress = true;
+    try {
+        return await runAnalysis();
+    } finally {
+        analysisInProgress = false;
+    }
+}
+
+async function runAnalysis() {
     // Vérifier la configuration OpenRouter
     if (!providerManager.isConfigured()) {
         showError('Veuillez configurer votre clé API OpenRouter dans le panneau 🤖 LLM ou dans le fichier config.json');

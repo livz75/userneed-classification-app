@@ -181,16 +181,25 @@ const USERNEEDS = [
 // il reçoit une définition par option et renvoie une probabilité pour chacune.
 // Les clés DOIVENT rester strictement égales aux libellés de USERNEEDS : ce sont
 // elles que le modèle renvoie, ce qui rend tout libellé non reconnu impossible.
+//
+// SOURCE : ces définitions sont dérivées du « Prompt V5 Générique » (v11 interne),
+// étapes 1 à 8 de son arbre de décision. Deux mécanismes du prompt ne sont PAS
+// transposables ici, car Jev évalue les 9 options en parallèle et non en cascade :
+//   1. l'ORDRE des étapes et ses flags anti-absorption ;
+//   2. le statut de GIVE ME PERSPECTIVE comme catégorie par défaut (ce qui reste
+//      quand les 7 autres étapes ont échoué).
+// Les exclusions contrastives du prompt (« ce n'est pas X si… ») sont donc
+// réintégrées dans chaque définition : c'est ce qui reste exprimable du tri.
 const USERNEED_CRITERIA = {
-    'UPDATE ME':           "L'article rapporte un fait d'actualité récent ; le lecteur veut savoir ce qui vient de se passer.",
-    'EXPLAIN ME':          "L'article décrypte les causes, les mécanismes ou le contexte ; le lecteur veut comprendre le pourquoi.",
-    'GIVE ME PERSPECTIVE': "L'article ouvre un angle, confronte des points de vue ou replace le fait dans une tendance plus large.",
-    'DIVERT ME':           "L'article distrait : insolite, culture, sport-spectacle, sujet léger consommé pour le plaisir.",
-    'GUIDE ME':            "L'article aide le lecteur à agir ou à décider : conseils pratiques, démarches, conséquences concrètes sur sa vie.",
-    'INSPIRE ME':          "L'article donne une énergie positive : initiative qui réussit, portrait motivant, solution qui marche.",
-    'FEEL':                "L'article cherche l'émotion et l'empathie : témoignage, récit intime, drame humain vécu de l'intérieur.",
-    'VERIFY':              "L'article vérifie une affirmation, démêle le vrai du faux, corrige une rumeur ou une manipulation.",
-    'SUMMARIZE':           "L'article récapitule l'essentiel d'un sujet déjà connu : point d'étape, ce qu'il faut retenir."
+    'UPDATE ME':           "L'article rapporte principalement un fait récent, un événement, une décision, une déclaration ou un résultat. Traitement factuel (qui, quoi, quand, où), format court à moyen, citations de réaction à chaud. UPDATE ME se limite au STRICT rapport des faits. Ce n'est PAS UPDATE ME si le ton est délibérément léger et le sujet insolite, culturel ou people (DIVERT ME), si l'article contextualise pour faire comprendre (EXPLAIN ME), ou s'il porte une thèse ou confronte des arguments (GIVE ME PERSPECTIVE).",
+    'EXPLAIN ME':          "L'article a pour fonction principale de faire COMPRENDRE un sujet. Format pédagogique : FAQ, « X questions sur… », « l'article à lire pour comprendre », décryptage, « d'où vient… », « que nous apprennent… ». Il décompose, contextualise ou vulgarise un sujet complexe de façon relativement neutre, et apporte le POURQUOI et le COMMENT. S'il se contente de lister les points à retenir sans expliquer les causes, c'est SUMMARIZE. S'il part d'une affirmation à évaluer, c'est VERIFY.",
+    'GIVE ME PERSPECTIVE': "L'article ANALYSE pour un public déjà informé : plusieurs points de vue ou arguments confrontés, entretien d'expert qui interprète (et pas seulement qui explique), exploration des causes profondes et des conséquences à long terme, angle contre-intuitif ou thèse originale, comparaisons internationales, mise en relation de plusieurs actualités, analyse de données. L'article argumente ou prend position. Distinction clé : PERSPECTIVE analyse pour qui sait déjà, EXPLAIN ME vulgarise pour qui découvre.",
+    'DIVERT ME':           "L'article est léger, insolite, curieux ou divertissant : histoire cocasse ou improbable, sujet culturel ou people traité avec légèreté, découverte scientifique ou technologique abordée sous l'angle de la curiosité, exploit sportif spectaculaire, coulisses traitées sur un ton léger. Le lecteur sourit ou est intrigué. DÉCISIF : la présence d'une date récente, d'un fait précis ou d'une structure factuelle ne suffit PAS à en faire UPDATE ME — c'est le TON GÉNÉRAL et l'INTENTION DE DIVERTIR qui priment sur la structure factuelle.",
+    'GUIDE ME':            "L'article aide le lecteur à gérer un aspect de SA vie quotidienne ou de SA sphère privée. Test décisif : le lecteur peut-il AGIR concrètement sur sa propre vie grâce à cet article, noter des conseils pour s'en servir plus tard ? Santé, alimentation, budget, impôts, logement, parentalité, emploi, démarches administratives, risque sanitaire concret. Le sujet seul ne suffit pas : il faut un angle PERSONNEL et PRATIQUE. Si l'article explique un phénomène sans permettre d'agir, c'est EXPLAIN ME.",
+    'INSPIRE ME':          "L'article met en avant une solution concrète, une initiative positive et ses résultats, ou un parcours de réussite, de résilience ou de dépassement ; le ton est porteur d'espoir. Journalisme de solution : le problème est mentionné mais l'article se concentre sur la RÉPONSE. Si des témoignages décrivent une transformation positive ou une résilience aboutie, c'est INSPIRE ME et non FEEL. Si l'article explique au lecteur comment accomplir lui-même la démarche, c'est GUIDE ME.",
+    'FEEL':                "L'article est construit AUTOUR de témoignages immersifs qui en forment la colonne vertébrale : les personnes qui témoignent sont centrales, retirer les témoignages ferait perdre l'essentiel de la valeur, et le récit provoque une émotion forte de première main. RÉSERVÉ aux récits de souffrance, de vécu difficile ou d'émotion brute sans résolution positive : si les témoignages se résument par « ça a marché, ils s'en sont sortis », c'est INSPIRE ME. Des citations ponctuelles, même émouvantes, ne suffisent pas.",
+    'VERIFY':              "L'article relève d'un travail propre de la rédaction : soit (A) une enquête ou révélation exclusive — « selon nos informations », étiquette ENQUÊTE ou DOCUMENT, document inédit, témoignages inédits recueillis par la rédaction — soit (B) la vérification méthodique d'une affirmation contestée : « vrai ou faux », « intox ou info », étiquette FACT-CHECK, méthodologie de vérification, verdict explicite (vrai, faux, trompeur). Ce n'est PAS VERIFY si l'article reprend les révélations d'un autre média, ou s'il résume des documents déjà publics.",
+    'SUMMARIZE':           "L'article a pour fonction principale de RÉCAPITULER : sélectionner, hiérarchiser et synthétiser en un seul contenu les points essentiels d'une actualité. Il faut À LA FOIS un marqueur de format (« ce qu'il faut retenir de… », « on vous résume ») ET une réelle fonction de synthèse : le contenu LISTE effectivement des faits ou des points à retenir. S'il consacre l'essentiel de son contenu à expliquer des causes, des mécanismes ou un contexte historique, c'est EXPLAIN ME."
 };
 
 // Vrai si le modèle passe par l'API Decisions plutôt que par chat/completions.

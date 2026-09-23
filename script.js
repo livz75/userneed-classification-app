@@ -157,6 +157,11 @@ const MODELS = [
     { id: 'mistralai/mistral-medium-3.1',               provider: 'Mistral',   name: 'Mistral Medium 3.1',     speed: '⚡ Modéré',         input: 0.40,  output: 2.00,  quality: 4, french: 3, recommended: false, note: 'Modèle européen équilibré, bon français' },
     { id: 'meta-llama/llama-3.1-8b-instruct',           provider: 'Meta',      name: 'Llama 3.1 8B',           speed: '⚡⚡⚡ Très rapide', input: 0.02,  output: 0.03,  quality: 2, french: 1, recommended: false, note: 'Quasi gratuit, qualité limitée' },
     { id: 'anthropic/claude-opus-4.8',                  provider: 'Anthropic', name: 'Claude Opus 4.8',        speed: '⚡ Modéré',         input: 5.00,  output: 25.00, quality: 5, french: 3, recommended: true,  note: 'Flagship Anthropic le plus récent, raisonnement avancé' },
+    // Jev n'est PAS un LLM : c'est un modèle de décision (« System One ») qui renvoie
+    // un choix typé + une probabilité par option, sans aucun texte ni raisonnement.
+    // Il ne répond donc pas sur /v1/chat/completions mais sur /api/alpha/decisions —
+    // d'où le drapeau `api: 'decisions'`, seul aiguillage utilisé dans tout le code.
+    { id: 'typesafe/jev-1.13',                          provider: 'TypeSafe',  name: 'Jev 1.13',               speed: '⚡⚡⚡ Très rapide', input: 0.042, output: 0,     quality: 4, french: 2, recommended: false, note: 'Modèle de décision, pas un LLM : classe sans justifier, le moins cher à qualité égale', api: 'decisions' },
 ];
 
 const USERNEEDS = [
@@ -170,6 +175,28 @@ const USERNEEDS = [
     'VERIFY',
     'SUMMARIZE'
 ];
+
+// Définitions transmises aux modèles de décision (Jev) dans le champ `criteria`.
+// Contrairement aux LLM, Jev ne reçoit pas de prompt libre listant les options :
+// il reçoit une définition par option et renvoie une probabilité pour chacune.
+// Les clés DOIVENT rester strictement égales aux libellés de USERNEEDS : ce sont
+// elles que le modèle renvoie, ce qui rend tout libellé non reconnu impossible.
+const USERNEED_CRITERIA = {
+    'UPDATE ME':           "L'article rapporte un fait d'actualité récent ; le lecteur veut savoir ce qui vient de se passer.",
+    'EXPLAIN ME':          "L'article décrypte les causes, les mécanismes ou le contexte ; le lecteur veut comprendre le pourquoi.",
+    'GIVE ME PERSPECTIVE': "L'article ouvre un angle, confronte des points de vue ou replace le fait dans une tendance plus large.",
+    'DIVERT ME':           "L'article distrait : insolite, culture, sport-spectacle, sujet léger consommé pour le plaisir.",
+    'GUIDE ME':            "L'article aide le lecteur à agir ou à décider : conseils pratiques, démarches, conséquences concrètes sur sa vie.",
+    'INSPIRE ME':          "L'article donne une énergie positive : initiative qui réussit, portrait motivant, solution qui marche.",
+    'FEEL':                "L'article cherche l'émotion et l'empathie : témoignage, récit intime, drame humain vécu de l'intérieur.",
+    'VERIFY':              "L'article vérifie une affirmation, démêle le vrai du faux, corrige une rumeur ou une manipulation.",
+    'SUMMARIZE':           "L'article récapitule l'essentiel d'un sujet déjà connu : point d'étape, ce qu'il faut retenir."
+};
+
+// Vrai si le modèle passe par l'API Decisions plutôt que par chat/completions.
+function isDecisionsModel(modelId) {
+    return MODELS.find(m => m.id === modelId)?.api === 'decisions';
+}
 
 // Modèle utilisé pour les tâches "méta" (résumé comparatif, propositions
 // d'adaptation de prompt) — indépendant du modèle testé. Doit rester un slug
@@ -910,7 +937,21 @@ class ProviderManager {
         return this.openrouterApiKey;
     }
 
-    getRequestPayload(prompt) {
+    getRequestPayload(prompt, article = null) {
+        // Modèle de décision (Jev) : pas de prompt libre. L'article part en `state`
+        // (données brutes) et le prompt éditable part en `instructions` (la question
+        // posée), les options étant décrites une à une dans `criteria`.
+        if (article && isDecisionsModel(this.selectedModel)) {
+            return {
+                apiKey: this.openrouterApiKey,
+                model: this.selectedModel,
+                api: 'decisions',
+                state: { titre: article.titre, chapo: article.chapo, corps: article.corps },
+                instructions: promptManager.getActivePrompt()?.content || '',
+                criteria: USERNEED_CRITERIA
+            };
+        }
+
         return {
             apiKey: this.openrouterApiKey,
             model: this.selectedModel,
@@ -1642,6 +1683,22 @@ function createTableRow(article) {
             predContainer.appendChild(predRow);
         });
 
+        // Modèle de décision : les scores sont des probabilités brutes, leur somme
+        // est donc < 100. On l'affiche pour que l'écart avec les LLM (qui sont, eux,
+        // contraints à un total de 100) ne se lise pas comme une sous-performance.
+        if (article.decisionsModel && article.probabilitiesTotal != null) {
+            const residual = 100 - article.probabilitiesTotal;
+            const totalRow = document.createElement('div');
+            totalRow.className = 'prediction-total';
+            totalRow.textContent = `total ${article.probabilitiesTotal}/100 — ${residual} % sur les 6 autres`;
+            totalRow.style.fontSize = '0.78em';
+            totalRow.style.color = '#9ca3af';
+            totalRow.style.fontStyle = 'italic';
+            totalRow.style.marginTop = '4px';
+            totalRow.title = 'Jev répartit sa probabilité sur les 9 userneeds ; seuls les 3 premiers sont affichés.';
+            predContainer.appendChild(totalRow);
+        }
+
         aiTd.appendChild(predContainer);
     } else {
         // Fallback pour ancien format (un seul userneed)
@@ -1672,7 +1729,7 @@ function createTableRow(article) {
         principalJustification = article.predictions[0].justification;
     }
 
-    if (principalJustification || !article.isMatch) {
+    if (principalJustification || !article.isMatch || article.decisionsModel) {
         const justifContainer = document.createElement('div');
         justifContainer.className = 'justification-container';
         justifContainer.style.display = 'flex';
@@ -1702,7 +1759,9 @@ function createTableRow(article) {
         } else {
             const noJustifText = document.createElement('span');
             noJustifText.className = 'justification-text';
-            noJustifText.textContent = 'Justification non disponible';
+            noJustifText.textContent = article.decisionsModel
+                ? 'Ne justifie pas — modèle de décision'
+                : 'Justification non disponible';
             noJustifText.style.flex = '1';
             noJustifText.style.fontSize = '0.9em';
             noJustifText.style.color = '#9ca3af';
@@ -2150,6 +2209,10 @@ async function analyzeWithAI() {
                     justification: justification,
                     isMatch: isMatch,
                     hasJustification: hasJustification,
+                    // Modèles de décision : pas de justification par construction, et
+                    // les scores sont des probabilités brutes dont la somme est < 100.
+                    decisionsModel: !!parsed?.decisionsModel,
+                    probabilitiesTotal: parsed?.probabilitiesTotal ?? null,
                     delta: confidence.delta,
                     icp: confidence.icp,
                     confidenceLevel: confidence.confidenceLevel,
@@ -2320,7 +2383,9 @@ async function _doAnalyzeArticle(apiKey, titre, chapo, corps, attempt = 1) {
     }
 
     // NEW: Get request payload from provider manager
-    const requestPayload = providerManager.getRequestPayload(prompt);
+    // L'article est transmis à part : les modèles de décision en ont besoin
+    // sous forme structurée (`state`) et non noyé dans le prompt.
+    const requestPayload = providerManager.getRequestPayload(prompt, { titre, chapo, corps });
 
     // Configuration du timeout (120 secondes - augmenté pour éviter les timeouts)
     const controller = new AbortController();
@@ -2359,6 +2424,23 @@ async function _doAnalyzeArticle(apiKey, titre, chapo, corps, attempt = 1) {
             data = JSON.parse(rawText);
         } catch (jsonErr) {
             throw new Error(`Réponse invalide du serveur (JSON mal formé) : ${jsonErr.message}`);
+        }
+
+        // Modèle de décision (Jev) : le serveur renvoie déjà les prédictions typées.
+        // Aucun texte à parser, donc aucun risque de libellé non reconnu.
+        if (Array.isArray(data.predictions)) {
+            const total = data.predictions.reduce((sum, p) => sum + p.score, 0);
+            addLog(`🎯 ${data.predictions[0].userneed} — total ${total}/100 (${100 - total} % répartis sur les 6 autres userneeds)`, 'info');
+            return {
+                predictions: data.predictions,
+                justification: '',
+                hasJustification: false,
+                decisionsModel: true,
+                probabilities: data.probabilities || null,
+                jevConfidence: data.jevConfidence ?? null,
+                probabilitiesTotal: total,
+                rawResponse: JSON.stringify(data.probabilities || {}, null, 2)
+            };
         }
 
         // Handle different response formats

@@ -179,6 +179,86 @@ Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
 
             return json.dumps(transformed_response).encode('utf-8')
 
+    # Ordre des rangs attendu par le frontend (parseAIResponse produit le même)
+    _DECISION_RANKS = ['principal', 'secondaire', 'tertiaire']
+
+    def _call_openrouter_decisions(self, api_key, model, state, instructions, criteria):
+        """Appelle l'API Decisions d'OpenRouter (/api/alpha/decisions).
+
+        Les modèles de décision (Jev) ne répondent PAS sur chat/completions : ils
+        prennent une question typée et renvoient une probabilité par option, sans
+        aucun texte ni raisonnement. On convertit ici cette réponse dans le même
+        contrat `predictions` que celui produit par parseAIResponse côté front,
+        pour que rien en aval n'ait à connaître la différence.
+        """
+        api_url = 'https://openrouter.ai/api/alpha/decisions'
+
+        default_instructions = (
+            "Quel est le besoin principal (userneed) auquel cet article répond pour le lecteur ?"
+        )
+
+        api_data = json.dumps({
+            'model': model,
+            'state': state,
+            'questions': {
+                'userneed': {
+                    'type': 'choice',
+                    'instructions': instructions or default_instructions,
+                    'criteria': criteria
+                }
+            }
+        }).encode('utf-8')
+
+        req = urllib.request.Request(api_url, data=api_data, method='POST')
+        req.add_header('Content-Type', 'application/json')
+        req.add_header('Authorization', f'Bearer {api_key}')
+        req.add_header('HTTP-Referer', 'https://franceinfo.fr')
+        req.add_header('X-Title', 'Franceinfo Userneeds Analysis')
+
+        with urllib.request.urlopen(req) as response:
+            decisions_response = json.loads(response.read())
+
+            answer = decisions_response.get('answers', {}).get('userneed', {})
+            probabilities = answer.get('probabilities') or {}
+
+            # Filet : si le modèle n'a renvoyé que le choix retenu, on le traite
+            # comme une distribution à une seule entrée plutôt que d'échouer.
+            if not probabilities and answer.get('choice'):
+                probabilities = {answer['choice']: answer.get('confidence', 1.0)}
+
+            ranked = sorted(probabilities.items(), key=lambda kv: kv[1], reverse=True)
+
+            # Complète jusqu'à 3 entrées avec les options restantes (probabilité nulle) :
+            # le frontend n'affiche la vue détaillée que s'il reçoit bien 3 rangs.
+            if len(ranked) < 3:
+                already = {name for name, _ in ranked}
+                ranked += [(name, 0.0) for name in criteria if name not in already]
+
+            predictions = [
+                {
+                    # Probabilités brutes × 100, sans renormalisation : la somme des
+                    # 3 rangs reste volontairement < 100, le reste étant réparti sur
+                    # les 6 autres userneeds. Choix produit assumé (cf. ICP).
+                    'userneed': name,
+                    'score': int(round(prob * 100)),
+                    'rank': self._DECISION_RANKS[i],
+                    'justification': ''
+                }
+                for i, (name, prob) in enumerate(ranked[:3])
+            ]
+
+            transformed_response = {
+                'provider': 'openrouter',
+                'content': None,
+                'model': decisions_response.get('model', model),
+                'usage': decisions_response.get('usage', {}),
+                'predictions': predictions,
+                'probabilities': probabilities,
+                'jevConfidence': answer.get('confidence')
+            }
+
+            return json.dumps(transformed_response).encode('utf-8')
+
     def do_POST(self):
         if not self._check_auth():
             return
@@ -191,12 +271,25 @@ Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
             try:
                 request_data = json.loads(post_data.decode('utf-8'))
                 api_key = request_data['apiKey']
-                prompt = request_data['prompt']
+                # Absent pour les modèles de décision : la question est portée par
+                # `instructions` + `criteria`, pas par un prompt libre.
+                prompt = request_data.get('prompt', '')
                 model = request_data.get('model', 'anthropic/claude-haiku-4.5')
                 system = request_data.get('system', None)
                 max_tokens = request_data.get('max_tokens', 4096)
 
-                response_data = self._call_openrouter(api_key, model, prompt, system=system, max_tokens=max_tokens)
+                # Les modèles de décision passent par un autre endpoint OpenRouter,
+                # avec un format de requête et de réponse entièrement différent.
+                if request_data.get('api') == 'decisions':
+                    response_data = self._call_openrouter_decisions(
+                        api_key,
+                        model,
+                        request_data.get('state', {}),
+                        request_data.get('instructions', ''),
+                        request_data.get('criteria', {})
+                    )
+                else:
+                    response_data = self._call_openrouter(api_key, model, prompt, system=system, max_tokens=max_tokens)
 
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')

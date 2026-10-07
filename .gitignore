@@ -16,3 +16,7 @@ backups/
 
 # Documents PDF (references locales)
 *.pdf
+
+# Secrets locaux
+.env
+__pycache__/

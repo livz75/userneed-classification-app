@@ -3050,12 +3050,12 @@ async function refreshArticlesList(retries = 4) {
 }
 
 // ============================================
-// EXPORT DES ARTICLES CLASSÉS (ID + User Need)
+// EXPORT DES ARTICLES CLASSÉS (ID + titre + chapô + texte + User Need)
 // ============================================
 
 /**
- * Construit les lignes d'export [external_id, userNeed] pour tous les
- * articles classés, dédupliquées par external_id.
+ * Construit les lignes d'export [external_id, titre, chapô, texte, userNeed]
+ * pour tous les articles classés, dédupliquées par external_id.
  */
 function getClassifiedExportRows() {
     const seen = new Set();
@@ -3069,7 +3069,13 @@ function getClassifiedExportRows() {
         seen.add(id);
         // Coercer les IDs purement numériques en Number : Excel les traite alors
         // comme des nombres (pas d'avertissement « nombre stocké en texte »).
-        rows.push([/^\d+$/.test(String(id)) ? Number(id) : id, un]);
+        rows.push([
+            /^\d+$/.test(String(id)) ? Number(id) : id,
+            a.titre || '',
+            a.chapo || '',
+            a.corps || '',
+            un
+        ]);
     });
     return rows;
 }
@@ -3099,7 +3105,7 @@ function loadSheetJS() {
 }
 
 /**
- * Exporte les articles classés (ID article + User Need) au format 'csv' ou 'xlsx'.
+ * Exporte les articles classés (ID, titre, chapô, texte, User Need) au format 'csv' ou 'xlsx'.
  */
 async function exportClassifiedArticles(format) {
     const rows = getClassifiedExportRows();
@@ -3108,7 +3114,7 @@ async function exportClassifiedArticles(format) {
         return;
     }
 
-    const header = ['ID article', 'User Need'];
+    const header = ['ID article', 'Titre', 'Chapô', 'Texte', 'User Need'];
     const dateStr = new Date().toISOString().slice(0, 10);
 
     try {
@@ -3123,8 +3129,13 @@ async function exportClassifiedArticles(format) {
             );
         } else {
             const XLSX = await loadSheetJS();
-            const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
-            ws['!cols'] = [{ wch: 14 }, { wch: 22 }];
+            // Excel refuse les cellules de plus de 32 767 caractères : on tronque le texte.
+            const MAX_CELL = 32767;
+            const xlsxRows = rows.map(r => r.map(v =>
+                typeof v === 'string' && v.length > MAX_CELL ? v.slice(0, MAX_CELL - 1) + '…' : v
+            ));
+            const ws = XLSX.utils.aoa_to_sheet([header, ...xlsxRows]);
+            ws['!cols'] = [{ wch: 14 }, { wch: 60 }, { wch: 60 }, { wch: 80 }, { wch: 22 }];
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Articles classés');
             XLSX.writeFile(wb, `articles-classes-userneeds-${dateStr}.xlsx`);

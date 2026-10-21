@@ -3,7 +3,7 @@
 POC (Proof of Concept) d'une app de **qualification des user needs** sur des articles France Info. Stack :
 
 - **Front** : `index.html` + `style.css` + `script.js` (monolithique, ~5K lignes) + modules dans `js/`
-- **Modules JS** : `js/article-manager.js`, `js/classification-manager.js`, `js/supabase-client.js`, `js/test-run-manager.js`
+- **Modules JS** : `js/article-manager.js`, `js/classification-manager.js`, `js/supabase-client.js`, `js/test-run-manager.js`, `js/elections-page.js` (page Présidentielle 2027 : Sonnet 5.5 via `/api/classify-anthropic`, prompt `prompts/userneeds_v7.md`)
 - **Backend** : `server.py` (Flask, deploy Render) + `fetch_articles.py` (cron qui alimente Supabase)
 - **Données** : Supabase — schéma dans `supabase-schema.sql` et migrations `supabase-migration-*.sql`
 - **Doc handoff** : `handoff design-to-code.html` — playbook PO pour la transition POC → app finale

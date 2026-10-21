@@ -1229,6 +1229,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     initializeProviderUI(); // Configuration provider
     initializeArticlesUI(); // Articles panel
     initializeTestsUI();    // Test Runs panel
+    initializeElectionsUI(); // Présidentielle 2027 (js/elections-page.js)
     initializeHelpModal();  // Aide
 
     console.log('✅ Application initialisée');

@@ -4806,3 +4806,76 @@ input[type="file"] {
     .decision-banner-link { width: 100%; }
     .dp-status { margin-left: 0; width: 100%; }
 }
+
+/* =========================== */
+/* PAGE PRÉSIDENTIELLE 2027 (js/elections-page.js) */
+/* =========================== */
+
+.elections-panel .elections-inner { max-width: 1200px; }
+.el-intro { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 14px; }
+.el-toolbar { flex-direction: column; gap: 10px; }
+.el-toolbar-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.el-search { margin-left: auto; min-width: 240px; }
+.el-select {
+    background: var(--bg-darker); color: var(--text-primary);
+    border: 1px solid var(--border-color); border-radius: 6px; padding: 6px 10px; font-family: inherit;
+}
+.el-actions .nav-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.el-progress { margin: 4px 0 14px; }
+.el-progress-bar { height: 8px; background: var(--bg-darker); border-radius: 4px; overflow: hidden; }
+.el-progress-bar > div { height: 100%; background: var(--accent-purple); transition: width 0.3s ease; }
+.el-progress-text { font-size: 0.85rem; color: var(--text-secondary); margin-top: 6px; }
+.el-error {
+    background: rgba(239, 68, 68, 0.15); border-left: 3px solid var(--accent-red);
+    padding: 6px 10px; margin-bottom: 6px; font-size: 0.85rem; border-radius: 4px;
+}
+
+.el-list { display: flex; flex-direction: column; gap: 6px; }
+.el-empty { color: var(--text-secondary); text-align: center; padding: 30px 0; }
+.el-row { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; }
+.el-row.disagree { border-left: 3px solid #f59e0b; }
+.el-row-head {
+    display: grid; grid-template-columns: 70px 1fr auto auto; gap: 12px; align-items: center;
+    padding: 10px 14px; cursor: pointer;
+}
+.el-row-head:hover { background: rgba(255, 255, 255, 0.03); }
+.el-date { color: var(--text-secondary); font-size: 0.8rem; }
+.el-title { font-weight: 500; font-size: 0.92rem; }
+.el-tags { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.el-tag {
+    font-size: 0.7rem; padding: 2px 8px; border-radius: 10px;
+    background: var(--bg-darker); color: var(--text-secondary); white-space: nowrap;
+}
+.el-verdicts { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; min-width: 170px; }
+.el-badge {
+    font-size: 0.72rem; font-weight: 600; color: #fff; padding: 2px 8px; border-radius: 10px; white-space: nowrap;
+}
+.el-human { font-size: 0.72rem; color: var(--text-secondary); white-space: nowrap; }
+.el-pending { font-size: 0.8rem; color: var(--text-secondary); font-style: italic; }
+
+.el-detail { padding: 4px 14px 14px; border-top: 1px solid var(--border-color); }
+.el-chapo { margin: 10px 0 6px; color: var(--text-secondary); font-size: 0.9rem; }
+.el-links { font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 10px; }
+.el-links a { color: var(--accent-blue); }
+.el-sonnet {
+    background: var(--bg-darker); border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; font-size: 0.88rem;
+}
+.el-sonnet p { margin-top: 6px; }
+.el-sonnet-head { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.el-path { color: var(--text-secondary); font-size: 0.82rem; }
+.el-validate { display: flex; flex-direction: column; gap: 6px; }
+.el-un-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.el-un-btn {
+    font-family: inherit; font-size: 0.75rem; font-weight: 600; padding: 5px 10px; border-radius: 14px;
+    border: 1px solid var(--un-color); background: transparent; color: var(--text-primary); cursor: pointer;
+}
+.el-un-btn:hover { background: color-mix(in srgb, var(--un-color) 25%, transparent); }
+.el-un-btn.selected { background: var(--un-color); color: #fff; }
+.el-detail-actions { margin-top: 12px; }
+
+@media (max-width: 800px) {
+    .el-row-head { grid-template-columns: 1fr; gap: 4px; }
+    .el-tags, .el-verdicts { justify-content: flex-start; align-items: flex-start; }
+    .el-search { margin-left: 0; min-width: 0; width: 100%; }
+}

@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=55">
+    <link rel="stylesheet" href="style.css?v=56">
 </head>
 <body>
     <div class="container">
@@ -21,6 +21,7 @@
                     <button id="llmBtn" class="nav-btn" title="Configuration des modèles LLM">🤖 LLM</button>
                     <button id="settingsBtn" class="nav-btn" title="Gérer les prompts">📝 Prompts</button>
                     <button id="testsBtn" class="nav-btn" title="Historique des tests">📋 Tests</button>
+                    <button id="electionsBtn" class="nav-btn" title="Articles tagués Présidentielle 2027 / Elections en France, classés par Sonnet 5.5">🗳️ Présidentielle 2027</button>
                     <button id="importToggleBtn" class="nav-btn" title="Activer / désactiver l'import automatique des articles" disabled>⏳ Import…</button>
                 </div>
                 <div class="nav-separator"></div>
@@ -226,6 +227,24 @@
             </div>
 
             </div><!-- /.tests-panel-inner -->
+        </div>
+    </div>
+
+    <!-- Panneau Présidentielle 2027 (js/elections-page.js) -->
+    <div id="electionsPanel" class="tests-panel elections-panel">
+        <div class="tests-panel-backdrop"></div>
+        <div class="tests-panel-content">
+            <div class="tests-panel-inner elections-inner">
+                <div class="tests-panel-header">
+                    <h2>🗳️ Présidentielle 2027</h2>
+                    <button id="closeElectionsPanelBtn" class="close-panel-btn">✕</button>
+                </div>
+                <p class="el-intro">Articles tagués « Présidentielle 2027 » ou « Elections en France » par franceinfo,
+                    classés par Claude Sonnet 5.5 (prompt V7). Cliquez sur un article pour voir la justification et valider ou corriger.</p>
+                <div id="electionsToolbar" class="tests-panel-toolbar el-toolbar"></div>
+                <div id="electionsProgress"></div>
+                <div id="electionsList" class="el-list"></div>
+            </div>
         </div>
     </div>
 
@@ -536,6 +555,7 @@ Analyse cet article..."></textarea>
     <script src="js/article-manager.js?v=35"></script>
     <script src="js/classification-manager.js?v=32"></script>
     <script src="js/test-run-manager.js?v=32"></script>
-    <script src="script.js?v=76"></script>
+    <script src="js/elections-page.js?v=2"></script>
+    <script src="script.js?v=77"></script>
 </body>
 </html>

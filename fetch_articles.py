@@ -15,6 +15,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from email.utils import parsedate_to_datetime
+from html import unescape
 
 # ── Config ──────────────────────────────────────────────────────────
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -63,11 +64,22 @@ def normalize_media_type(raw_type):
     return 'autre'
 
 
+def extract_tags(html):
+    """Tags éditoriaux franceinfo (<meta property="article:tag">), dans l'ordre, sans doublon."""
+    tags = []
+    for raw in re.findall(r'<meta\s+property=["\']article:tag["\']\s+content=["\']([^"\']*)["\']', html):
+        t = unescape(raw).strip()
+        if t and t not in tags:
+            tags.append(t)
+    return tags
+
+
 def scrape_article_body(url):
     """
-    Récupère le corps complet d'un article et son type de média depuis son URL.
-    Extrait 'articleBody' et '@type' du JSON-LD embarqué dans la page.
-    Retourne un tuple (corps: str, media_type: str|None).
+    Récupère le corps complet d'un article, son type de média et ses tags depuis son URL.
+    Extrait 'articleBody' et '@type' du JSON-LD embarqué dans la page, et les
+    <meta property="article:tag">.
+    Retourne un tuple (corps: str, media_type: str|None, tags: list[str]).
     """
     try:
         req = urllib.request.Request(url, headers=HEADERS_HTML)
@@ -97,6 +109,7 @@ def scrape_article_body(url):
 
         body = ''
         media_type = None
+        tags = extract_tags(html)
 
         for block in jsonld_blocks:
             try:
@@ -113,9 +126,9 @@ def scrape_article_body(url):
 
     except Exception as e:
         print(f'    ⚠️  Scraping échoué ({url[:60]}...): {e}')
-        return '', None
+        return '', None, []
 
-    return body, media_type
+    return body, media_type, tags
 
 
 # ── RSS parsing ──────────────────────────────────────────────────────
@@ -315,7 +328,7 @@ def update_missing_media_types(config):
     failed = 0
     for i, a in enumerate(to_update):
         print(f'  [{i+1}/{len(to_update)}] ', end='', flush=True)
-        _, media_type = scrape_article_body(a['url'])
+        _, media_type, _ = scrape_article_body(a['url'])
         if not media_type:
             media_type = 'article'  # fallback
 
@@ -430,7 +443,10 @@ def main():
         print(f'  📝 Scraping du corps ({len(to_scrape)} articles)...')
         scraped = 0
         for a in to_scrape:
-            body, media_type = scrape_article_body(a['url'])
+            body, media_type, tags = scrape_article_body(a['url'])
+            # Toujours présent après scraping : l'upsert groupé PostgREST veut
+            # les mêmes clés sur toutes les lignes.
+            a['tags'] = tags
             if body:
                 a['corps'] = body
                 a['word_count'] = len(body.split())

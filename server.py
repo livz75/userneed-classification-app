@@ -9,6 +9,8 @@ import re
 import base64
 from html import unescape
 
+import anthropic
+
 PORT = int(os.environ.get('PORT', 8000))
 
 # Basic Auth credentials (depuis les variables d'environnement)
@@ -18,6 +20,99 @@ BASIC_AUTH_PASSWORD = os.environ.get('BASIC_AUTH_PASSWORD', '')
 def is_auth_enabled():
     """Auth activée uniquement si les deux variables sont définies."""
     return bool(BASIC_AUTH_USER and BASIC_AUTH_PASSWORD)
+
+
+# ── Classification directe via l'API Anthropic (page Présidentielle 2027) ──
+# La clé reste côté serveur : variable d'environnement ANTHROPIC_API_KEY
+# (dashboard Render en prod, `export` en local). Jamais dans config.json,
+# qui est servi tel quel au navigateur.
+ANTHROPIC_MODEL = 'claude-sonnet-5-5'
+USERNEED_LABELS = [
+    'UPDATE ME', 'EXPLAIN ME', 'GIVE ME PERSPECTIVE', 'SUMMARIZE', 'VERIFY',
+    'FEEL', 'GUIDE ME', 'INSPIRE ME', 'DIVERT ME',
+]
+# Sortie structurée : garantit un JSON valide au format attendu par le prompt V7
+# (même ordre de champs : le raisonnement avant le verdict).
+USERNEED_OUTPUT_SCHEMA = {
+    'type': 'object',
+    'properties': {
+        'cheminement': {'type': 'string'},
+        'justification': {'type': 'string'},
+        'user_need': {'type': 'string', 'enum': USERNEED_LABELS},
+        'confidence': {'type': 'number'},
+    },
+    'required': ['cheminement', 'justification', 'user_need', 'confidence'],
+    'additionalProperties': False,
+}
+
+_anthropic_client = None
+
+
+def get_anthropic_client():
+    global _anthropic_client
+    if _anthropic_client is None:
+        if not os.environ.get('ANTHROPIC_API_KEY'):
+            return None
+        # Clé non rattachée à un workspace : l'API exige l'en-tête anthropic-workspace-id.
+        workspace_id = os.environ.get('ANTHROPIC_WORKSPACE_ID')
+        headers = {'anthropic-workspace-id': workspace_id} if workspace_id else None
+        _anthropic_client = anthropic.Anthropic(max_retries=4, timeout=120.0, default_headers=headers)
+    return _anthropic_client
+
+
+def format_article_for_llm(titre, chapo, corps):
+    def field(v):
+        v = (v or '').strip()
+        return v if v else 'non renseigné'
+    return (
+        '<article>\n'
+        f'TITRE : {field(titre)}\n\n'
+        f'CHAPÔ : {field(chapo)}\n\n'
+        f'TEXTE :\n{field(corps)}\n'
+        '</article>'
+    )
+
+
+def classify_with_anthropic(system_prompt, titre, chapo, corps, effort='medium'):
+    client = get_anthropic_client()
+    if client is None:
+        raise RuntimeError('ANTHROPIC_API_KEY non configurée sur le serveur')
+
+    response = client.beta.messages.create(
+        model=ANTHROPIC_MODEL,
+        max_tokens=8000,
+        betas=['server-side-fallback-2026-07-01'],
+        fallbacks='default',
+        # Prompt identique d'un article à l'autre : mis en cache (lecture ~10 % du prix).
+        system=[{'type': 'text', 'text': system_prompt, 'cache_control': {'type': 'ephemeral'}}],
+        messages=[{'role': 'user', 'content': format_article_for_llm(titre, chapo, corps)}],
+        output_config={
+            'effort': effort,
+            'format': {'type': 'json_schema', 'schema': USERNEED_OUTPUT_SCHEMA},
+        },
+    )
+
+    if response.stop_reason == 'refusal':
+        category = response.stop_details.category if response.stop_details else None
+        raise RuntimeError(f'Refus du modèle (catégorie : {category})')
+    if response.stop_reason == 'max_tokens':
+        raise RuntimeError('Réponse tronquée (max_tokens atteint)')
+
+    text = next((b.text for b in response.content if b.type == 'text'), '')
+    result = json.loads(text)
+    usage = response.usage
+    return {
+        'result': result,
+        'raw': text,
+        'model': response.model,
+        'request_id': response._request_id,
+        'usage': {
+            'input_tokens': usage.input_tokens,
+            'output_tokens': usage.output_tokens,
+            'cache_read_input_tokens': usage.cache_read_input_tokens or 0,
+            'cache_creation_input_tokens': usage.cache_creation_input_tokens or 0,
+        },
+    }
 
 class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
@@ -308,6 +403,42 @@ Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
                 self.end_headers()
                 error_msg = json.dumps({'error': str(e)}).encode('utf-8')
                 self.wfile.write(error_msg)
+        elif self.path == '/api/classify-anthropic':
+            try:
+                content_length = int(self.headers['Content-Length'])
+                request_data = json.loads(self.rfile.read(content_length).decode('utf-8'))
+                system_prompt = (request_data.get('system') or '').strip()
+                if not system_prompt:
+                    raise ValueError('Prompt système manquant')
+                effort = request_data.get('effort', 'medium')
+                if effort not in ('low', 'medium', 'high', 'xhigh', 'max'):
+                    raise ValueError(f'Effort invalide : {effort}')
+                payload = classify_with_anthropic(
+                    system_prompt,
+                    request_data.get('titre', ''),
+                    request_data.get('chapo', ''),
+                    request_data.get('corps', ''),
+                    effort=effort,
+                )
+                status = 200
+            except ValueError as e:
+                status, payload = 400, {'error': str(e)}
+            except RuntimeError as e:
+                status, payload = 503 if 'ANTHROPIC_API_KEY' in str(e) else 502, {'error': str(e)}
+            except anthropic.RateLimitError as e:
+                status, payload = 429, {'error': f'Limite de débit Anthropic : {e.message}'}
+            except anthropic.APIStatusError as e:
+                status, payload = 502, {'error': f'API Anthropic ({e.status_code}) : {e.message}'}
+            except anthropic.APIConnectionError:
+                status, payload = 502, {'error': "API Anthropic injoignable"}
+            except Exception as e:
+                status, payload = 500, {'error': f'{type(e).__name__}: {e}'}
+
+            self.send_response(status)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(payload, ensure_ascii=False).encode('utf-8'))
+
         elif self.path == '/api/add-article':
             content_length = int(self.headers['Content-Length'])
             post_data = self.rfile.read(content_length)
@@ -359,7 +490,7 @@ Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
 
                 # Scraper l'article
                 from fetch_articles import scrape_article_body
-                body, media_type = scrape_article_body(article_url)
+                body, media_type, tags = scrape_article_body(article_url)
                 # Nettoyer les caractères de contrôle qui cassent le JSON
                 if body:
                     body = re.sub(r'[\x00-\x1f\x7f]', ' ', body)
@@ -403,6 +534,7 @@ Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
                     'date_publication': date_publication,
                     'date_modification': date_modification,
                     'metadata': {'media_type': media_type or 'article'},
+                    'tags': tags,
                 }).encode('utf-8')
 
                 ins_req = urllib.request.Request(
@@ -472,5 +604,7 @@ if __name__ == '__main__':
         print(f"📡 API endpoints actifs :")
         print(f"   - /api/health")
         print(f"   - /api/analyze (OpenRouter LLM)")
+        print(f"   - /api/classify-anthropic ({ANTHROPIC_MODEL}, "
+              f"{'clé OK' if os.environ.get('ANTHROPIC_API_KEY') else 'ANTHROPIC_API_KEY absente'})")
         print("Appuyez sur Ctrl+C pour arrêter le serveur")
         httpd.serve_forever()

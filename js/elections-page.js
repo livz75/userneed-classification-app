@@ -22,6 +22,7 @@ const ELECTION_PRICING = { input: 2.0, output: 10.0, cacheRead: 0.2, cacheWrite:
 const electionState = {
     articles: [],          // articles enrichis : { ..., sonnet, human }
     sonnetRunIds: new Set(),
+    runs: {},              // id → { name, statistics, analyzed_articles, created_at } (export)
     tagFilter: 'all',      // 'all' | un des ELECTION_TAGS
     statusFilter: 'todo',  // 'all' | 'todo' | 'to_validate' | 'validated'
     search: '',
@@ -92,11 +93,12 @@ async function loadElectionArticles() {
     renderElectionList();
 
     const { data: runs, error: runErr } = await supabaseClient
-        .from('test_runs').select('id')
+        .from('test_runs').select('id, name, statistics, analyzed_articles, created_at')
         .eq('llm_model', ELECTION_MODEL)
         .like('name', `${ELECTION_RUN_PREFIX}%`);
     if (runErr) console.error('Erreur lecture runs Sonnet:', runErr);
     electionState.sonnetRunIds = new Set((runs || []).map(r => r.id));
+    electionState.runs = Object.fromEntries((runs || []).map(r => [r.id, r]));
 
     // Le rôle anon a un statement_timeout de 3 s : pas de `corps` dans la liste
     // (chargé à la demande par fetchElectionCorps) et des pages courtes.
@@ -153,9 +155,17 @@ function enrichElectionArticle(a) {
             justification: s.justification,
             cheminement: pred.cheminement || '',
             confidence: pred.confidence ?? (s.icp != null ? s.icp / 100 : null),
+            confidenceLevel: s.confidence_level,
             analyzedAt: s.analyzed_at,
+            runId: s.test_run_id,
+            usage: pred.usage || null,
+            model: pred.model || null,
+            effort: pred.effort || null,
+            count: sonnetRows.length,
         } : null,
         human: human ? human.userneed : null,
+        humanBy: human ? human.classified_by : null,
+        humanAt: human ? human.classified_at : null,
     };
 }
 
@@ -231,6 +241,9 @@ function renderElectionToolbar() {
             `}
             <button class="articles-refresh-btn" ${electionState.running ? 'disabled' : ''}
                     onclick="loadElectionArticles()">↻ Actualiser</button>
+            <button class="articles-export-btn" id="electionExportBtn" ${filteredElectionArticles().length ? '' : 'disabled'}
+                    title="Exporte les articles de la vue filtrée : métadonnées, texte, verdict Sonnet, validation humaine, tokens et coût"
+                    onclick="exportElectionCsv()">⬇ Export CSV (${filteredElectionArticles().length})</button>
         </div>
     `;
 }
@@ -270,6 +283,11 @@ function renderElectionList() {
         return;
     }
     const list = filteredElectionArticles();
+    const exportBtn = document.getElementById('electionExportBtn');
+    if (exportBtn) {
+        exportBtn.textContent = `⬇ Export CSV (${list.length})`;
+        exportBtn.disabled = !list.length;
+    }
     if (!list.length) {
         box.innerHTML = '<p class="el-empty">Aucun article pour ces filtres.</p>';
         return;
@@ -407,6 +425,7 @@ async function createElectionRun(label, total) {
         `${ELECTION_RUN_PREFIX} · Sonnet 5.5 · ${label} · ${date}`,
         ELECTION_MODEL, ELECTION_PROMPT_ID, prompt, total);
     electionState.sonnetRunIds.add(run.id);
+    electionState.runs[run.id] = run;
     return run;
 }
 
@@ -425,6 +444,10 @@ async function classifyElectionArticle(article, run, index) {
             justification: r.justification,
             cheminement: r.cheminement,
             confidence: r.confidence,
+            usage: data.usage,
+            model: data.model,
+            effort: electionState.effort,
+            request_id: data.request_id,
         }],
         justification: r.justification,
         isMatch,
@@ -440,7 +463,13 @@ async function classifyElectionArticle(article, run, index) {
         justification: r.justification,
         cheminement: r.cheminement,
         confidence: r.confidence,
+        confidenceLevel: elConfidenceLevel(r.confidence),
         analyzedAt: new Date().toISOString(),
+        runId: run.id,
+        usage: data.usage,
+        model: data.model,
+        effort: electionState.effort,
+        count: (article.sonnet?.count || 0) + 1,
     };
     return isMatch;
 }
@@ -567,6 +596,121 @@ async function classifyOneElectionArticle(id) {
     electionState.running = false;
     renderElectionToolbar();
     refreshElectionRow(id);
+}
+
+// ── Export CSV ───────────────────────────────────────────────
+
+// Excel en français : séparateur « ; » et virgule décimale.
+function elNum(v, digits = 2) {
+    if (v === null || v === undefined || v === '' || Number.isNaN(v)) return '';
+    return Number(v).toFixed(digits).replace('.', ',');
+}
+
+function elDateTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// Dernière étape atteinte dans le cheminement (« É1:NON → … → É5:EXPLAIN ME » → 5).
+function elDecisionStep(cheminement) {
+    const steps = [...String(cheminement || '').matchAll(/É\s*(\d)\s*:\s*([^→]+)/g)]
+        // « NON », « non atteint », « non atteinte »… : étape franchie sans verdict.
+        .filter(m => !/^\s*non\b/i.test(m[2]));
+    return steps.length ? Number(steps[steps.length - 1][1]) : '';
+}
+
+function elStatus(a) {
+    if (a.human) return 'Validé';
+    if (a.sonnet) return 'À valider';
+    return 'À classer';
+}
+
+// Le texte n'est pas dans la liste (timeout anon 3 s) : lecture par lots d'ID.
+async function fetchElectionBodies(ids) {
+    const bodies = {};
+    const CHUNK = 50;
+    for (let i = 0; i < ids.length; i += CHUNK) {
+        const chunk = ids.slice(i, i + CHUNK);
+        let { data, error } = await supabaseClient.from('articles').select('id, corps').in('id', chunk);
+        if (error) ({ data, error } = await supabaseClient.from('articles').select('id, corps').in('id', chunk));
+        if (error) throw new Error(`lecture des textes : ${error.message}`);
+        for (const r of data || []) bodies[r.id] = r.corps || '';
+        const btn = document.getElementById('electionExportBtn');
+        if (btn) btn.textContent = `⏳ Textes ${Math.min(i + CHUNK, ids.length)}/${ids.length}…`;
+    }
+    return bodies;
+}
+
+const ELECTION_EXPORT_COLUMNS = [
+    ['ID franceinfo', a => a.external_id],
+    ['UUID Supabase', a => a.id],
+    ['URL', a => a.url],
+    ['Date de publication', a => elDateTime(a.date_publication)],
+    ['Titre', a => a.titre],
+    ['Chapô', a => a.chapo],
+    ['Texte', (a, ctx) => ctx.bodies[a.id] ?? ''],
+    ['Nb mots', a => a.word_count ?? ''],
+    ['Tag Présidentielle 2027', a => (a.tags || []).includes('Présidentielle 2027') ? 'oui' : 'non'],
+    ['Tag Elections en France', a => (a.tags || []).includes('Elections en France') ? 'oui' : 'non'],
+    ['Tous les tags franceinfo', a => (a.tags || []).join(' | ')],
+    ['Statut', a => elStatus(a)],
+    ['Sonnet – user need', a => a.sonnet?.userneed ?? ''],
+    ['Sonnet – confiance (0-1)', a => elNum(a.sonnet?.confidence)],
+    ['Sonnet – niveau de confiance', a => a.sonnet?.confidenceLevel ?? ''],
+    ['Sonnet – étape de décision', a => a.sonnet ? elDecisionStep(a.sonnet.cheminement) : ''],
+    ['Sonnet – cheminement', a => a.sonnet?.cheminement ?? ''],
+    ['Sonnet – justification', a => a.sonnet?.justification ?? ''],
+    ['Sonnet – date d\'analyse', a => elDateTime(a.sonnet?.analyzedAt)],
+    ['Sonnet – nb d\'analyses', a => a.sonnet?.count ?? ''],
+    ['Modèle', a => a.sonnet ? (a.sonnet.model || ELECTION_MODEL) : ''],
+    ['Effort', (a, ctx) => a.sonnet ? (a.sonnet.effort || ctx.run(a)?.statistics?.effort || '') : ''],
+    ['Tokens entrée', a => a.sonnet?.usage?.input_tokens ?? ''],
+    ['Tokens sortie', a => a.sonnet?.usage?.output_tokens ?? ''],
+    ['Tokens cache lus', a => a.sonnet?.usage?.cache_read_input_tokens ?? ''],
+    ['Tokens cache écrits', a => a.sonnet?.usage?.cache_creation_input_tokens ?? ''],
+    ['Coût article ($)', a => a.sonnet?.usage ? elNum(elCost(a.sonnet.usage), 5) : ''],
+    ['Test run', (a, ctx) => ctx.run(a)?.name ?? ''],
+    ['Coût moyen / article du run ($)', (a, ctx) => {
+        const r = ctx.run(a);
+        const cost = r?.statistics?.estimated_cost_usd;
+        return cost != null && r.analyzed_articles ? elNum(cost / r.analyzed_articles, 5) : '';
+    }],
+    ['Humain – user need', a => a.human ?? ''],
+    ['Humain – classé par', a => a.humanBy ?? ''],
+    ['Humain – date', a => elDateTime(a.humanAt)],
+    ['Accord Sonnet / humain', a => (a.sonnet && a.human) ? (a.sonnet.userneed === a.human ? 'oui' : 'non') : ''],
+];
+
+async function exportElectionCsv() {
+    const list = filteredElectionArticles();
+    if (!list.length) return;
+    const btn = document.getElementById('electionExportBtn');
+    if (btn) btn.disabled = true;
+    try {
+        const ctx = {
+            bodies: await fetchElectionBodies(list.map(a => a.id)),
+            run: a => a.sonnet ? electionState.runs[a.sonnet.runId] : null,
+        };
+        const escapeCsv = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+        const header = ELECTION_EXPORT_COLUMNS.map(([h]) => h);
+        const rows = list.map(a => ELECTION_EXPORT_COLUMNS.map(([, f]) => f(a, ctx)));
+        const csv = '\uFEFF' + [header, ...rows].map(r => r.map(escapeCsv).join(';')).join('\r\n');
+
+        const filters = [
+            electionState.tagFilter === 'all' ? 'tous-tags' : electionState.tagFilter,
+            electionState.statusFilter,
+        ].join('-').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-');
+        const date = new Date().toISOString().slice(0, 10);
+        downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8;' }),
+            `presidentielle-2027-sonnet-${filters}-${date}.csv`);
+        if (typeof showToast === 'function') showToast(`${list.length} articles exportés (CSV).`, 'success');
+    } catch (e) {
+        alertElection(`Échec de l'export : ${e.message}`);
+    } finally {
+        renderElectionToolbar();
+    }
 }
 
 // ── Panneau ──────────────────────────────────────────────────

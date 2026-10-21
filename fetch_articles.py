@@ -74,61 +74,62 @@ def extract_tags(html):
     return tags
 
 
+def _find_key(obj, key):
+    if isinstance(obj, dict):
+        if key in obj:
+            return obj[key]
+        for v in obj.values():
+            r = _find_key(v, key)
+            if r:
+                return r
+    elif isinstance(obj, list):
+        for item in obj:
+            r = _find_key(item, key)
+            if r:
+                return r
+    return None
+
+
+def parse_article_html(html):
+    """
+    Corps, type de média et tags d'une page article franceinfo.
+    Extrait 'articleBody' et '@type' du JSON-LD embarqué, et les
+    <meta property="article:tag">.
+    Retourne un tuple (corps: str, media_type: str|None, tags: list[str]).
+    """
+    jsonld_blocks = re.findall(
+        r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
+        html, re.DOTALL
+    )
+    body = ''
+    media_type = None
+    for block in jsonld_blocks:
+        try:
+            data = json.loads(block, strict=False)
+            if not body:
+                b = _find_key(data, 'articleBody')
+                if b and len(b) > 50:
+                    body = b.strip()
+            if not media_type:
+                media_type = normalize_media_type(_find_key(data, '@type'))
+        except Exception:
+            continue
+    return body, media_type, extract_tags(html)
+
+
 def scrape_article_body(url):
     """
     Récupère le corps complet d'un article, son type de média et ses tags depuis son URL.
-    Extrait 'articleBody' et '@type' du JSON-LD embarqué dans la page, et les
-    <meta property="article:tag">.
     Retourne un tuple (corps: str, media_type: str|None, tags: list[str]).
     """
     try:
         req = urllib.request.Request(url, headers=HEADERS_HTML)
         with urllib.request.urlopen(req, timeout=15) as resp:
             html = resp.read().decode('utf-8', errors='replace')
-
-        # Extraire tous les blocs JSON-LD
-        jsonld_blocks = re.findall(
-            r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
-            html, re.DOTALL
-        )
-
-        def find_key(obj, key):
-            if isinstance(obj, dict):
-                if key in obj:
-                    return obj[key]
-                for v in obj.values():
-                    r = find_key(v, key)
-                    if r:
-                        return r
-            elif isinstance(obj, list):
-                for item in obj:
-                    r = find_key(item, key)
-                    if r:
-                        return r
-            return None
-
-        body = ''
-        media_type = None
-        tags = extract_tags(html)
-
-        for block in jsonld_blocks:
-            try:
-                data = json.loads(block, strict=False)
-                if not body:
-                    b = find_key(data, 'articleBody')
-                    if b and len(b) > 50:
-                        body = b.strip()
-                if not media_type:
-                    t = find_key(data, '@type')
-                    media_type = normalize_media_type(t)
-            except Exception:
-                continue
-
     except Exception as e:
         print(f'    ⚠️  Scraping échoué ({url[:60]}...): {e}')
         return '', None, []
-
-    return body, media_type, tags
+    return parse_article_html(html)
 
 
 # ── RSS parsing ──────────────────────────────────────────────────────

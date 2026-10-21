@@ -11,6 +11,7 @@ Usage:
     python3 backfill_sitemap.py --months 2026-05 2026-06                 # à blanc
     python3 backfill_sitemap.py --months 2026-05 2026-06 --apply
     python3 backfill_sitemap.py --months 2026-06 --since 2026-06-01 --until 2026-07-01 --apply
+    python3 backfill_sitemap.py --months 2026-01 2026-02 --tag "Présidentielle 2027" --apply
 """
 import argparse
 import json
@@ -122,6 +123,7 @@ def main():
     ap.add_argument('--months', nargs='+', required=True, help='mois AAAA-MM des sitemaps à lire')
     ap.add_argument('--since', help='date de publication minimale (AAAA-MM-JJ), incluse')
     ap.add_argument('--until', help='date de publication maximale (AAAA-MM-JJ), exclue')
+    ap.add_argument('--tag', help="n'insérer que les articles portant ce tag franceinfo")
     ap.add_argument('--apply', action='store_true', help='écrire en base (sinon : à blanc)')
     args = ap.parse_args()
 
@@ -151,6 +153,8 @@ def main():
                 d = (article['date_publication'] or '')[:10]
                 if (args.since and d < args.since) or (args.until and d >= args.until):
                     skipped['hors période'] = skipped.get('hors période', 0) + 1
+                elif args.tag and args.tag not in article['tags']:
+                    skipped['autre tag'] = skipped.get('autre tag', 0) + 1
                 else:
                     pending.append(article)
             if len(pending) >= INSERT_BATCH or (i == len(todo) and pending):

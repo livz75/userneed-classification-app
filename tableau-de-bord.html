@@ -23,6 +23,14 @@ body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--
 .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 16px 48px; }
 header h1 { font: 600 clamp(22px, 3.2vw, 32px)/1.2 var(--serif); margin: 0 0 6px; }
 header p { margin: 0; color: var(--muted); }
+.head { display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+.head > div:first-child { flex: 1 1 480px; }
+@media (max-width: 760px) { .refresh { align-items: flex-start; } .refresh-status { text-align: left; } }
+.refresh { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.refresh button { font: inherit; font-weight: 600; padding: 9px 16px; border-radius: 8px; border: 0; background: var(--accent); color: #fff; cursor: pointer; white-space: nowrap; }
+.refresh button:disabled { opacity: .55; cursor: default; }
+.refresh-status { font-size: 13px; color: var(--muted); text-align: right; max-width: 340px; }
+.refresh-status.bad { color: #dc2626; }
 h2 { font-size: 18px; margin: 36px 0 12px; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -70,9 +78,15 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <h1>Présidentielle 2027 : quels besoins d'information sur franceinfo ?</h1>
-    <p id="subtitle">Chargement…</p>
+  <header class="head">
+    <div>
+      <h1>Présidentielle 2027 : quels besoins d'information sur franceinfo ?</h1>
+      <p id="subtitle">Chargement…</p>
+    </div>
+    <div class="refresh">
+      <button type="button" id="refresh-btn" title="Classe avec Claude Sonnet 5.5 les articles tagués Présidentielle 2027 pas encore classés, puis recharge le tableau de bord">↻ Actualiser</button>
+      <div class="refresh-status" id="refresh-status" aria-live="polite"></div>
+    </div>
   </header>
 
   <div id="state" class="state">Chargement des données…</div>
@@ -287,9 +301,23 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
     select.append(...values.map(v => el('option', { value: v, textContent: v })));
   }
 
-  async function load() {
+  function setupFilters() {
+    fillSelect($('f-need'), NEEDS);
+    fillSelect($('f-rub'), ['Élections', 'Politique', 'Replay JT', 'Replay magazine', 'Replay radio', 'Autres rubriques']);
+    for (const id of ['f-need', 'f-rub']) $(id).addEventListener('change', () => { shown = PAGE; renderList(); });
+    $('f-q').addEventListener('input', () => { shown = PAGE; renderList(); });
+    $('more').querySelector('button').addEventListener('click', () => { shown += PAGE; renderList(); });
+    let lastW = 0;
+    window.addEventListener('resize', () => {
+      const w = $('months').clientWidth;
+      if (all.length && w !== lastW) { lastW = w; renderMonths(all); }
+    });
+  }
+
+  // fresh : contourne le cache du navigateur (après une actualisation).
+  async function load(fresh = false) {
     try {
-      const res = await fetch('/tableau-de-bord/donnees');
+      const res = await fetch('/tableau-de-bord/donnees', fresh ? { cache: 'no-store' } : {});
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       all = data.articles.map(a => ({ ...a, mois: parisMonth(a.date) }));
@@ -301,27 +329,75 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
         + (data.a_classer ? ` · ${nf(data.a_classer)} article${data.a_classer > 1 ? 's' : ''} récent${data.a_classer > 1 ? 's' : ''} pas encore classé${data.a_classer > 1 ? 's' : ''}` : '')
         + ' · Classement automatique : il peut contenir des erreurs.';
 
-      fillSelect($('f-need'), NEEDS.filter(u => all.some(a => a.user_need === u)));
-      fillSelect($('f-rub'), [...new Set(all.map(a => a.rubrique))].sort((a, b) => a.localeCompare(b, 'fr')));
-      for (const id of ['f-need', 'f-rub']) $(id).addEventListener('change', () => { shown = PAGE; renderList(); });
-      $('f-q').addEventListener('input', () => { shown = PAGE; renderList(); });
-      $('more').querySelector('button').addEventListener('click', () => { shown += PAGE; renderList(); });
-
       $('state').hidden = true;
       $('content').hidden = false;
       renderKpis(all); renderNeeds(all); renderTags(all); renderMonths(all); renderList();
-      let lastW = $('months').clientWidth;
-      window.addEventListener('resize', () => {
-        const w = $('months').clientWidth;
-        if (w !== lastW) { lastW = w; renderMonths(all); }
-      });
     } catch (e) {
+      if (all.length) throw e;   // données déjà affichées : l'erreur remonte au bouton
       $('subtitle').textContent = '';
       $('state').textContent = `Les données n'ont pas pu être chargées (${e.message}). Réessayez dans quelques instants.`;
     }
   }
 
-  load();
+  // ── Bouton « Actualiser » : classement des nouveaux articles côté serveur ──
+  const plural = (n, word) => `${nf(n)} ${word}${n > 1 ? 's' : ''}`;
+
+  function showRefresh(text, bad = false) {
+    $('refresh-status').textContent = text;
+    $('refresh-status').classList.toggle('bad', bad);
+  }
+
+  function describeJob(job) {
+    if (job.state === 'searching') return 'Recherche des nouveaux articles…';
+    if (job.state === 'running') return `Classement avec Sonnet 5.5 : ${nf(job.done)} / ${plural(job.total, 'article')}…`;
+    return '';
+  }
+
+  async function followJob(job) {
+    $('refresh-btn').disabled = true;
+    while (job.state === 'searching' || job.state === 'running') {
+      showRefresh(describeJob(job));
+      await new Promise(r => setTimeout(r, 2000));
+      const res = await fetch('/tableau-de-bord/actualiser', { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      job = await res.json();
+    }
+    if (job.state === 'error') throw new Error(job.last_error || 'erreur inconnue');
+    showRefresh('Rechargement du tableau de bord…');
+    await load(true);
+    const parts = [job.total ? `${plural(job.classified, 'article')} classé${job.classified > 1 ? 's' : ''}` : 'Aucun nouvel article à classer'];
+    if (job.errors) parts.push(`${plural(job.errors, 'échec')} (${job.last_error || 'erreur'})`);
+    if (job.remaining) parts.push(`${nf(job.remaining)} restant${job.remaining > 1 ? 's' : ''} : cliquez à nouveau`);
+    showRefresh(`À jour. ${parts.join(' · ')}.`, Boolean(job.errors));
+  }
+
+  async function refresh() {
+    try {
+      $('refresh-btn').disabled = true;
+      showRefresh('Recherche des nouveaux articles…');
+      const res = await fetch('/tableau-de-bord/actualiser', { method: 'POST', cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await followJob(await res.json());
+    } catch (e) {
+      showRefresh(`L'actualisation a échoué : ${e.message}`, true);
+    } finally {
+      $('refresh-btn').disabled = false;
+    }
+  }
+
+  $('refresh-btn').addEventListener('click', refresh);
+  setupFilters();
+  load().then(async () => {
+    // Une actualisation lancée ailleurs (autre onglet, autre lecteur) est encore en cours : on la suit.
+    try {
+      const job = await (await fetch('/tableau-de-bord/actualiser', { cache: 'no-store' })).json();
+      if (job.state === 'searching' || job.state === 'running') await followJob(job);
+    } catch (e) {
+      showRefresh(`L'actualisation a échoué : ${e.message}`, true);
+    } finally {
+      $('refresh-btn').disabled = false;
+    }
+  });
 })();
 </script>
 </body>

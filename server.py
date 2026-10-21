@@ -3,9 +3,11 @@ import http.server
 import socketserver
 import json
 import ssl
+import threading
 import time
 import urllib.error
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from urllib.parse import urlparse, parse_qs, quote
 import os
@@ -36,7 +38,8 @@ DASHBOARD_USER = os.environ.get('DASHBOARD_USER', '')
 DASHBOARD_PASSWORD = os.environ.get('DASHBOARD_PASSWORD', '')
 DASHBOARD_PAGE_PATHS = ('/tableau-de-bord', '/tableau-de-bord/')
 DASHBOARD_DATA_PATH = '/tableau-de-bord/donnees'
-DASHBOARD_PATHS = {*DASHBOARD_PAGE_PATHS, DASHBOARD_DATA_PATH}
+DASHBOARD_REFRESH_PATH = '/tableau-de-bord/actualiser'
+DASHBOARD_PATHS = {*DASHBOARD_PAGE_PATHS, DASHBOARD_DATA_PATH, DASHBOARD_REFRESH_PATH}
 APP_REALM = 'Accès protégé - Qualification Userneeds'
 DASHBOARD_REALM = 'Tableau de bord Presidentielle 2027'
 
@@ -178,12 +181,28 @@ def _ssl_context():
         return ssl.create_default_context()
 
 
-def _supabase_get(query, attempts=2):
+def _supabase_request(query, method='GET', body=None, prefer=None):
     url, key = supabase_config()
     if not url or not key:
         raise RuntimeError('Supabase non configuré (SUPABASE_URL / SUPABASE_ANON_KEY)')
-    req = urllib.request.Request(f'{url}/rest/v1/{query}', headers={
-        'apikey': key, 'Authorization': f'Bearer {key}', 'Accept': 'application/json'})
+    headers = {'apikey': key, 'Authorization': f'Bearer {key}', 'Accept': 'application/json'}
+    if body is not None:
+        headers['Content-Type'] = 'application/json'
+    if prefer:
+        headers['Prefer'] = prefer
+    data = json.dumps(body).encode('utf-8') if body is not None else None
+    return urllib.request.Request(f'{url}/rest/v1/{query}', data=data, method=method, headers=headers)
+
+
+def _supabase_write(query, method, body=None, prefer='return=representation'):
+    with urllib.request.urlopen(_supabase_request(query, method, body, prefer), timeout=30,
+                                context=_ssl_context()) as resp:
+        raw = resp.read()
+    return json.loads(raw) if raw else None
+
+
+def _supabase_get(query, attempts=2):
+    req = _supabase_request(query)
     for attempt in range(attempts):
         try:
             with urllib.request.urlopen(req, timeout=30, context=_ssl_context()) as resp:
@@ -264,6 +283,176 @@ def public_presidentielle_payload():
     return _public_cache['payload']
 
 
+# ── Bouton « Actualiser » du tableau de bord ──
+# Classe avec Sonnet 5.5 les articles tagués Présidentielle 2027 pas encore
+# classés, dans un fil à part : Render coupe une requête au bout d'environ
+# 100 s, la page suit donc l'avancement via GET /tableau-de-bord/actualiser.
+# Même stockage que la page Présidentielle 2027 de l'appli (test_runs + ai_analyses).
+REFRESH_PROMPT_ID = 'prompt_userneeds_v7'
+REFRESH_EFFORT = 'medium'
+REFRESH_CONCURRENCY = 4
+REFRESH_MAX_ARTICLES = 100   # garde-fou de coût par clic (~0,6 $)
+SONNET_PRICING = {'input_tokens': 2.0, 'output_tokens': 10.0,
+                  'cache_read_input_tokens': 0.2, 'cache_creation_input_tokens': 2.5}
+
+_refresh_lock = threading.Lock()
+_refresh_job = {'state': 'idle'}
+
+
+def confidence_level(confidence):
+    if confidence >= 0.9:
+        return 'HAUTE'
+    if confidence >= 0.7:
+        return 'MOYENNE'
+    return 'BASSE'
+
+
+def refresh_status():
+    with _refresh_lock:
+        return dict(_refresh_job)
+
+
+def _update_job(**fields):
+    with _refresh_lock:
+        _refresh_job.update(fields)
+
+
+def _unclassified_articles():
+    runs = _supabase_get('test_runs?select=id&llm_model=eq.' + ANTHROPIC_MODEL
+                         + '&name=like.' + quote(PUBLIC_RUN_PREFIX + '*'))
+    run_ids = {r['id'] for r in runs}
+    rows, offset, page = [], 0, 200
+    tag_filter = quote('{"' + PUBLIC_TAG + '"}')
+    while True:
+        batch = _supabase_get(
+            'articles?select=id,titre,chapo,ai_analyses(test_run_id),human_classifications(userneed,classified_at)'
+            f'&tags=cs.{tag_filter}&order=date_publication.desc&limit={page}&offset={offset}')
+        rows += batch
+        if len(batch) < page:
+            break
+        offset += page
+    return [a for a in rows
+            if not any(r['test_run_id'] in run_ids for r in a.get('ai_analyses') or [])]
+
+
+def _classify_and_store(article, run_id, system_prompt):
+    """Classe un article et enregistre l'analyse. Retourne (usage, accord avec l'humain ou None)."""
+    corps = (_supabase_get(f"articles?select=corps&id=eq.{article['id']}") or [{}])[0].get('corps') or ''
+    data = classify_with_anthropic(system_prompt, article.get('titre'), article.get('chapo'), corps,
+                                   effort=REFRESH_EFFORT)
+    r = data['result']
+    humans = sorted(article.get('human_classifications') or [],
+                    key=lambda h: h.get('classified_at') or '', reverse=True)
+    is_match = (humans[0]['userneed'] == r['user_need']) if humans else None
+    _supabase_write('ai_analyses?on_conflict=test_run_id,article_id', 'POST', {
+        'test_run_id': run_id,
+        'article_id': article['id'],
+        'predicted_userneed': r['user_need'],
+        'predictions': [{
+            'rank': 1, 'userneed': r['user_need'], 'score': round(r['confidence'] * 100),
+            'justification': r['justification'], 'cheminement': r['cheminement'],
+            'confidence': r['confidence'], 'usage': data['usage'], 'model': data['model'],
+            'effort': REFRESH_EFFORT, 'request_id': data['request_id'],
+        }],
+        'justification': r['justification'],
+        'is_match': is_match,
+        'delta': None,
+        'icp': round(r['confidence'] * 1000) / 10,
+        'confidence_level': confidence_level(r['confidence']),
+        'raw_response': data['raw'],
+        'analyzed_at': datetime.now(timezone.utc).isoformat(),
+    }, prefer='resolution=merge-duplicates,return=minimal')
+    return data['usage'], is_match
+
+
+def _run_refresh(articles):
+    usage = {k: 0 for k in SONNET_PRICING}
+    matches = compared = 0
+    try:
+        prompt_rows = _supabase_get(f'prompts?select=content&id=eq.{REFRESH_PROMPT_ID}')
+        if not prompt_rows:
+            raise RuntimeError(f'Prompt {REFRESH_PROMPT_ID} introuvable dans Supabase')
+        system_prompt = prompt_rows[0]['content']
+        date = datetime.now().astimezone().strftime('%d/%m/%Y %H:%M')
+        run_id = _supabase_write('test_runs', 'POST', {
+            'name': f'{PUBLIC_RUN_PREFIX} · Sonnet 5.5 · tableau de bord · {date}',
+            'llm_model': ANTHROPIC_MODEL, 'prompt_id': REFRESH_PROMPT_ID,
+            'prompt_snapshot': system_prompt, 'status': 'running',
+            'total_articles': len(articles), 'analyzed_articles': 0,
+            'started_at': datetime.now(timezone.utc).isoformat(),
+        })[0]['id']
+
+        def work(article):
+            try:
+                return _classify_and_store(article, run_id, system_prompt)
+            except Exception as e:
+                print(f"⚠️  Actualisation : {(article.get('titre') or '')[:60]} : {type(e).__name__}: {e}")
+                with _refresh_lock:
+                    _refresh_job['errors'] += 1
+                    _refresh_job['last_error'] = str(e)[:200]
+                return None
+            finally:
+                with _refresh_lock:
+                    _refresh_job['done'] += 1
+
+        with ThreadPoolExecutor(REFRESH_CONCURRENCY) as pool:
+            for result in pool.map(work, articles):
+                if result:
+                    for k in usage:
+                        usage[k] += result[0].get(k, 0)
+                    if result[1] is not None:
+                        compared += 1
+                        matches += result[1]
+
+        analyzed = len(articles) - refresh_status()['errors']
+        if analyzed == 0:
+            # Aucun article classé (clé absente, panne API) : pas de run vide dans l'historique.
+            _supabase_write(f'test_runs?id=eq.{run_id}', 'DELETE', prefer='return=minimal')
+        else:
+            _supabase_write(f'test_runs?id=eq.{run_id}', 'PATCH', {
+                'status': 'completed', 'analyzed_articles': analyzed,
+                'concordant_count': matches,
+                'concordant_percent': round(matches / compared * 100, 2) if compared else 0,
+                'confusion_matrix': {},
+                'statistics': {'usage': usage, 'effort': REFRESH_EFFORT, 'source': 'tableau de bord',
+                               'estimated_cost_usd': sum(usage[k] * p for k, p in SONNET_PRICING.items()) / 1e6},
+                'completed_at': datetime.now(timezone.utc).isoformat(),
+            }, prefer='return=minimal')
+        _update_job(state='done', classified=analyzed)
+    except Exception as e:
+        print(f'⚠️  Actualisation du tableau de bord : {type(e).__name__}: {e}')
+        _update_job(state='error', last_error=str(e)[:200])
+    finally:
+        _public_cache['payload'] = None   # le tableau de bord relit la base au prochain chargement
+        _update_job(finished_at=datetime.now(timezone.utc).isoformat(timespec='seconds'))
+
+
+def start_refresh():
+    """Lance l'actualisation si aucune n'est en cours. Retourne l'état du travail."""
+    with _refresh_lock:
+        if _refresh_job.get('state') in ('searching', 'running'):
+            return dict(_refresh_job)
+        _refresh_job.clear()
+        _refresh_job.update(state='searching', started_at=datetime.now(timezone.utc).isoformat(timespec='seconds'),
+                            total=0, done=0, errors=0, classified=0, remaining=0)
+    try:
+        articles = _unclassified_articles()
+    except Exception as e:
+        _update_job(state='error', last_error=f'Lecture des articles : {e}'[:200])
+        return refresh_status()
+    if not articles:
+        _public_cache['payload'] = None
+        _update_job(state='done', finished_at=datetime.now(timezone.utc).isoformat(timespec='seconds'))
+        return refresh_status()
+    if get_anthropic_client() is None:
+        _update_job(state='error', last_error='ANTHROPIC_API_KEY non configurée sur le serveur')
+        return refresh_status()
+    batch = articles[:REFRESH_MAX_ARTICLES]
+    _update_job(state='running', total=len(batch), remaining=len(articles) - len(batch))
+    threading.Thread(target=_run_refresh, args=(batch,), daemon=True).start()
+    return refresh_status()
+
+
 class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
     def _check_auth(self):
@@ -294,6 +483,13 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Content-Type', 'text/html; charset=utf-8')
         self.end_headers()
         self.wfile.write('<h1>401 - Authentification requise</h1>'.encode('utf-8'))
+
+    def _send_json(self, status, payload):
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/json; charset=utf-8')
+        self.send_header('Cache-Control', 'no-store')
+        self.end_headers()
+        self.wfile.write(json.dumps(payload, ensure_ascii=False).encode('utf-8'))
 
     def end_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -336,6 +532,10 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(body)
             return
 
+        elif path == DASHBOARD_REFRESH_PATH:
+            self._send_json(200, refresh_status())
+            return
+
         elif path == DASHBOARD_DATA_PATH:
             try:
                 body, status = public_presidentielle_payload(), 200
@@ -344,7 +544,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 body, status = json.dumps({'error': 'Données momentanément indisponibles'}).encode('utf-8'), 502
             self.send_response(status)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
-            self.send_header('Cache-Control', 'private, max-age=300')
+            self.send_header('Cache-Control', 'no-cache')
             self.end_headers()
             self.wfile.write(body)
             return
@@ -521,6 +721,10 @@ Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
 
     def do_POST(self):
         if not self._check_auth():
+            return
+
+        if urlparse(self.path).path == DASHBOARD_REFRESH_PATH:
+            self._send_json(202, start_refresh())
             return
 
         # Unified analyze endpoint - OpenRouter only

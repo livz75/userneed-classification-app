@@ -4,9 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Présidentielle 2027 · User needs franceinfo</title>
-<!-- Page publique (sans mot de passe), servie par server.py sur /tableau-de-bord.
-     Autonome : pas de style.css ni de script.js, qui restent protégés.
-     Données : /api/public/presidentielle (lecture seule, cache serveur 10 min). -->
+<!-- Tableau de bord servi par server.py sur /tableau-de-bord, avec ses propres identifiants
+     (DASHBOARD_USER / DASHBOARD_PASSWORD ; ceux de l’appli marchent aussi).
+     Autonome : pas de style.css ni de script.js.
+     Données : /tableau-de-bord/donnees (lecture seule, cache serveur 10 min). -->
 <style>
 :root {
   --bg: #f6f7f9; --panel: #fff; --fg: #1a1d23; --muted: #626a77; --line: #e3e6eb;
@@ -288,7 +289,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
 
   async function load() {
     try {
-      const res = await fetch('/api/public/presidentielle');
+      const res = await fetch('/tableau-de-bord/donnees');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       all = data.articles.map(a => ({ ...a, mois: parisMonth(a.date) }));

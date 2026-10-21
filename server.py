@@ -11,6 +11,7 @@ from urllib.parse import urlparse, parse_qs, quote
 import os
 import re
 import base64
+import hmac
 from html import unescape
 
 import anthropic
@@ -26,10 +27,30 @@ def is_auth_enabled():
     return bool(BASIC_AUTH_USER and BASIC_AUTH_PASSWORD)
 
 
-# Routes accessibles sans mot de passe : santé du serveur et tableau de bord
-# public Présidentielle 2027 (page + données agrégées, en lecture seule).
-PUBLIC_DASHBOARD_PATHS = ('/tableau-de-bord', '/tableau-de-bord/')
-PUBLIC_PATHS = {'/api/health', '/api/public/presidentielle', *PUBLIC_DASHBOARD_PATHS}
+# Seule route accessible sans mot de passe : la santé du serveur.
+PUBLIC_PATHS = {'/api/health'}
+
+# Tableau de bord Présidentielle 2027 : identifiants dédiés, qui n'ouvrent que
+# la page et ses données (les identifiants de l'appli y donnent aussi accès).
+DASHBOARD_USER = os.environ.get('DASHBOARD_USER', '')
+DASHBOARD_PASSWORD = os.environ.get('DASHBOARD_PASSWORD', '')
+DASHBOARD_PAGE_PATHS = ('/tableau-de-bord', '/tableau-de-bord/')
+DASHBOARD_DATA_PATH = '/tableau-de-bord/donnees'
+DASHBOARD_PATHS = {*DASHBOARD_PAGE_PATHS, DASHBOARD_DATA_PATH}
+APP_REALM = 'Accès protégé - Qualification Userneeds'
+DASHBOARD_REALM = 'Tableau de bord Presidentielle 2027'
+
+
+def _credentials_match(header, user, password):
+    if not (user and password and header.startswith('Basic ')):
+        return False
+    try:
+        given_user, given_password = base64.b64decode(header.split(' ', 1)[1]).decode('utf-8').split(':', 1)
+    except Exception:
+        return False
+    # Comparaison à temps constant : pas d'indice sur le mot de passe via le temps de réponse.
+    return (hmac.compare_digest(given_user.encode(), user.encode())
+            & hmac.compare_digest(given_password.encode(), password.encode()))
 
 
 # ── Classification directe via l'API Anthropic (page Présidentielle 2027) ──
@@ -247,42 +268,32 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
     def _check_auth(self):
         """Vérifie le header Authorization. Retourne True si OK, False sinon."""
-        if not is_auth_enabled():
+        path = urlparse(self.path).path
+        header = self.headers.get('Authorization', '')
+        is_dashboard = path in DASHBOARD_PATHS
+
+        if is_dashboard and _credentials_match(header, DASHBOARD_USER, DASHBOARD_PASSWORD):
+            return True
+        if not is_auth_enabled() and not (is_dashboard and DASHBOARD_USER and DASHBOARD_PASSWORD):
             return True
 
-        # Seules les routes publiques échappent au mot de passe. Les /api/ restent
+        # Seule /api/health échappe au mot de passe. Les /api/ restent
         # protégées : elles exposent des clés (/api/config) et des appels payants
         # (/api/classify-anthropic). Le navigateur renvoie de lui-même les
         # identifiants Basic Auth saisis au chargement de la page pour les fetch().
-        if urlparse(self.path).path in PUBLIC_PATHS:
+        if path in PUBLIC_PATHS or _credentials_match(header, BASIC_AUTH_USER, BASIC_AUTH_PASSWORD):
             return True
 
-        auth_header = self.headers.get('Authorization', '')
-
-        if not auth_header.startswith('Basic '):
-            self._send_auth_required()
-            return False
-
-        try:
-            encoded_credentials = auth_header.split(' ', 1)[1]
-            decoded = base64.b64decode(encoded_credentials).decode('utf-8')
-            username, password = decoded.split(':', 1)
-
-            if username == BASIC_AUTH_USER and password == BASIC_AUTH_PASSWORD:
-                return True
-        except Exception:
-            pass
-
-        self._send_auth_required()
+        self._send_auth_required(DASHBOARD_REALM if is_dashboard else APP_REALM)
         return False
 
-    def _send_auth_required(self):
+    def _send_auth_required(self, realm=APP_REALM):
         """Envoie une réponse 401 avec le challenge Basic Auth."""
         self.send_response(401)
-        self.send_header('WWW-Authenticate', 'Basic realm="Accès protégé - Qualification Userneeds"')
+        self.send_header('WWW-Authenticate', f'Basic realm="{realm}"')
         self.send_header('Content-Type', 'text/html; charset=utf-8')
         self.end_headers()
-        self.wfile.write(b'<h1>401 - Authentification requise</h1>')
+        self.wfile.write('<h1>401 - Authentification requise</h1>'.encode('utf-8'))
 
     def end_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -315,7 +326,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             }).encode('utf-8'))
             return
 
-        elif path in PUBLIC_DASHBOARD_PATHS:
+        elif path in DASHBOARD_PAGE_PATHS:
             with open('tableau-de-bord.html', 'rb') as f:
                 body = f.read()
             self.send_response(200)
@@ -325,15 +336,15 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(body)
             return
 
-        elif path == '/api/public/presidentielle':
+        elif path == DASHBOARD_DATA_PATH:
             try:
                 body, status = public_presidentielle_payload(), 200
             except Exception as e:
-                print(f'⚠️  /api/public/presidentielle : {type(e).__name__}: {e}')
+                print(f'⚠️  {DASHBOARD_DATA_PATH} : {type(e).__name__}: {e}')
                 body, status = json.dumps({'error': 'Données momentanément indisponibles'}).encode('utf-8'), 502
             self.send_response(status)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
-            self.send_header('Cache-Control', 'public, max-age=300')
+            self.send_header('Cache-Control', 'private, max-age=300')
             self.end_headers()
             self.wfile.write(body)
             return
@@ -755,6 +766,10 @@ if __name__ == '__main__':
             print(f"🔒 Basic Auth activée (user: {BASIC_AUTH_USER})")
         else:
             print(f"🔓 Basic Auth désactivée (variables BASIC_AUTH_USER / BASIC_AUTH_PASSWORD non définies)")
+        if DASHBOARD_USER and DASHBOARD_PASSWORD:
+            print(f"🔒 Tableau de bord : identifiants dédiés (user: {DASHBOARD_USER})")
+        else:
+            print("ℹ️  Tableau de bord : pas d'identifiants dédiés (DASHBOARD_USER / DASHBOARD_PASSWORD)")
         print(f"📡 API endpoints actifs :")
         print(f"   - /api/health")
         print(f"   - /api/analyze (OpenRouter LLM)")

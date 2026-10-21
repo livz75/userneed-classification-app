@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Présidentielle 2027 · User needs franceinfo</title>
+<!-- Page publique (sans mot de passe), servie par server.py sur /tableau-de-bord.
+     Autonome : pas de style.css ni de script.js, qui restent protégés.
+     Données : /api/public/presidentielle (lecture seule, cache serveur 10 min). -->
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #fff; --fg: #1a1d23; --muted: #626a77; --line: #e3e6eb;
+  --accent: #1d4ed8; --track: #eef0f3;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --serif: Georgia, "Times New Roman", serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #14161a; --panel: #1d2026; --fg: #e8eaee; --muted: #9aa2ae; --line: #2e323a; --accent: #7aa2ff; --track: #282c33; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--font); }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 28px 16px 48px; }
+header h1 { font: 600 clamp(22px, 3.2vw, 32px)/1.2 var(--serif); margin: 0 0 6px; }
+header p { margin: 0; color: var(--muted); }
+h2 { font-size: 18px; margin: 36px 0 12px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 24px; }
+.kpi .v { font: 600 30px/1.15 var(--serif); }
+.kpi .l { color: var(--muted); font-size: 13px; margin-top: 4px; }
+.panel h3 { font-size: 14px; margin: 0 0 12px; color: var(--muted); font-weight: 600; }
+.bars { display: grid; gap: 8px; }
+.bar { display: grid; grid-template-columns: minmax(110px, 190px) 1fr 76px; align-items: center; gap: 10px; font-size: 13px; }
+.bar .track { background: var(--track); border-radius: 4px; height: 14px; overflow: hidden; }
+.bar .fill { height: 100%; border-radius: 4px; }
+.bar .n { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.bar .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); margin-top: 10px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+#months svg { display: block; width: 100%; height: auto; }
+#months text { fill: var(--muted); font-size: 11px; }
+.tip { position: fixed; pointer-events: none; background: var(--fg); color: var(--bg); font-size: 12px; padding: 6px 8px; border-radius: 6px; max-width: 260px; display: none; z-index: 10; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.filters select, .filters input { font: inherit; font-size: 14px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--fg); }
+.filters input { flex: 1 1 220px; }
+.count { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; color: var(--muted); font-weight: 600; font-size: 12px; border-bottom: 1px solid var(--line); padding: 6px 8px; }
+td { border-bottom: 1px solid var(--line); padding: 9px 8px; vertical-align: top; }
+tr.row { cursor: pointer; }
+tr.row:hover td { background: var(--track); }
+td.date { white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
+td a { color: var(--fg); text-decoration: none; }
+td a:hover { color: var(--accent); text-decoration: underline; }
+.badge { display: inline-block; color: #fff; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+tr.detail td { background: var(--track); color: var(--fg); font-size: 13px; }
+tr.detail .meta { color: var(--muted); margin-top: 6px; }
+.more { margin-top: 12px; text-align: center; }
+.more button { font: inherit; padding: 8px 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); cursor: pointer; }
+.state { padding: 40px 0; text-align: center; color: var(--muted); }
+footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
+@media (max-width: 760px) {
+  .grid2 { grid-template-columns: 1fr; }
+  .kpis { grid-template-columns: 1fr 1fr; }
+  .col-rub, .col-niv { display: none; }
+  .bar { grid-template-columns: minmax(90px, 130px) 1fr 64px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Présidentielle 2027 : quels besoins d'information sur franceinfo ?</h1>
+    <p id="subtitle">Chargement…</p>
+  </header>
+
+  <div id="state" class="state">Chargement des données…</div>
+
+  <main id="content" hidden>
+    <section class="kpis">
+      <div class="panel kpi"><div class="v" id="k-articles">—</div><div class="l">articles classés</div></div>
+      <div class="panel kpi"><div class="v" id="k-top">—</div><div class="l" id="k-top-l">user need dominant</div></div>
+      <div class="panel kpi"><div class="v" id="k-top2">—</div><div class="l" id="k-top2-l">part des 2 premiers</div></div>
+      <div class="panel kpi"><div class="v" id="k-needs">—</div><div class="l">user needs représentés</div></div>
+    </section>
+
+    <h2>Quels besoins d'information ?</h2>
+    <div class="panel">
+      <h3>Nombre d'articles par user need</h3>
+      <div class="bars" id="needs"></div>
+    </div>
+
+    <h2>Quand et sur quels sujets ?</h2>
+    <div class="grid2">
+      <div class="panel">
+        <h3>Articles publiés par mois</h3>
+        <div id="months"></div>
+        <div class="legend" id="months-legend"></div>
+      </div>
+      <div class="panel">
+        <h3>Sujets les plus associés (tags franceinfo)</h3>
+        <div class="bars" id="tags"></div>
+      </div>
+    </div>
+
+    <h2>Les articles</h2>
+    <div class="panel">
+      <div class="filters">
+        <select id="f-need" aria-label="Filtrer par user need"><option value="">Tous les user needs</option></select>
+        <select id="f-rub" aria-label="Filtrer par rubrique"><option value="">Toutes les rubriques</option></select>
+        <input id="f-q" type="search" placeholder="Rechercher dans les titres…" aria-label="Rechercher dans les titres">
+      </div>
+      <div class="count" id="count"></div>
+      <table>
+        <thead><tr><th>Date</th><th>Titre</th><th class="col-rub">Rubrique</th><th>User need</th><th class="col-niv">Confiance</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="more" id="more" hidden><button type="button">Afficher plus</button></div>
+    </div>
+  </main>
+
+  <footer id="footer"></footer>
+</div>
+<div class="tip" id="tip"></div>
+
+<script>
+(function () {
+  const NEEDS = ['UPDATE ME', 'GIVE ME PERSPECTIVE', 'EXPLAIN ME', 'VERIFY', 'FEEL', 'SUMMARIZE', 'GUIDE ME', 'DIVERT ME', 'INSPIRE ME'];
+  const COLORS = {
+    'UPDATE ME': '#3b82f6', 'EXPLAIN ME': '#10b981', 'GIVE ME PERSPECTIVE': '#8b5cf6',
+    'DIVERT ME': '#f59e0b', 'GUIDE ME': '#ef4444', 'INSPIRE ME': '#f97316',
+    'FEEL': '#ec4899', 'VERIFY': '#06b6d4', 'SUMMARIZE': '#14b8a6',
+  };
+  const GENERIC_TAGS = ['Présidentielle 2027', 'Elections en France', 'Politique'];
+  const PAGE = 50;
+  const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+
+  const $ = id => document.getElementById(id);
+  const el = (tag, props = {}, ...children) => {
+    const n = document.createElement(tag);
+    Object.assign(n, props);
+    for (const c of children) n.append(c);
+    return n;
+  };
+  const pct = x => Math.round(x * 100) + ' %';
+  const nf = n => n.toLocaleString('fr-FR');
+  const parisDate = iso => new Date(iso).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit', year: 'numeric' });
+  const parisMonth = iso => new Date(iso).toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' }).slice(0, 7);
+  const badge = un => el('span', { className: 'badge', textContent: un, style: `background:${COLORS[un] || '#6366f1'}` });
+
+  let all = [], shown = PAGE, openId = null;
+
+  function barList(container, items, total, colorOf) {
+    container.replaceChildren(...items.map(({ name, n }) => {
+      const fill = el('div', { className: 'fill' });
+      fill.style.width = (total ? n / total * 100 : 0) + '%';
+      fill.style.background = colorOf(name);
+      return el('div', { className: 'bar' },
+        el('div', { className: 'name', textContent: name, title: name }),
+        el('div', { className: 'track' }, fill),
+        el('div', { className: 'n', textContent: `${nf(n)} · ${pct(total ? n / total : 0)}` }));
+    }));
+  }
+
+  function renderKpis(arts) {
+    const n = arts.length;
+    const counts = NEEDS.map(u => ({ u, c: arts.filter(a => a.user_need === u).length })).sort((a, b) => b.c - a.c);
+    $('k-articles').textContent = nf(n);
+    $('k-top').textContent = n ? pct(counts[0].c / n) : '—';
+    $('k-top-l').textContent = `des articles en ${counts[0].u}`;
+    $('k-top2').textContent = n ? pct((counts[0].c + counts[1].c) / n) : '—';
+    $('k-top2-l').textContent = `${counts[0].u} + ${counts[1].u}`;
+    $('k-needs').textContent = `${counts.filter(x => x.c).length} / ${NEEDS.length}`;
+  }
+
+  function renderNeeds(arts) {
+    const items = NEEDS.map(u => ({ name: u, n: arts.filter(a => a.user_need === u).length }));
+    barList($('needs'), items, arts.length, u => COLORS[u]);
+  }
+
+  function renderTags(arts) {
+    const count = {};
+    for (const a of arts) for (const t of a.tags) if (!GENERIC_TAGS.includes(t)) count[t] = (count[t] || 0) + 1;
+    const items = Object.entries(count).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([name, n]) => ({ name, n }));
+    barList($('tags'), items, arts.length, () => 'var(--accent)');
+  }
+
+  function renderMonths(arts) {
+    const box = $('months');
+    const months = [...new Set(arts.map(a => a.mois))].sort();
+    const used = NEEDS.filter(u => arts.some(a => a.user_need === u));
+    const data = months.map(m => {
+      const inMonth = arts.filter(a => a.mois === m);
+      return { m, total: inMonth.length, parts: used.map(u => ({ u, n: inMonth.filter(a => a.user_need === u).length })) };
+    });
+    const W = Math.max(320, box.clientWidth || 520), H = 240, padL = 34, padB = 26, padT = 8;
+    const max = Math.max(1, ...data.map(d => d.total));
+    const step = Math.pow(10, Math.floor(Math.log10(max)));
+    const tick = max / step > 5 ? step * 2 : max / step > 2 ? step : step / 2;
+    const top = Math.ceil(max / tick) * tick;
+    const y = v => padT + (H - padT - padB) * (1 - v / top);
+    const bw = (W - padL) / Math.max(1, months.length);
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', 'Articles publiés par mois et par user need');
+    const add = (tag, attrs, text) => {
+      const n = document.createElementNS(NS, tag);
+      for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+      if (text != null) n.textContent = text;
+      svg.append(n);
+      return n;
+    };
+    for (let v = 0; v <= top; v += tick) {
+      add('line', { x1: padL, x2: W, y1: y(v), y2: y(v), stroke: 'var(--line)' });
+      add('text', { x: padL - 6, y: y(v) + 4, 'text-anchor': 'end' }, nf(v));
+    }
+    const tip = $('tip');
+    data.forEach((d, i) => {
+      let acc = 0;
+      const x = padL + i * bw + bw * 0.15, w = bw * 0.7;
+      for (const p of d.parts) {
+        if (!p.n) continue;
+        const r = add('rect', { x, width: w, y: y(acc + p.n), height: y(acc) - y(acc + p.n), fill: COLORS[p.u] });
+        acc += p.n;
+        r.addEventListener('mousemove', e => {
+          const [yy, mm] = d.m.split('-');
+          tip.textContent = `${MONTHS[+mm - 1]} ${yy} · ${p.u} : ${nf(p.n)} article${p.n > 1 ? 's' : ''} (sur ${nf(d.total)})`;
+          tip.style.display = 'block';
+          const tw = tip.offsetWidth;
+          tip.style.left = Math.min(e.clientX + 12, window.innerWidth - tw - 8) + 'px';
+          tip.style.top = (e.clientY + 12) + 'px';
+        });
+        r.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+      }
+      const [yy, mm] = d.m.split('-');
+      const label = months.length > 8 && bw < 46 ? MONTHS[+mm - 1].slice(0, 3) : `${MONTHS[+mm - 1]} ${yy.slice(2)}`;
+      add('text', { x: x + w / 2, y: H - 8, 'text-anchor': 'middle' }, label);
+    });
+    box.replaceChildren(svg);
+    $('months-legend').replaceChildren(...used.map(u => {
+      const sw = el('i'); sw.style.background = COLORS[u];
+      return el('span', {}, sw, u);
+    }));
+  }
+
+  function filtered() {
+    const need = $('f-need').value, rub = $('f-rub').value, q = $('f-q').value.trim().toLowerCase();
+    return all.filter(a => (!need || a.user_need === need) && (!rub || a.rubrique === rub)
+      && (!q || a.titre.toLowerCase().includes(q)));
+  }
+
+  function renderList() {
+    const list = filtered();
+    $('count').textContent = `${nf(list.length)} article${list.length > 1 ? 's' : ''}`;
+    const rows = [];
+    for (const a of list.slice(0, shown)) {
+      const tr = el('tr', { className: 'row' },
+        el('td', { className: 'date', textContent: parisDate(a.date) }),
+        el('td', {}, el('a', { href: a.url, target: '_blank', rel: 'noopener', textContent: a.titre })),
+        el('td', { className: 'col-rub', textContent: a.rubrique }),
+        el('td', {}, badge(a.user_need)),
+        el('td', { className: 'col-niv', textContent: a.niveau || '—' }));
+      tr.addEventListener('click', e => {
+        if (e.target.closest('a')) return;
+        openId = openId === a.id ? null : a.id;
+        renderList();
+      });
+      rows.push(tr);
+      if (openId === a.id) {
+        const meta = [a.confiance != null ? `Confiance ${pct(a.confiance)}` : null,
+          a.etape ? `décision à l'étape ${a.etape}` : null,
+          a.nb_mots ? `${nf(a.nb_mots)} mots` : null,
+          a.valide ? 'classement validé par un humain' : null].filter(Boolean).join(' · ');
+        rows.push(el('tr', { className: 'detail' }, el('td', { colSpan: 5 },
+          el('div', { textContent: a.justification || 'Pas de justification.' }),
+          el('div', { className: 'meta', textContent: meta }))));
+      }
+    }
+    $('rows').replaceChildren(...rows);
+    $('more').hidden = list.length <= shown;
+  }
+
+  function fillSelect(select, values) {
+    select.append(...values.map(v => el('option', { value: v, textContent: v })));
+  }
+
+  async function load() {
+    try {
+      const res = await fetch('/api/public/presidentielle');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      all = data.articles.map(a => ({ ...a, mois: parisMonth(a.date) }));
+      if (!all.length) throw new Error('aucun article');
+
+      const dates = all.map(a => a.date).sort();
+      $('subtitle').textContent = `${nf(all.length)} articles franceinfo tagués « ${data.tag} », publiés du ${parisDate(dates[0])} au ${parisDate(dates[dates.length - 1])}, classés par user need par Claude Sonnet 5.5.`;
+      $('footer').textContent = `Données mises à jour le ${new Date(data.generated_at).toLocaleString('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'long', timeStyle: 'short' })}`
+        + (data.a_classer ? ` · ${nf(data.a_classer)} article${data.a_classer > 1 ? 's' : ''} récent${data.a_classer > 1 ? 's' : ''} pas encore classé${data.a_classer > 1 ? 's' : ''}` : '')
+        + ' · Classement automatique : il peut contenir des erreurs.';
+
+      fillSelect($('f-need'), NEEDS.filter(u => all.some(a => a.user_need === u)));
+      fillSelect($('f-rub'), [...new Set(all.map(a => a.rubrique))].sort((a, b) => a.localeCompare(b, 'fr')));
+      for (const id of ['f-need', 'f-rub']) $(id).addEventListener('change', () => { shown = PAGE; renderList(); });
+      $('f-q').addEventListener('input', () => { shown = PAGE; renderList(); });
+      $('more').querySelector('button').addEventListener('click', () => { shown += PAGE; renderList(); });
+
+      $('state').hidden = true;
+      $('content').hidden = false;
+      renderKpis(all); renderNeeds(all); renderTags(all); renderMonths(all); renderList();
+      let lastW = $('months').clientWidth;
+      window.addEventListener('resize', () => {
+        const w = $('months').clientWidth;
+        if (w !== lastW) { lastW = w; renderMonths(all); }
+      });
+    } catch (e) {
+      $('subtitle').textContent = '';
+      $('state').textContent = `Les données n'ont pas pu être chargées (${e.message}). Réessayez dans quelques instants.`;
+    }
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>

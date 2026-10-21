@@ -2,8 +2,12 @@
 import http.server
 import socketserver
 import json
+import ssl
+import time
+import urllib.error
 import urllib.request
-from urllib.parse import urlparse, parse_qs
+from datetime import datetime, timezone
+from urllib.parse import urlparse, parse_qs, quote
 import os
 import re
 import base64
@@ -20,6 +24,12 @@ BASIC_AUTH_PASSWORD = os.environ.get('BASIC_AUTH_PASSWORD', '')
 def is_auth_enabled():
     """Auth activée uniquement si les deux variables sont définies."""
     return bool(BASIC_AUTH_USER and BASIC_AUTH_PASSWORD)
+
+
+# Routes accessibles sans mot de passe : santé du serveur et tableau de bord
+# public Présidentielle 2027 (page + données agrégées, en lecture seule).
+PUBLIC_DASHBOARD_PATHS = ('/tableau-de-bord', '/tableau-de-bord/')
+PUBLIC_PATHS = {'/api/health', '/api/public/presidentielle', *PUBLIC_DASHBOARD_PATHS}
 
 
 # ── Classification directe via l'API Anthropic (page Présidentielle 2027) ──
@@ -114,6 +124,125 @@ def classify_with_anthropic(system_prompt, titre, chapo, corps, effort='medium')
         },
     }
 
+# ── Tableau de bord public Présidentielle 2027 ──
+# Données lues côté serveur (aucune clé envoyée au navigateur), réduites aux
+# champs affichés, et mises en cache : la page est publique et le rôle anon
+# de Supabase a un statement_timeout de 3 s.
+PUBLIC_TAG = 'Présidentielle 2027'
+PUBLIC_RUN_PREFIX = 'Présidentielle 2027'
+PUBLIC_CACHE_SECONDS = 600
+_public_cache = {'at': 0, 'payload': None}
+
+RUBRIQUES = {
+    'elections': 'Élections', 'politique': 'Politique', 'replay-jt': 'Replay JT',
+    'replay-magazine': 'Replay magazine', 'replay-radio': 'Replay radio',
+}
+
+
+def supabase_config():
+    try:
+        with open('config.json') as f:
+            config = json.load(f)
+    except FileNotFoundError:
+        config = {}
+    return (os.environ.get('SUPABASE_URL') or config.get('supabase_url', ''),
+            os.environ.get('SUPABASE_ANON_KEY') or config.get('supabase_anon_key', ''))
+
+
+def _ssl_context():
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        return ssl.create_default_context()
+
+
+def _supabase_get(query, attempts=2):
+    url, key = supabase_config()
+    if not url or not key:
+        raise RuntimeError('Supabase non configuré (SUPABASE_URL / SUPABASE_ANON_KEY)')
+    req = urllib.request.Request(f'{url}/rest/v1/{query}', headers={
+        'apikey': key, 'Authorization': f'Bearer {key}', 'Accept': 'application/json'})
+    for attempt in range(attempts):
+        try:
+            with urllib.request.urlopen(req, timeout=30, context=_ssl_context()) as resp:
+                return json.loads(resp.read())
+        except urllib.error.HTTPError:
+            if attempt == attempts - 1:
+                raise
+
+
+def decision_step(cheminement):
+    """Dernière étape du cheminement qui porte un verdict (« É4:FEEL → É5:non atteint » → 4)."""
+    steps = [m for m in re.finditer(r'É\s*(\d)\s*:\s*([^→]+)', cheminement or '')
+             if not re.match(r'\s*non\b', m.group(2), re.I)]
+    return int(steps[-1].group(1)) if steps else None
+
+
+def build_public_presidentielle():
+    runs = _supabase_get('test_runs?select=id&llm_model=eq.' + ANTHROPIC_MODEL
+                         + '&name=like.' + quote(PUBLIC_RUN_PREFIX + '*'))
+    run_ids = {r['id'] for r in runs}
+
+    rows, offset, page = [], 0, 200
+    tag_filter = quote('{"' + PUBLIC_TAG + '"}')
+    while True:
+        batch = _supabase_get(
+            'articles?select=external_id,titre,url,date_publication,word_count,tags,'
+            'human_classifications(userneed,classified_at),'
+            'ai_analyses(test_run_id,predicted_userneed,justification,predictions,icp,confidence_level,analyzed_at)'
+            f'&tags=cs.{tag_filter}&order=date_publication.desc&limit={page}&offset={offset}')
+        rows += batch
+        if len(batch) < page:
+            break
+        offset += page
+
+    articles, to_classify = [], 0
+    for a in rows:
+        sonnet = sorted((r for r in a.get('ai_analyses') or [] if r['test_run_id'] in run_ids),
+                        key=lambda r: r.get('analyzed_at') or '', reverse=True)
+        if not sonnet:
+            to_classify += 1
+            continue
+        s = sonnet[0]
+        pred = (s.get('predictions') or [{}])[0] or {}
+        confidence = pred.get('confidence')
+        if confidence is None and s.get('icp') is not None:
+            confidence = s['icp'] / 100
+        url = a.get('url') or ''
+        section = url.split('/')[3] if url.count('/') >= 4 else ''
+        articles.append({
+            'id': a['external_id'],
+            'date': a['date_publication'],
+            'rubrique': RUBRIQUES.get(section, 'Autres rubriques'),
+            'titre': a.get('titre') or '',
+            'url': url,
+            'nb_mots': a.get('word_count'),
+            'user_need': s['predicted_userneed'],
+            'confiance': confidence,
+            'niveau': (s.get('confidence_level') or '').capitalize(),
+            'etape': decision_step(pred.get('cheminement')),
+            'justification': s.get('justification') or '',
+            'tags': a.get('tags') or [],
+            'valide': bool(a.get('human_classifications')),
+        })
+    return {
+        'generated_at': datetime.now(timezone.utc).isoformat(timespec='seconds'),
+        'tag': PUBLIC_TAG,
+        'model': ANTHROPIC_MODEL,
+        'a_classer': to_classify,
+        'articles': articles,
+    }
+
+
+def public_presidentielle_payload():
+    now = time.time()
+    if _public_cache['payload'] is None or now - _public_cache['at'] > PUBLIC_CACHE_SECONDS:
+        _public_cache['payload'] = json.dumps(build_public_presidentielle(), ensure_ascii=False).encode('utf-8')
+        _public_cache['at'] = now
+    return _public_cache['payload']
+
+
 class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
     def _check_auth(self):
@@ -121,9 +250,11 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         if not is_auth_enabled():
             return True
 
-        # Les endpoints API sont exemptés : la page HTML est déjà protégée
-        # et les appels fetch() depuis le JS n'ont pas besoin de re-authentifier
-        if self.path.startswith('/api/'):
+        # Seules les routes publiques échappent au mot de passe. Les /api/ restent
+        # protégées : elles exposent des clés (/api/config) et des appels payants
+        # (/api/classify-anthropic). Le navigateur renvoie de lui-même les
+        # identifiants Basic Auth saisis au chargement de la page pour les fetch().
+        if urlparse(self.path).path in PUBLIC_PATHS:
             return True
 
         auth_header = self.headers.get('Authorization', '')
@@ -182,6 +313,29 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 'provider': 'openrouter',
                 'default_model': 'anthropic/claude-haiku-4.5'
             }).encode('utf-8'))
+            return
+
+        elif path in PUBLIC_DASHBOARD_PATHS:
+            with open('tableau-de-bord.html', 'rb') as f:
+                body = f.read()
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.send_header('Cache-Control', 'no-cache')
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        elif path == '/api/public/presidentielle':
+            try:
+                body, status = public_presidentielle_payload(), 200
+            except Exception as e:
+                print(f'⚠️  /api/public/presidentielle : {type(e).__name__}: {e}')
+                body, status = json.dumps({'error': 'Données momentanément indisponibles'}).encode('utf-8'), 502
+            self.send_response(status)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.send_header('Cache-Control', 'public, max-age=300')
+            self.end_headers()
+            self.wfile.write(body)
             return
 
         elif path == '/api/config':

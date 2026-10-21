@@ -28,12 +28,14 @@ const electionState = {
     effort: 'medium',
     expandedId: null,
     loading: false,
+    loadError: null,
     // Lot en cours
     running: false,
     paused: false,
     stopRequested: false,
     run: null,
     progress: { done: 0, total: 0, errors: 0, matches: 0, compared: 0 },
+    errorMessages: [],     // affichés sous la barre de progression (les 5 derniers)
     usage: { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
     promptContent: null,
 };
@@ -96,21 +98,30 @@ async function loadElectionArticles() {
     if (runErr) console.error('Erreur lecture runs Sonnet:', runErr);
     electionState.sonnetRunIds = new Set((runs || []).map(r => r.id));
 
-    const PAGE = 500;
-    let from = 0, all = [];
+    // Le rôle anon a un statement_timeout de 3 s : pas de `corps` dans la liste
+    // (chargé à la demande par fetchElectionCorps) et des pages courtes.
+    const PAGE = 200;
+    const fetchPage = from => supabaseClient
+        .from('articles')
+        .select(`
+            id, external_id, titre, chapo, url, date_publication, tags, word_count,
+            human_classifications (userneed, classified_by, classified_at),
+            ai_analyses (test_run_id, predicted_userneed, justification, predictions, icp, confidence_level, analyzed_at)
+        `)
+        .overlaps('tags', ELECTION_TAGS)
+        .order('date_publication', { ascending: false })
+        .range(from, from + PAGE - 1);
+
+    let from = 0, all = [], loadError = null;
     while (true) {
-        const { data, error } = await supabaseClient
-            .from('articles')
-            .select(`
-                id, external_id, titre, chapo, corps, url, date_publication, tags,
-                human_classifications (userneed, classified_by, classified_at),
-                ai_analyses (test_run_id, predicted_userneed, justification, predictions, icp, confidence_level, analyzed_at)
-            `)
-            .overlaps('tags', ELECTION_TAGS)
-            .order('date_publication', { ascending: false })
-            .range(from, from + PAGE - 1);
+        let { data, error } = await fetchPage(from);
+        if (error) {
+            console.warn('Chargement articles élections, nouvel essai :', error.message);
+            ({ data, error } = await fetchPage(from));
+        }
         if (error) {
             console.error('Erreur chargement articles élections:', error);
+            loadError = error.message;
             break;
         }
         all = all.concat(data || []);
@@ -118,7 +129,9 @@ async function loadElectionArticles() {
         from += PAGE;
     }
 
-    electionState.articles = all.map(enrichElectionArticle);
+    // En cas d'échec, on ne remplace pas une liste partielle par une liste vide trompeuse.
+    electionState.loadError = loadError;
+    electionState.articles = loadError ? [] : all.map(enrichElectionArticle);
     electionState.loading = false;
     renderElectionToolbar();
     renderElectionList();
@@ -226,7 +239,9 @@ function renderElectionProgress() {
     const box = document.getElementById('electionsProgress');
     if (!box) return;
     const p = electionState.progress;
-    if (!p.total) { box.innerHTML = ''; return; }
+    const errors = electionState.errorMessages.slice(-5).reverse()
+        .map(m => `<div class="el-error">${elEscape(m)}</div>`).join('');
+    if (!p.total) { box.innerHTML = errors; return; }
     const pct = Math.round((p.done / p.total) * 100);
     const agree = p.compared ? ` · accord humain ${p.matches}/${p.compared}` : '';
     const status = electionState.running
@@ -239,7 +254,7 @@ function renderElectionProgress() {
                 ${status} — ${p.done}/${p.total} articles${p.errors ? ` · ${p.errors} erreur(s)` : ''}${agree}
                 · coût estimé ≈ ${elCost(electionState.usage).toFixed(2)} $
             </div>
-        </div>`;
+        </div>${errors}`;
 }
 
 function renderElectionList() {
@@ -247,6 +262,11 @@ function renderElectionList() {
     if (!box) return;
     if (electionState.loading) {
         box.innerHTML = '<p class="el-empty">Chargement des articles…</p>';
+        return;
+    }
+    if (electionState.loadError) {
+        box.innerHTML = `<div class="el-error">Chargement impossible : ${elEscape(electionState.loadError)}</div>
+            <p class="el-empty"><button class="articles-refresh-btn" onclick="loadElectionArticles()">↻ Réessayer</button></p>`;
         return;
     }
     const list = filteredElectionArticles();
@@ -293,7 +313,7 @@ function renderElectionDetail(a) {
             ${a.chapo ? `<p class="el-chapo">${elEscape(a.chapo)}</p>` : ''}
             <p class="el-links">
                 <a href="${elEscape(a.url)}" target="_blank" rel="noopener">Ouvrir l'article ↗</a>
-                · ${(a.corps || '').split(/\s+/).filter(Boolean).length} mots
+                · ${a.word_count || 0} mots
             </p>
             ${s ? `
                 <div class="el-sonnet">
@@ -343,15 +363,26 @@ async function validateElectionArticle(id, userneed) {
 }
 
 function alertElection(msg) {
-    const box = document.getElementById('electionsProgress');
-    if (box) box.insertAdjacentHTML('afterbegin', `<div class="el-error">${elEscape(msg)}</div>`);
+    // Conservé dans l'état : un innerHTML direct serait effacé au rendu suivant de la progression.
+    electionState.errorMessages.push(msg);
+    renderElectionProgress();
     console.error('[Présidentielle 2027]', msg);
 }
 
 // ── Classification Sonnet ────────────────────────────────────
 
+async function fetchElectionCorps(article) {
+    if (article.corps !== undefined) return article.corps;
+    const { data, error } = await supabaseClient
+        .from('articles').select('corps').eq('id', article.id).single();
+    if (error) throw new Error(`Lecture du texte impossible : ${error.message}`);
+    // Pas de mise en cache sur l'article : la liste reste légère en mémoire.
+    return data.corps || '';
+}
+
 async function callSonnet(article) {
     const system = await loadElectionPrompt();
+    const corps = await fetchElectionCorps(article);
     const res = await fetch('/api/classify-anthropic', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -359,7 +390,7 @@ async function callSonnet(article) {
             system,
             titre: article.titre,
             chapo: article.chapo,
-            corps: article.corps,
+            corps,
             effort: electionState.effort,
         }),
     });
@@ -434,6 +465,7 @@ async function startElectionBatch() {
     electionState.paused = false;
     electionState.stopRequested = false;
     electionState.progress = { done: 0, total: targets.length, errors: 0, matches: 0, compared: 0 };
+    electionState.errorMessages = [];
     for (const k of Object.keys(electionState.usage)) electionState.usage[k] = 0;
     renderElectionToolbar();
     renderElectionProgress();
@@ -517,6 +549,7 @@ async function classifyOneElectionArticle(id) {
     if (row) row.innerHTML = '<span class="el-pending">⏳ Sonnet analyse l\'article…</span>';
     let run = null;
     try {
+        electionState.errorMessages = [];
         run = await createElectionRun('unitaire', 1);
         electionState.progress = { done: 0, total: 0, errors: 0, matches: 0, compared: 0 };
         const isMatch = await classifyElectionArticle(article, run, 0);

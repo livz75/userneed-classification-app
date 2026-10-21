@@ -11,7 +11,7 @@
 // côté serveur (ANTHROPIC_API_KEY).
 // ============================================
 
-const ELECTION_TAGS = ['Présidentielle 2027', 'Elections en France'];
+const ELECTION_TAGS = ['Présidentielle 2027'];
 const ELECTION_MODEL = 'claude-sonnet-5-5';
 const ELECTION_PROMPT_ID = 'prompt_userneeds_v7';
 const ELECTION_RUN_PREFIX = 'Présidentielle 2027';
@@ -23,10 +23,9 @@ const electionState = {
     articles: [],          // articles enrichis : { ..., sonnet, human }
     sonnetRunIds: new Set(),
     runs: {},              // id → { name, statistics, analyzed_articles, created_at } (export)
-    tagFilter: 'all',      // 'all' | un des ELECTION_TAGS
-    statusFilter: 'todo',  // 'all' | 'todo' | 'to_validate' | 'validated'
+    statusFilter: 'todo',  // 'all' | 'todo' | 'classified'
     search: '',
-    effort: 'medium',
+    effort: 'medium',      // fixe (plus de choix dans l'interface)
     expandedId: null,
     loading: false,
     loadError: null,
@@ -174,10 +173,8 @@ function enrichElectionArticle(a) {
 function filteredElectionArticles() {
     const q = electionState.search.trim().toLowerCase();
     return electionState.articles.filter(a => {
-        if (electionState.tagFilter !== 'all' && !(a.tags || []).includes(electionState.tagFilter)) return false;
         if (electionState.statusFilter === 'todo' && a.sonnet) return false;
-        if (electionState.statusFilter === 'to_validate' && (!a.sonnet || a.human)) return false;
-        if (electionState.statusFilter === 'validated' && !a.human) return false;
+        if (electionState.statusFilter === 'classified' && !a.sonnet) return false;
         if (q && !(a.titre || '').toLowerCase().includes(q)) return false;
         return true;
     });
@@ -195,10 +192,8 @@ function renderElectionToolbar() {
     const box = document.getElementById('electionsToolbar');
     if (!box) return;
     const arts = electionState.articles;
-    const count = tag => arts.filter(a => (a.tags || []).includes(tag)).length;
     const nTodo = arts.filter(a => !a.sonnet).length;
-    const nToValidate = arts.filter(a => a.sonnet && !a.human).length;
-    const nValidated = arts.filter(a => a.human).length;
+    const nClassified = arts.filter(a => a.sonnet).length;
     const targets = filteredElectionArticles().filter(a => !a.sonnet).length;
 
     const chip = (kind, value, label) =>
@@ -207,16 +202,10 @@ function renderElectionToolbar() {
 
     box.innerHTML = `
         <div class="el-toolbar-row">
-            <span class="filter-label">Tag :</span>
-            ${chip('tagFilter', 'all', `Tous (${arts.length})`)}
-            ${ELECTION_TAGS.map(t => chip('tagFilter', t, `${elEscape(t)} (${count(t)})`)).join('')}
-        </div>
-        <div class="el-toolbar-row">
             <span class="filter-label">Statut :</span>
             ${chip('statusFilter', 'all', 'Tous')}
             ${chip('statusFilter', 'todo', `À classer (${nTodo})`)}
-            ${chip('statusFilter', 'to_validate', `À valider (${nToValidate})`)}
-            ${chip('statusFilter', 'validated', `Validés (${nValidated})`)}
+            ${chip('statusFilter', 'classified', `Classifiés (${nClassified})`)}
             <div class="articles-search-bar el-search">
                 <span class="articles-search-icon">🔍</span>
                 <input type="text" class="articles-search-input" placeholder="Filtrer par titre…"
@@ -225,12 +214,6 @@ function renderElectionToolbar() {
             </div>
         </div>
         <div class="el-toolbar-row el-actions">
-            <label class="filter-label" for="electionEffort">Effort :</label>
-            <select id="electionEffort" class="el-select" ${electionState.running ? 'disabled' : ''}
-                    onchange="electionState.effort = this.value">
-                ${['low', 'medium', 'high'].map(e =>
-                    `<option value="${e}" ${electionState.effort === e ? 'selected' : ''}>${e}</option>`).join('')}
-            </select>
             ${electionState.running ? `
                 <button class="nav-btn ${electionState.paused ? 'nav-btn-success' : 'nav-btn-warning'}"
                         onclick="toggleElectionPause()">${electionState.paused ? '▶ Reprendre' : '⏸ Pause'}</button>
@@ -698,10 +681,7 @@ async function exportElectionCsv() {
         const rows = list.map(a => ELECTION_EXPORT_COLUMNS.map(([, f]) => f(a, ctx)));
         const csv = '\uFEFF' + [header, ...rows].map(r => r.map(escapeCsv).join(';')).join('\r\n');
 
-        const filters = [
-            electionState.tagFilter === 'all' ? 'tous-tags' : electionState.tagFilter,
-            electionState.statusFilter,
-        ].join('-').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-');
+        const filters = { all: 'tous', todo: 'a-classer', classified: 'classifies' }[electionState.statusFilter];
         const date = new Date().toISOString().slice(0, 10);
         downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8;' }),
             `presidentielle-2027-sonnet-${filters}-${date}.csv`);

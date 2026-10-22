@@ -12,11 +12,13 @@
 :root {
   --bg: #f6f7f9; --panel: #fff; --fg: #1a1d23; --muted: #626a77; --line: #e3e6eb;
   --accent: #1d4ed8; --track: #eef0f3;
+  --neg-bg: #faf0f0; --pos-bg: #eef7f0; --up: #3f9b5c; --down: #c94b4b; --neutral: #9aa1b0; --faint: #e2dfe6; --time-low: #b9bdcc;
   --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --serif: Georgia, "Times New Roman", serif;
 }
 @media (prefers-color-scheme: dark) {
-  :root { --bg: #14161a; --panel: #1d2026; --fg: #e8eaee; --muted: #9aa2ae; --line: #2e323a; --accent: #7aa2ff; --track: #282c33; }
+  :root { --bg: #14161a; --panel: #1d2026; --fg: #e8eaee; --muted: #9aa2ae; --line: #2e323a; --accent: #7aa2ff; --track: #282c33;
+          --neg-bg: #2a2023; --pos-bg: #1e2a22; --up: #4fb06d; --down: #e06666; --neutral: #6b7280; --faint: #3a3d45; --time-low: #565b6a; }
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--font); }
@@ -50,29 +52,37 @@ h2 { font-size: 18px; margin: 36px 0 12px; }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
 #months svg { display: block; width: 100%; height: auto; }
 #months text { fill: var(--muted); font-size: 11px; }
-.aud-note { font-size: 14px; margin: 0 0 16px; display: grid; gap: 6px; }
-.aud-note p { margin: 0; padding: 8px 12px; border-radius: 8px; background: var(--track); }
-.aud-note p.up { border-left: 4px solid #16a34a; }
-.aud-note p.down { border-left: 4px solid #9ca3af; }
-.aud { display: grid; gap: 12px; }
-.aud-row { display: grid; grid-template-columns: minmax(110px, 190px) 1fr 132px 92px 58px; align-items: center; gap: 10px; font-size: 13px; }
-.aud-row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.aud-row .tracks { display: grid; gap: 3px; }
-.aud-row .track { background: var(--track); border-radius: 4px; height: 10px; overflow: hidden; }
-.aud-row .fill { height: 100%; border-radius: 4px; }
-.aud-row .fill.art { opacity: .35; }
-.aud-row.head { color: var(--muted); font-size: 11px; font-weight: 600; }
-.aud-row.head > div { text-align: right; }
-.aud-row.head > div:first-child { text-align: left; }
-.aud-row .time { text-align: right; font-variant-numeric: tabular-nums; }
-.aud-row .vals { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
-.aud-row .idx { text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; border-radius: 999px; padding: 2px 0; font-size: 12px; background: var(--track); color: var(--muted); }
-.aud-row .idx.up { background: #dcfce7; color: #166534; }
-.aud-row .idx.down { background: #fee2e2; color: #991b1b; }
-.aud-row.small .name { color: var(--muted); }
-.aud-legend i.art { opacity: .35; }
+.aud-intro { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
+.aud { display: grid; font-size: 13px; }
+.aud-row { display: grid; grid-template-columns: minmax(150px, 28%) 1fr minmax(90px, 17%) 84px; column-gap: 16px; align-items: stretch; }
+.aud-row > div { position: relative; }
+.aud-label { text-align: right; padding: 7px 0; align-self: center; }
+.aud-label b { display: block; font-size: 14px; }
+.aud-label span { color: var(--muted); font-size: 12px; }
+.aud-div { background: linear-gradient(to right, var(--neg-bg) 0 var(--c), var(--pos-bg) var(--c) 100%); min-height: 50px; }
+.aud-div .axis, .aud-time .avg { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; }
+.aud-div .axis { background: var(--fg); }
+.aud-time .avg { background: #eab308; z-index: 1; }
+.aud-div .bar, .aud-time .bar { position: absolute; top: 50%; height: 26px; transform: translateY(-50%); }
+.aud-div .val { position: absolute; top: 50%; transform: translateY(-50%); font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.aud-time .bar { left: 0; }
+.aud-tval { align-self: center; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.aud-head { color: var(--muted); font-size: 12px; text-align: center; padding-bottom: 6px; }
+.aud-head .dir { display: block; position: relative; height: 20px; margin-top: 4px; font-weight: 600; }
+.aud-head .dir span { position: absolute; top: 0; white-space: nowrap; }
+.aud-head .avg-label { display: block; position: relative; height: 20px; margin-top: 4px; color: #a16207; font-weight: 600; }
+.aud-head .avg-label span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.aud-ticks { position: relative; height: 22px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+.aud-ticks span { position: absolute; top: 4px; transform: translateX(-50%); }
+.aud-note { margin-top: 16px; font-size: 14px; display: grid; gap: 4px; }
+.aud-note p { margin: 0; }
 .aud-foot { font-size: 12px; color: var(--muted); margin-top: 12px; }
-@media (max-width: 760px) { .aud-row { grid-template-columns: minmax(80px, 110px) 1fr 70px 52px; } .aud-row .vals { display: none; } }
+@media (max-width: 760px) {
+  .aud-row { grid-template-columns: 1fr 30% 64px; column-gap: 10px; }
+  .aud-label { grid-column: 1 / -1; text-align: left; padding-bottom: 0; }
+  .aud-row.headrow .aud-label, .aud-row.tickrow .aud-label { display: none; }
+  .aud-div .val { font-size: 13px; }
+}
 .tip { position: fixed; pointer-events: none; background: var(--fg); color: var(--bg); font-size: 12px; padding: 6px 8px; border-radius: 6px; max-width: 260px; display: none; z-index: 10; }
 .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .filters select, .filters input { font: inherit; font-size: 14px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--fg); }
@@ -135,10 +145,9 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
 
     <h2>Production ou audience ?</h2>
     <div class="panel">
-      <h3>Part des articles, part des visites et temps de lecture par user need</h3>
-      <div class="aud-note" id="aud-note"></div>
+      <p class="aud-intro">Chaque barre mesure l'écart entre la part des visites et la part des articles. À droite, le user need attire plus que son volume.</p>
       <div class="aud" id="aud"></div>
-      <div class="legend aud-legend" id="aud-legend"></div>
+      <div class="aud-note" id="aud-note"></div>
       <div class="aud-foot" id="aud-foot"></div>
     </div>
 
@@ -233,11 +242,13 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
   };
   const MIN_ARTICLES = 5;   // en dessous, l'indice est trop fragile pour être mis en avant
 
+  const joinNames = names => names.length > 1 ? `${names.slice(0, -1).join(', ')} et ${names[names.length - 1]}` : names[0];
+
   function renderAudience(arts, audience) {
     const measured = arts.filter(a => a.visites != null);
     if (!measured.length) {
+      $('aud').replaceChildren(); $('aud-foot').textContent = '';
       $('aud-note').replaceChildren(el('p', { textContent: "L'audience n'a pas encore été relevée : cliquez sur « ↻ Actualiser »." }));
-      $('aud').replaceChildren(); $('aud-legend').replaceChildren(); $('aud-foot').textContent = '';
       return;
     }
     const N = measured.length;
@@ -249,57 +260,85 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
       const tv = timed.reduce((s, a) => s + a.visites, 0);
       const time = tv ? timed.reduce((s, a) => s + a.temps_s, 0) / tv : null;
       return { u, n: mine.length, v, time, shareA: mine.length / N, shareV: V ? v / V : 0 };
-    }).filter(r => r.n).map(r => ({ ...r, idx: r.shareA ? r.shareV / r.shareA : 0 }));
-    const max = Math.max(...rows.flatMap(r => [r.shareA, r.shareV]));
+    }).filter(r => r.n)
+      .map(r => ({ ...r, idx: r.shareA ? r.shareV / r.shareA : 0, small: r.n < MIN_ARTICLES }))
+      .sort((a, b) => b.idx - a.idx);
 
     const timedAll = measured.filter(a => a.temps_s != null);
     const tvAll = timedAll.reduce((s, a) => s + a.visites, 0);
     const avgTime = tvAll ? timedAll.reduce((s, a) => s + a.temps_s, 0) / tvAll : null;
-    const head = el('div', { className: 'aud-row head' },
-      el('div', { textContent: 'User need' }), el('div', {}),
-      el('div', { className: 'vals', textContent: 'Articles → visites' }),
-      el('div', { textContent: 'Temps / visite' }),
-      el('div', { textContent: 'Indice' }));
-    $('aud').replaceChildren(head, ...rows.map(r => {
-      const fill = (cls, share) => {
-        const f = el('div', { className: `fill ${cls}` });
-        f.style.width = (share / max * 100) + '%';
-        f.style.background = COLORS[r.u];
-        return el('div', { className: 'track' }, f);
-      };
-      const small = r.n < MIN_ARTICLES;
-      const cls = small ? '' : r.idx >= 1.2 ? 'up' : r.idx <= 0.8 ? 'down' : '';
-      return el('div', { className: 'aud-row' + (small ? ' small' : ''),
-                         title: `${r.u} : ${nf(r.n)} articles, ${nf(r.v)} visites, ${nf(Math.round(r.v / r.n))} visites par article, ${duration(r.time)} de lecture par visite` },
-        el('div', { className: 'name', textContent: r.u }),
-        el('div', { className: 'tracks' }, fill('art', r.shareA), fill('vis', r.shareV)),
-        el('div', { className: 'vals', textContent: `${pct1(r.shareA)} → ${pct1(r.shareV)}` }),
-        el('div', { className: 'time', textContent: duration(r.time) }),
-        el('div', { className: `idx ${cls}`, textContent: ratio(r.idx),
-                    title: small ? `Seulement ${r.n} article${r.n > 1 ? 's' : ''} : indice fragile` : 'Part des visites ÷ part des articles' }));
-    }));
 
-    const solid = rows.filter(r => r.n >= MIN_ARTICLES);
-    const under = solid.filter(r => r.idx >= 1.2).sort((a, b) => b.idx - a.idx);
-    const over = solid.filter(r => r.shareA >= 0.2 && r.idx < 1).sort((a, b) => b.shareA - a.shareA);
-    const notes = under.map(r => el('p', { className: 'up' },
-      el('strong', { textContent: r.u }),
-      ` : ${pct1(r.shareA)} des articles, mais ${pct1(r.shareV)} des visites. Chaque article attire ${ratio(r.idx).slice(1)} fois plus de visites que la moyenne.`));
-    if (over.length) notes.push(el('p', { className: 'down' },
-      el('strong', { textContent: over.map(r => r.u).join(' et ') }),
-      ` : ${pct1(over.reduce((s, r) => s + r.shareA, 0))} des articles, pour ${pct1(over.reduce((s, r) => s + r.shareV, 0))} des visites. Leurs articles sont en dessous de la moyenne d'audience.`));
-    if (!notes.length) notes.push(el('p', { textContent: "Aucun user need ne se détache nettement : l'audience suit à peu près la production." }));
+    // Échelle logarithmique centrée sur ×1 : ×0,5 et ×2 sont à égale distance du centre.
+    const idxs = rows.map(r => r.idx).filter(x => x > 0);
+    // ×0,5 → ×4 par défaut ; élargie seulement pour un écart nettement hors cadre.
+    const L = Math.min(...idxs) < 0.4 ? -2 : -1;
+    const H = Math.max(...idxs) > 4.5 ? Math.ceil(Math.log2(Math.max(...idxs))) : 2;
+    const pos = x => (Math.log2(Math.max(x, 2 ** L)) - L) / (H - L) * 100;
+    const c = pos(1);
+    const ticks = [];
+    for (let k = L; k <= H; k++) ticks.push(2 ** k);
+    const tMax = Math.max(avgTime || 0, ...rows.map(r => r.time || 0)) * 1.1 || 1;
+    const tpos = t => t / tMax * 100;
+
+    const colorIdx = r => r.small ? 'var(--faint)' : r.idx >= 1.2 ? 'var(--up)' : r.idx <= 0.8 ? 'var(--down)' : 'var(--neutral)';
+    const colorTime = r => r.small ? 'var(--faint)' : r.time != null && avgTime != null && r.time < avgTime ? 'var(--time-low)' : 'var(--fg)';
+    const box = (cls, props = {}, ...kids) => el('div', { className: cls, ...props }, ...kids);
+    const at = (node, left) => { node.style.left = left + '%'; return node; };
+
+    const headDiv = box('aud-head', {}, 'Visites par article, comparé au volume produit (×1 = conforme)');
+    const dir = el('span', { className: 'dir' });
+    const neg = el('span', { textContent: '◀ sous-exposé', style: `right:${100 - c}%;margin-right:6px;color:var(--down)` });
+    const posLabel = el('span', { textContent: 'sur-exposé ▶', style: `left:${c}%;margin-left:6px;color:var(--up)` });
+    dir.append(neg, posLabel);
+    headDiv.append(dir);
+    const headTime = box('aud-head', {}, 'Temps par visite');
+    if (avgTime != null) headTime.append(el('span', { className: 'avg-label' }, at(el('span', { textContent: `moyenne ${duration(avgTime)}` }), tpos(avgTime))));
+
+    const lines = rows.map(r => {
+      const p = pos(r.idx);
+      const div = box('aud-div', { style: `--c:${c}%` }, at(box('axis'), c));
+      const bar = box('bar', { style: `background:${colorIdx(r)}` });
+      const val = el('span', { className: 'val', textContent: ratio(r.idx), style: `color:${r.small ? 'var(--muted)' : colorIdx(r)}` });
+      // Valeur au bout de la barre, ou dedans quand la barre touche le bord du cadre.
+      if (r.idx >= 1) {
+        bar.style.left = c + '%'; bar.style.width = (p - c) + '%';
+        if (p > 88) { val.style.left = `calc(${p}% - 48px)`; val.style.color = '#fff'; }
+        else val.style.left = `calc(${p}% + 8px)`;
+      } else {
+        bar.style.left = p + '%'; bar.style.width = (c - p) + '%';
+        if (p < 12) val.style.left = `calc(${p}% + 8px)`;
+        else val.style.right = `calc(${100 - p}% + 8px)`;
+      }
+      div.append(bar, val);
+      const time = box('aud-time');
+      if (r.time != null) time.append(box('bar', { style: `width:${tpos(r.time)}%;background:${colorTime(r)}` }));
+      if (avgTime != null) time.append(at(box('avg'), tpos(avgTime)));
+      return box('aud-row', { title: `${r.u} : ${nf(r.n)} articles, ${nf(r.v)} visites, ${nf(Math.round(r.v / r.n))} visites par article` },
+        box('aud-label', {}, el('b', { textContent: r.u }),
+          el('span', { textContent: `${pct1(r.shareA)} des articles → ${pct1(r.shareV)} des visites`
+            + (r.small ? ` (${r.n} article${r.n > 1 ? 's' : ''})` : '') })),
+        div, time, box('aud-tval', { textContent: duration(r.time) }));
+    });
+
+    const tickRow = box('aud-row tickrow', {}, box('aud-label'),
+      box('aud-ticks', {}, ...ticks.map(t => at(el('span', { textContent: '×' + t.toLocaleString('fr-FR') }), pos(t)))),
+      box(''), box(''));
+    $('aud').replaceChildren(box('aud-row headrow', {}, box('aud-label'), headDiv, headTime, box('')), ...lines, tickRow);
+
+    const solid = rows.filter(r => !r.small);
+    const up = solid.filter(r => r.idx >= 1.2).map(r => r.u);
+    const big = solid.filter(r => r.shareA >= 0.2 && r.idx < 1);
+    const notes = [];
+    if (up.length) notes.push(el('p', { textContent: `À retenir : ${joinNames(up)} attire${up.length > 1 ? 'nt' : ''} bien plus que ${up.length > 1 ? 'leur' : 'son'} volume.` }));
+    if (big.length) notes.push(el('p', { textContent: `${joinNames(big.map(r => r.u))}, qui ${big.length > 1 ? 'font' : 'fait'} ${pct(big.reduce((s, r) => s + r.shareA, 0))} de la production, ${big.length > 1 ? 'restent' : 'reste'} sous la moyenne d'audience.` }));
+    if (!notes.length) notes.push(el('p', { textContent: "À retenir : aucun user need ne se détache nettement, l'audience suit à peu près la production." }));
     $('aud-note').replaceChildren(...notes);
 
-    $('aud-legend').replaceChildren(
-      el('span', {}, el('i', { className: 'art', style: 'background:var(--muted)' }), 'Part des articles (barre claire)'),
-      el('span', {}, el('i', { style: 'background:var(--muted)' }), 'Part des visites (barre foncée)'),
-      el('span', { textContent: `Indice ×1,0 = audience conforme au volume produit` }));
     const fin = audience && audience.fin ? new Date(audience.fin + 'T12:00:00Z').toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'long' }) : '';
     $('aud-foot').textContent = `Visites ${audience && audience.source ? audience.source : 'Piano'} cumulées depuis la publication, jusqu'au ${fin} · `
       + `${nf(V)} visites sur ${nf(N)} articles` + (N < arts.length ? ` (${nf(arts.length - N)} sans mesure, non comptés)` : '')
-      + (avgTime != null ? `. Temps moyen par visite, tous user needs : ${duration(avgTime)} (temps passé Piano ÷ visites, approximation du temps de lecture)` : '')
-      + '. Les articles récents ont mécaniquement moins de visites.';
+      + '. Temps par visite : temps passé Piano ÷ visites, approximation du temps de lecture. '
+      + 'Les articles récents ont mécaniquement moins de visites.';
   }
 
   function renderMonths(arts) {

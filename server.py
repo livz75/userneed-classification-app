@@ -237,7 +237,7 @@ def build_public_presidentielle():
             break
         offset += page
 
-    articles, to_classify = [], 0
+    articles, to_classify, last_analyzed = [], 0, ''
     for a in rows:
         sonnet = sorted((r for r in a.get('ai_analyses') or [] if r['test_run_id'] in run_ids),
                         key=lambda r: r.get('analyzed_at') or '', reverse=True)
@@ -245,6 +245,7 @@ def build_public_presidentielle():
             to_classify += 1
             continue
         s = sonnet[0]
+        last_analyzed = max(last_analyzed, s.get('analyzed_at') or '')
         pred = (s.get('predictions') or [{}])[0] or {}
         confidence = pred.get('confidence')
         if confidence is None and s.get('icp') is not None:
@@ -266,8 +267,16 @@ def build_public_presidentielle():
             'tags': a.get('tags') or [],
             'valide': bool(a.get('human_classifications')),
         })
+    # Dernière actualisation : dernier article classé, ou dernier clic sur « Actualiser »
+    # qui n'a rien trouvé à classer (connu tant que le serveur n'a pas redémarré).
+    job = refresh_status()
+    last_refresh = last_analyzed
+    if job.get('state') == 'done' and job.get('finished_at'):
+        last_refresh = max(last_refresh, job['finished_at'],
+                           key=lambda d: datetime.fromisoformat(d.replace('Z', '+00:00')) if d else datetime.min.replace(tzinfo=timezone.utc))
     return {
         'generated_at': datetime.now(timezone.utc).isoformat(timespec='seconds'),
+        'derniere_actualisation': last_refresh or None,
         'tag': PUBLIC_TAG,
         'model': ANTHROPIC_MODEL,
         'a_classer': to_classify,

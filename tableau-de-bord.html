@@ -25,11 +25,14 @@ header h1 { font: 600 clamp(22px, 3.2vw, 32px)/1.2 var(--serif); margin: 0 0 6px
 header p { margin: 0; color: var(--muted); }
 .head { display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
 .head > div:first-child { flex: 1 1 480px; }
-@media (max-width: 760px) { .refresh { align-items: flex-start; } .refresh-status { text-align: left; } }
-.refresh { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.refresh { display: flex; align-items: center; gap: 12px 16px; flex-wrap: wrap; margin-top: 12px; padding: 12px 18px; }
+.refresh-info { flex: 1 1 260px; display: flex; flex-direction: column; gap: 2px; }
+.refresh-last { font-size: 14px; }
+.refresh-last strong { font-weight: 600; }
 .refresh button { font: inherit; font-weight: 600; padding: 9px 16px; border-radius: 8px; border: 0; background: var(--accent); color: #fff; cursor: pointer; white-space: nowrap; }
 .refresh button:disabled { opacity: .55; cursor: default; }
-.refresh-status { font-size: 13px; color: var(--muted); text-align: right; max-width: 340px; }
+.refresh-status { font-size: 13px; color: var(--muted); }
+.refresh-status:empty { display: none; }
 .refresh-status.bad { color: #dc2626; }
 h2 { font-size: 18px; margin: 36px 0 12px; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
@@ -83,10 +86,6 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
       <h1>Présidentielle 2027 : quels besoins d'information sur franceinfo ?</h1>
       <p id="subtitle">Chargement…</p>
     </div>
-    <div class="refresh">
-      <button type="button" id="refresh-btn" title="Classe avec Claude Sonnet 5.5 les articles tagués Présidentielle 2027 pas encore classés, puis recharge le tableau de bord">↻ Actualiser</button>
-      <div class="refresh-status" id="refresh-status" aria-live="polite"></div>
-    </div>
   </header>
 
   <div id="state" class="state">Chargement des données…</div>
@@ -97,6 +96,14 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
       <div class="panel kpi"><div class="v" id="k-top">—</div><div class="l" id="k-top-l">user need dominant</div></div>
       <div class="panel kpi"><div class="v" id="k-top2">—</div><div class="l" id="k-top2-l">part des 2 premiers</div></div>
       <div class="panel kpi"><div class="v" id="k-needs">—</div><div class="l">user needs représentés</div></div>
+    </section>
+
+    <section class="panel refresh">
+      <button type="button" id="refresh-btn" title="Classe avec Claude Sonnet 5.5 les articles tagués Présidentielle 2027 pas encore classés, puis recharge le tableau de bord">↻ Actualiser</button>
+      <div class="refresh-info">
+        <div class="refresh-last" id="refresh-last">—</div>
+        <div class="refresh-status" id="refresh-status" aria-live="polite"></div>
+      </div>
     </section>
 
     <h2>Quels besoins d'information ?</h2>
@@ -328,6 +335,13 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
       $('footer').textContent = `Données mises à jour le ${new Date(data.generated_at).toLocaleString('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'long', timeStyle: 'short' })}`
         + (data.a_classer ? ` · ${nf(data.a_classer)} article${data.a_classer > 1 ? 's' : ''} récent${data.a_classer > 1 ? 's' : ''} pas encore classé${data.a_classer > 1 ? 's' : ''}` : '')
         + ' · Classement automatique : il peut contenir des erreurs.';
+
+      const pending = data.a_classer
+        ? `${nf(data.a_classer)} article${data.a_classer > 1 ? 's' : ''} à classer`
+        : 'tous les articles sont classés';
+      $('refresh-last').innerHTML = data.derniere_actualisation
+        ? `Dernière actualisation : <strong>${new Date(data.derniere_actualisation).toLocaleString('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'long', timeStyle: 'short' })}</strong> · ${pending}`
+        : `Pas encore actualisé · ${pending}`;
 
       $('state').hidden = true;
       $('content').hidden = false;

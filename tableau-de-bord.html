@@ -92,6 +92,7 @@ h2 { display: flex; align-items: center; gap: 10px; font: 700 var(--fs-h2)/1.25 
 .aud-time .bar { left: 0; }
 .aud-tval { align-self: center; text-align: right; font-weight: 700; color: var(--ink-900); white-space: nowrap; }
 .aud-head { text-align: center; padding-bottom: 8px; }
+@media (min-width: 1000px) { .aud-head > .label { white-space: nowrap; } }
 .aud-head .dir, .aud-head .avg-label { display: block; position: relative; height: 22px; margin-top: 6px; }
 .aud-head .dir span { position: absolute; top: 0; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; color: var(--ink-700); }
 .aud-head .dir i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
@@ -334,7 +335,7 @@ footer { margin-top: 40px; padding-bottom: 48px; color: var(--ink-500); font-siz
     const at = (node, left) => { node.style.left = left + '%'; return node; };
     const swatch = color => { const i = el('i'); i.style.background = color; return i; };
 
-    const headDiv = box('aud-head', {}, el('span', { className: 'label', textContent: 'Visites par article, comparé au volume produit (×1 = conforme)' }));
+    const headDiv = box('aud-head', {}, el('span', { className: 'label', textContent: 'Visites par article, comparé au volume produit' }));
     const dir = el('span', { className: 'dir label' });
     const neg = el('span', { style: `right:${100 - c}%;margin-right:8px` }, swatch('var(--verdict-bad)'), 'Sous-exposé');
     const posLabel = el('span', { style: `left:${c}%;margin-left:8px` }, swatch('var(--verdict-good)'), 'Sur-exposé');
@@ -371,7 +372,7 @@ footer { margin-top: 40px; padding-bottom: 48px; color: var(--ink-500); font-siz
     });
 
     const tickRow = box('aud-row tickrow', {}, box('aud-label'),
-      box('aud-ticks', {}, ...ticks.map(t => at(el('span', { textContent: '×' + t.toLocaleString('fr-FR') }), pos(t)))),
+      box('aud-ticks', {}, ...ticks.map(t => at(el('span', { textContent: '×' + t.toLocaleString('fr-FR') + (t === 1 ? ' = conforme' : '') }), pos(t)))),
       box(''), box(''));
     $('aud').replaceChildren(box('aud-row headrow', {}, box('aud-label'), headDiv, headTime, box('')), ...lines, tickRow);
 

@@ -234,7 +234,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
 
   // ── Production vs audience : part des articles et part des visites Piano ──
   const pct1 = x => (x * 100).toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' %';
-  const ratio = x => '×' + x.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const ratio = (x, digits = 1) => '×' + x.toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
   const duration = s => {
     if (s == null || !isFinite(s)) return '—';
     const m = Math.floor(s / 60), r = Math.round(s % 60);
@@ -298,7 +298,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
       const p = pos(r.idx);
       const div = box('aud-div', { style: `--c:${c}%` }, at(box('axis'), c));
       const bar = box('bar', { style: `background:${colorIdx(r)}` });
-      const val = el('span', { className: 'val', textContent: ratio(r.idx), style: `color:${r.small ? 'var(--muted)' : colorIdx(r)}` });
+      const val = el('span', { className: 'val', textContent: ratio(r.idx, r.idx < 1 ? 2 : 1),   // sous ×1, les écarts sont fins : 2 décimales style: `color:${r.small ? 'var(--muted)' : colorIdx(r)}` });
       // Valeur au bout de la barre, ou dedans quand la barre touche le bord du cadre.
       if (r.idx >= 1) {
         bar.style.left = c + '%'; bar.style.width = (p - c) + '%';

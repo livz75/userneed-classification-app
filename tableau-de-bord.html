@@ -225,10 +225,9 @@ footer { margin-top: 40px; padding-bottom: 48px; color: var(--ink-500); font-siz
 <script>
 (function () {
   const NEEDS = ['UPDATE ME', 'GIVE ME PERSPECTIVE', 'EXPLAIN ME', 'VERIFY', 'FEEL', 'SUMMARIZE', 'GUIDE ME', 'DIVERT ME', 'INSPIRE ME'];
-  // Couleurs des user needs : variables --un-* de la charte (teinte) et --un-*-ink (texte posé dessus).
+  // Couleurs des user needs : variables --un-* de la charte (graphiques) et --un-*-soft (fond pastel des pastilles).
   const slug = u => u.toLowerCase().replace(/ /g, '-');
   const COLOR = u => `var(--un-${slug(u)}, var(--ink-500))`;
-  const INK = u => `var(--un-${slug(u)}-ink, var(--white))`;
   const PAGE = 50;
   const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
   const NB = ' ';   // espace insécable (avant : ; ? ! % et dans « … »)
@@ -247,7 +246,7 @@ footer { margin-top: 40px; padding-bottom: 48px; color: var(--ink-500); font-siz
   const nf = n => fmtNum.format(n);
   const parisDate = iso => new Date(iso).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit', year: 'numeric' });
   const parisMonth = iso => new Date(iso).toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' }).slice(0, 7);
-  const badge = un => el('span', { className: 'badge', textContent: un, style: `background:${COLOR(un)};color:${INK(un)}` });
+  const badge = un => el('span', { className: 'badge', textContent: un, style: `background:var(--un-${slug(un)}-soft, var(--surface-grey));color:var(--ink-900)` });
   const guill = s => `«${NB}${s}${NB}»`;
 
   let all = [], shown = PAGE, openId = null;

@@ -88,6 +88,17 @@
   --un-inspire-me: var(--cat-yellow);          --un-inspire-me-ink: var(--white);
   --un-guide-me: var(--ink-700);               --un-guide-me-ink: var(--white);
 
+  /* Fonds pastel des pastilles (texte --ink-900) : teinte du user need éclaircie, dérivée de la palette. */
+  --un-update-me-soft: color-mix(in srgb, var(--un-update-me) 22%, var(--white));
+  --un-give-me-perspective-soft: color-mix(in srgb, var(--un-give-me-perspective) 22%, var(--white));
+  --un-explain-me-soft: color-mix(in srgb, var(--un-explain-me) 22%, var(--white));
+  --un-verify-soft: color-mix(in srgb, var(--un-verify) 22%, var(--white));
+  --un-feel-soft: color-mix(in srgb, var(--un-feel) 22%, var(--white));
+  --un-summarize-soft: color-mix(in srgb, var(--un-summarize) 22%, var(--white));
+  --un-divert-me-soft: color-mix(in srgb, var(--un-divert-me) 22%, var(--white));
+  --un-inspire-me-soft: color-mix(in srgb, var(--un-inspire-me) 35%, var(--white));
+  --un-guide-me-soft: color-mix(in srgb, var(--un-guide-me) 22%, var(--white));
+
   /* Typographie */
   --font-text: 'Archivo', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-label: 'Space Mono', ui-monospace, Menlo, Consolas, monospace;

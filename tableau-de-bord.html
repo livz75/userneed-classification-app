@@ -36,7 +36,6 @@ header p { margin: 0; color: var(--muted); }
 .refresh-status.bad { color: #dc2626; }
 h2 { font-size: 18px; margin: 36px 0 12px; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
-.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 24px; }
 .kpi .v { font: 600 30px/1.15 var(--serif); }
 .kpi .l { color: var(--muted); font-size: 13px; margin-top: 4px; }
@@ -72,9 +71,8 @@ tr.detail .meta { color: var(--muted); margin-top: 6px; }
 .state { padding: 40px 0; text-align: center; color: var(--muted); }
 footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
 @media (max-width: 760px) {
-  .grid2 { grid-template-columns: 1fr; }
   .kpis { grid-template-columns: 1fr 1fr; }
-  .col-rub, .col-niv { display: none; }
+  .col-rub { display: none; }
   .bar { grid-template-columns: minmax(90px, 130px) 1fr 64px; }
 }
 </style>
@@ -112,17 +110,11 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
       <div class="bars" id="needs"></div>
     </div>
 
-    <h2>Quand et sur quels sujets ?</h2>
-    <div class="grid2">
-      <div class="panel">
-        <h3>Articles publiés par mois</h3>
-        <div id="months"></div>
-        <div class="legend" id="months-legend"></div>
-      </div>
-      <div class="panel">
-        <h3>Sujets les plus associés (tags franceinfo)</h3>
-        <div class="bars" id="tags"></div>
-      </div>
+    <h2>Quand ?</h2>
+    <div class="panel">
+      <h3>Articles publiés par mois</h3>
+      <div id="months"></div>
+      <div class="legend" id="months-legend"></div>
     </div>
 
     <h2>Les articles</h2>
@@ -134,7 +126,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
       </div>
       <div class="count" id="count"></div>
       <table>
-        <thead><tr><th>Date</th><th>Titre</th><th class="col-rub">Rubrique</th><th>User need</th><th class="col-niv">Confiance</th></tr></thead>
+        <thead><tr><th>Date</th><th>Titre</th><th class="col-rub">Rubrique</th><th>User need</th></tr></thead>
         <tbody id="rows"></tbody>
       </table>
       <div class="more" id="more" hidden><button type="button">Afficher plus</button></div>
@@ -153,7 +145,6 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
     'DIVERT ME': '#f59e0b', 'GUIDE ME': '#ef4444', 'INSPIRE ME': '#f97316',
     'FEEL': '#ec4899', 'VERIFY': '#06b6d4', 'SUMMARIZE': '#14b8a6',
   };
-  const GENERIC_TAGS = ['Présidentielle 2027', 'Elections en France', 'Politique'];
   const PAGE = 50;
   const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
@@ -198,13 +189,6 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
   function renderNeeds(arts) {
     const items = NEEDS.map(u => ({ name: u, n: arts.filter(a => a.user_need === u).length }));
     barList($('needs'), items, arts.length, u => COLORS[u]);
-  }
-
-  function renderTags(arts) {
-    const count = {};
-    for (const a of arts) for (const t of a.tags) if (!GENERIC_TAGS.includes(t)) count[t] = (count[t] || 0) + 1;
-    const items = Object.entries(count).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([name, n]) => ({ name, n }));
-    barList($('tags'), items, arts.length, () => 'var(--accent)');
   }
 
   function renderMonths(arts) {
@@ -282,8 +266,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
         el('td', { className: 'date', textContent: parisDate(a.date) }),
         el('td', {}, el('a', { href: a.url, target: '_blank', rel: 'noopener', textContent: a.titre })),
         el('td', { className: 'col-rub', textContent: a.rubrique }),
-        el('td', {}, badge(a.user_need)),
-        el('td', { className: 'col-niv', textContent: a.niveau || '—' }));
+        el('td', {}, badge(a.user_need)));
       tr.addEventListener('click', e => {
         if (e.target.closest('a')) return;
         openId = openId === a.id ? null : a.id;
@@ -295,7 +278,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
           a.etape ? `décision à l'étape ${a.etape}` : null,
           a.nb_mots ? `${nf(a.nb_mots)} mots` : null,
           a.valide ? 'classement validé par un humain' : null].filter(Boolean).join(' · ');
-        rows.push(el('tr', { className: 'detail' }, el('td', { colSpan: 5 },
+        rows.push(el('tr', { className: 'detail' }, el('td', { colSpan: 4 },
           el('div', { textContent: a.justification || 'Pas de justification.' }),
           el('div', { className: 'meta', textContent: meta }))));
       }
@@ -345,7 +328,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
 
       $('state').hidden = true;
       $('content').hidden = false;
-      renderKpis(all); renderNeeds(all); renderTags(all); renderMonths(all); renderList();
+      renderKpis(all); renderNeeds(all); renderMonths(all); renderList();
     } catch (e) {
       if (all.length) throw e;   // données déjà affichées : l'erreur remonte au bouton
       $('subtitle').textContent = '';

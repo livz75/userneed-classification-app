@@ -1,0 +1,111 @@
+/* Charte franceinfo du tableau de bord Présidentielle 2027 : polices et design tokens.
+   Seul fichier où figurent des couleurs et des polices ; tableau-de-bord.html n'emploie que ces variables.
+   Polices auto-hébergées sous licence SIL OFL 1.1 (voir fonts/OFL-*.txt). */
+
+/* Archivo : police variable, un seul fichier couvre les graisses 400 à 700. */
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url(fonts/archivo-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url(fonts/archivo-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Space Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(fonts/space-mono-700-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Space Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(fonts/space-mono-700-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  /* Encre */
+  --ink-950: #1B1C1E;
+  --ink-900: #252628;
+  --ink-800: #33363C;
+  --ink-700: #44474D;
+  --ink-500: #62666F;
+  --ink-300: #AFB2B8;
+  --ink-250: #C9CBD0;
+  --ink-100: #E2E3E6;
+
+  /* Surfaces */
+  --surface-page: #F4F5F9;
+  --surface-card: #FFFFFF;
+  --surface-grey: #EEF0F6;
+  --border: #D9DCE4;
+  --white: #FFFFFF;
+
+  /* Signature : avec parcimonie, jamais en texte sur fond blanc (utiliser --yellow-deep en gras) */
+  --yellow: #FFC72C;
+  --yellow-hover: #FFD459;
+  --yellow-soft: #FFF7E0;
+  --yellow-deep: #B98A00;
+
+  /* Palette catégorielle */
+  --cat-blue: #1AA6E8;
+  --cat-violet: #8E44E8;
+  --cat-pink: #E0218A;
+  --cat-red: #E8453C;
+  --cat-orange: #F29220;
+  --cat-green: #7CB342;
+  --cat-yellow: #FFC72C;
+  --cat-grey: #62666F;
+
+  /* Verdict : indices d'audience uniquement */
+  --verdict-good: #7CB342;
+  --verdict-mid: #F29220;
+  --verdict-bad: #E8453C;
+  --verdict-none: var(--ink-250);   /* écart peu significatif (moins de 5 articles) */
+
+  /* User needs : attribution de l'appli de labellisation, alignée sur la palette catégorielle.
+     --un-*-ink : couleur du texte posé sur la teinte (contraste le plus élevé). */
+  --un-update-me: var(--cat-blue);             --un-update-me-ink: var(--ink-950);
+  --un-give-me-perspective: var(--cat-violet); --un-give-me-perspective-ink: var(--white);
+  --un-explain-me: var(--cat-green);           --un-explain-me-ink: var(--ink-950);
+  --un-verify: var(--cat-red);                 --un-verify-ink: var(--ink-950);
+  --un-feel: var(--cat-pink);                  --un-feel-ink: var(--white);
+  --un-summarize: var(--cat-grey);             --un-summarize-ink: var(--white);
+  --un-divert-me: var(--cat-orange);           --un-divert-me-ink: var(--ink-950);
+  --un-inspire-me: var(--cat-yellow);          --un-inspire-me-ink: var(--ink-900);
+  --un-guide-me: var(--ink-700);               --un-guide-me-ink: var(--white);
+
+  /* Typographie */
+  --font-text: 'Archivo', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-label: 'Space Mono', ui-monospace, Menlo, Consolas, monospace;
+  --fs-h1: 38px;
+  --lh-h1: 1.15;
+  --fs-h2: 22px;
+  --fs-body: 15px;
+  --lh-body: 1.5;
+  --fs-small: 13px;
+  --fs-label: 11px;
+  --fs-label-lg: 12px;
+  --ls-label: 0.08em;
+  --fs-kpi: 34px;
+
+  /* Formes */
+  --radius-card: 14px;
+  --radius-control: 10px;
+  --radius-bar: 3px;
+  --pad-card: 24px;
+  --focus-ring: 2px solid var(--yellow-deep);
+}

@@ -40,6 +40,16 @@ DASHBOARD_PAGE_PATHS = ('/tableau-de-bord', '/tableau-de-bord/')
 DASHBOARD_DATA_PATH = '/tableau-de-bord/donnees'
 DASHBOARD_REFRESH_PATH = '/tableau-de-bord/actualiser'
 DASHBOARD_PATHS = {*DASHBOARD_PAGE_PATHS, DASHBOARD_DATA_PATH, DASHBOARD_REFRESH_PATH}
+# Charte du tableau de bord (tokens CSS, polices) : servie avec les mêmes identifiants que la page.
+DASHBOARD_ASSETS_PREFIX = '/tableau-de-bord/assets/'
+DASHBOARD_ASSETS_DIR = 'tableau-de-bord-assets'
+DASHBOARD_ASSET_RE = re.compile(r'^(?:fonts/)?[a-z0-9-]+\.(css|woff2)$')
+DASHBOARD_ASSET_TYPES = {'css': 'text/css; charset=utf-8', 'woff2': 'font/woff2'}
+
+
+def is_dashboard_path(path):
+    return path in DASHBOARD_PATHS or (path.startswith(DASHBOARD_ASSETS_PREFIX)
+                                       and bool(DASHBOARD_ASSET_RE.match(path[len(DASHBOARD_ASSETS_PREFIX):])))
 APP_REALM = 'Accès protégé - Qualification Userneeds'
 DASHBOARD_REALM = 'Tableau de bord Presidentielle 2027'
 
@@ -558,7 +568,7 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         """Vérifie le header Authorization. Retourne True si OK, False sinon."""
         path = urlparse(self.path).path
         header = self.headers.get('Authorization', '')
-        is_dashboard = path in DASHBOARD_PATHS
+        is_dashboard = is_dashboard_path(path)
 
         if is_dashboard and _credentials_match(header, DASHBOARD_USER, DASHBOARD_PASSWORD):
             return True
@@ -633,6 +643,23 @@ class ProxyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
         elif path == DASHBOARD_REFRESH_PATH:
             self._send_json(200, refresh_status())
+            return
+
+        elif is_dashboard_path(path) and path.startswith(DASHBOARD_ASSETS_PREFIX):
+            name = path[len(DASHBOARD_ASSETS_PREFIX):]
+            try:
+                with open(os.path.join(DASHBOARD_ASSETS_DIR, name), 'rb') as f:
+                    body = f.read()
+            except FileNotFoundError:
+                self.send_error(404)
+                return
+            ext = name.rsplit('.', 1)[1]
+            self.send_response(200)
+            self.send_header('Content-Type', DASHBOARD_ASSET_TYPES[ext])
+            # Polices immuables : cache long ; la feuille de tokens est revalidée à chaque visite.
+            self.send_header('Cache-Control', 'public, max-age=31536000, immutable' if ext == 'woff2' else 'no-cache')
+            self.end_headers()
+            self.wfile.write(body)
             return
 
         elif path == DASHBOARD_DATA_PATH:

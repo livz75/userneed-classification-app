@@ -298,7 +298,8 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
       const p = pos(r.idx);
       const div = box('aud-div', { style: `--c:${c}%` }, at(box('axis'), c));
       const bar = box('bar', { style: `background:${colorIdx(r)}` });
-      const val = el('span', { className: 'val', textContent: ratio(r.idx, r.idx < 1 ? 2 : 1),   // sous ×1, les écarts sont fins : 2 décimales style: `color:${r.small ? 'var(--muted)' : colorIdx(r)}` });
+      // Sous ×1, les écarts sont fins : 2 décimales.
+      const val = el('span', { className: 'val', textContent: ratio(r.idx, r.idx < 1 ? 2 : 1), style: `color:${r.small ? 'var(--muted)' : colorIdx(r)}` });
       // Valeur au bout de la barre, ou dedans quand la barre touche le bord du cadre.
       if (r.idx >= 1) {
         bar.style.left = c + '%'; bar.style.width = (p - c) + '%';

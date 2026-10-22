@@ -12,13 +12,13 @@
 :root {
   --bg: #f6f7f9; --panel: #fff; --fg: #1a1d23; --muted: #626a77; --line: #e3e6eb;
   --accent: #1d4ed8; --track: #eef0f3;
-  --neg-bg: #faf0f0; --pos-bg: #eef7f0; --up: #3f9b5c; --down: #c94b4b; --neutral: #9aa1b0; --faint: #e2dfe6; --time-low: #b9bdcc;
+  --neg-bg: #faf0f0; --pos-bg: #eef7f0; --up: #3f9b5c; --down: #c94b4b; --faint: #e2dfe6; --time-low: #b9bdcc;
   --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --serif: Georgia, "Times New Roman", serif;
 }
 @media (prefers-color-scheme: dark) {
   :root { --bg: #14161a; --panel: #1d2026; --fg: #e8eaee; --muted: #9aa2ae; --line: #2e323a; --accent: #7aa2ff; --track: #282c33;
-          --neg-bg: #2a2023; --pos-bg: #1e2a22; --up: #4fb06d; --down: #e06666; --neutral: #6b7280; --faint: #3a3d45; --time-low: #565b6a; }
+          --neg-bg: #2a2023; --pos-bg: #1e2a22; --up: #4fb06d; --down: #e06666; --faint: #3a3d45; --time-low: #565b6a; }
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--font); }
@@ -280,7 +280,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
     const tMax = Math.max(avgTime || 0, ...rows.map(r => r.time || 0)) * 1.1 || 1;
     const tpos = t => t / tMax * 100;
 
-    const colorIdx = r => r.small ? 'var(--faint)' : r.idx >= 1.2 ? 'var(--up)' : r.idx <= 0.8 ? 'var(--down)' : 'var(--neutral)';
+    const colorIdx = r => r.small ? 'var(--faint)' : r.idx >= 1 ? 'var(--up)' : 'var(--down)';
     const colorTime = r => r.small ? 'var(--faint)' : r.time != null && avgTime != null && r.time < avgTime ? 'var(--time-low)' : 'var(--fg)';
     const box = (cls, props = {}, ...kids) => el('div', { className: cls, ...props }, ...kids);
     const at = (node, left) => { node.style.left = left + '%'; return node; };

@@ -231,7 +231,7 @@ def build_public_presidentielle():
             'articles?select=external_id,titre,url,date_publication,word_count,tags,'
             'human_classifications(userneed,classified_at),'
             'ai_analyses(test_run_id,predicted_userneed,justification,predictions,icp,confidence_level,analyzed_at),'
-            'article_audience(visites,periode_fin)'
+            'article_audience(visites,temps_passe_ms,periode_fin)'
             f'&tags=cs.{tag_filter}&order=date_publication.desc&limit={page}&offset={offset}')
         rows += batch
         if len(batch) < page:
@@ -270,6 +270,7 @@ def build_public_presidentielle():
             'tags': a.get('tags') or [],
             'valide': bool(a.get('human_classifications')),
             'visites': audience.get('visites'),
+            'temps_s': round(audience['temps_passe_ms'] / 1000) if audience.get('temps_passe_ms') is not None else None,
         })
     # Dernière actualisation : dernier article classé, ou dernier clic sur « Actualiser »
     # qui n'a rien trouvé à classer (connu tant que le serveur n'a pas redémarré).
@@ -440,8 +441,8 @@ def _run_refresh(articles):
 
 
 # ── Audience Piano des articles ──
-# Visites cumulées (web + iOS + Android) depuis AUDIENCE_START, stockées dans
-# article_audience. Piano filtre mal sur une liste d'articles : on parcourt le
+# Visites et temps passé cumulés (web + iOS + Android) depuis AUDIENCE_START,
+# stockés dans article_audience. Piano filtre mal sur une liste d'articles : on parcourt le
 # classement des pages par visites décroissantes (10 000 lignes par appel,
 # ~15 s, 200 000 lignes au plus par requête) jusqu'à avoir trouvé tous les
 # articles ou atteint les pages à très faible audience.
@@ -459,7 +460,7 @@ def _piano_rows(start, end, page_num):
         raise RuntimeError('PIANO_ACCESS_KEY / PIANO_SECRET_KEY non configurées sur le serveur')
     payload = {
         'space': {'s': PIANO_SITES},
-        'columns': ['page', 'm_visits'],
+        'columns': ['page', 'm_visits', 'm_time_spent'],
         'period': {'p1': [{'type': 'D', 'start': start, 'end': end}]},
         'sort': ['-m_visits'],
         'max-results': AUDIENCE_PAGE_SIZE,
@@ -475,7 +476,7 @@ def _piano_rows(start, end, page_num):
 
 
 def _refresh_audience():
-    """Relève dans Piano les visites des articles tagués et les enregistre dans article_audience."""
+    """Relève dans Piano les visites et le temps passé des articles tagués et les enregistre dans article_audience."""
     rows, offset, page = [], 0, 1000
     tag_filter = quote('{"' + PUBLIC_TAG + '"}')
     while True:
@@ -488,20 +489,22 @@ def _refresh_audience():
     end = (datetime.now(timezone.utc) - timedelta(days=1)).strftime('%Y-%m-%d')   # Piano : 48 h max avec aujourd'hui
     _update_job(state='audience', audience_total=len(by_external), audience_found=0, audience_pages=0)
 
-    visits = {}
+    visits, time_spent = {}, {}
     for page_num in range(1, AUDIENCE_MAX_PAGES + 1):
         result = _piano_rows(AUDIENCE_START, end, page_num)
         for r in result:
             m = re.search(r'_(\d{6,8})$', r.get('page') or '')
             if m and m.group(1) in by_external:
                 visits[m.group(1)] = visits.get(m.group(1), 0) + (r.get('m_visits') or 0)
+                time_spent[m.group(1)] = time_spent.get(m.group(1), 0) + (r.get('m_time_spent') or 0)
         _update_job(audience_found=len(visits), audience_pages=page_num)
         if (len(result) < AUDIENCE_PAGE_SIZE or len(visits) == len(by_external)
                 or (result[-1].get('m_visits') or 0) < AUDIENCE_MIN_VISITS):
             break
 
     now = datetime.now(timezone.utc).isoformat()
-    records = [{'article_id': by_external[ext], 'visites': v, 'source': 'piano',
+    records = [{'article_id': by_external[ext], 'visites': v, 'temps_passe_ms': round(time_spent.get(ext, 0)),
+                'source': 'piano',
                 'periode_debut': AUDIENCE_START, 'periode_fin': end, 'updated_at': now}
                for ext, v in visits.items()]
     for i in range(0, len(records), 500):

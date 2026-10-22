@@ -18,3 +18,7 @@ CREATE TABLE IF NOT EXISTS article_audience (
 ALTER TABLE article_audience ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow all on article_audience" ON article_audience
     FOR ALL USING (true) WITH CHECK (true);
+
+-- Temps passé total sur l'article (Piano m_time_spent, en millisecondes) ;
+-- temps moyen par visite = temps_passe_ms / visites.
+ALTER TABLE article_audience ADD COLUMN IF NOT EXISTS temps_passe_ms bigint;

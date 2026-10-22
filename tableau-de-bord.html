@@ -55,12 +55,16 @@ h2 { font-size: 18px; margin: 36px 0 12px; }
 .aud-note p.up { border-left: 4px solid #16a34a; }
 .aud-note p.down { border-left: 4px solid #9ca3af; }
 .aud { display: grid; gap: 12px; }
-.aud-row { display: grid; grid-template-columns: minmax(110px, 190px) 1fr 132px 58px; align-items: center; gap: 10px; font-size: 13px; }
+.aud-row { display: grid; grid-template-columns: minmax(110px, 190px) 1fr 132px 92px 58px; align-items: center; gap: 10px; font-size: 13px; }
 .aud-row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .aud-row .tracks { display: grid; gap: 3px; }
 .aud-row .track { background: var(--track); border-radius: 4px; height: 10px; overflow: hidden; }
 .aud-row .fill { height: 100%; border-radius: 4px; }
 .aud-row .fill.art { opacity: .35; }
+.aud-row.head { color: var(--muted); font-size: 11px; font-weight: 600; }
+.aud-row.head > div { text-align: right; }
+.aud-row.head > div:first-child { text-align: left; }
+.aud-row .time { text-align: right; font-variant-numeric: tabular-nums; }
 .aud-row .vals { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
 .aud-row .idx { text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; border-radius: 999px; padding: 2px 0; font-size: 12px; background: var(--track); color: var(--muted); }
 .aud-row .idx.up { background: #dcfce7; color: #166534; }
@@ -68,7 +72,7 @@ h2 { font-size: 18px; margin: 36px 0 12px; }
 .aud-row.small .name { color: var(--muted); }
 .aud-legend i.art { opacity: .35; }
 .aud-foot { font-size: 12px; color: var(--muted); margin-top: 12px; }
-@media (max-width: 760px) { .aud-row { grid-template-columns: minmax(80px, 110px) 1fr 52px; } .aud-row .vals { display: none; } }
+@media (max-width: 760px) { .aud-row { grid-template-columns: minmax(80px, 110px) 1fr 70px 52px; } .aud-row .vals { display: none; } }
 .tip { position: fixed; pointer-events: none; background: var(--fg); color: var(--bg); font-size: 12px; padding: 6px 8px; border-radius: 6px; max-width: 260px; display: none; z-index: 10; }
 .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .filters select, .filters input { font: inherit; font-size: 14px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--fg); }
@@ -129,20 +133,20 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
       <div class="bars" id="needs"></div>
     </div>
 
+    <h2>Production ou audience ?</h2>
+    <div class="panel">
+      <h3>Part des articles, part des visites et temps de lecture par user need</h3>
+      <div class="aud-note" id="aud-note"></div>
+      <div class="aud" id="aud"></div>
+      <div class="legend aud-legend" id="aud-legend"></div>
+      <div class="aud-foot" id="aud-foot"></div>
+    </div>
+
     <h2>Quand ?</h2>
     <div class="panel">
       <h3>Articles publiés par mois</h3>
       <div id="months"></div>
       <div class="legend" id="months-legend"></div>
-    </div>
-
-    <h2>Production ou audience ?</h2>
-    <div class="panel">
-      <h3>Part des articles et part des visites par user need</h3>
-      <div class="aud-note" id="aud-note"></div>
-      <div class="aud" id="aud"></div>
-      <div class="legend aud-legend" id="aud-legend"></div>
-      <div class="aud-foot" id="aud-foot"></div>
     </div>
 
     <h2>Les articles</h2>
@@ -222,6 +226,11 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
   // ── Production vs audience : part des articles et part des visites Piano ──
   const pct1 = x => (x * 100).toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' %';
   const ratio = x => '×' + x.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const duration = s => {
+    if (s == null || !isFinite(s)) return '—';
+    const m = Math.floor(s / 60), r = Math.round(s % 60);
+    return m ? `${m} min ${String(r).padStart(2, '0')} s` : `${r} s`;
+  };
   const MIN_ARTICLES = 5;   // en dessous, l'indice est trop fragile pour être mis en avant
 
   function renderAudience(arts, audience) {
@@ -236,11 +245,22 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
     const rows = NEEDS.map(u => {
       const mine = measured.filter(a => a.user_need === u);
       const v = mine.reduce((s, a) => s + a.visites, 0);
-      return { u, n: mine.length, v, shareA: mine.length / N, shareV: V ? v / V : 0 };
+      const timed = mine.filter(a => a.temps_s != null);
+      const tv = timed.reduce((s, a) => s + a.visites, 0);
+      const time = tv ? timed.reduce((s, a) => s + a.temps_s, 0) / tv : null;
+      return { u, n: mine.length, v, time, shareA: mine.length / N, shareV: V ? v / V : 0 };
     }).filter(r => r.n).map(r => ({ ...r, idx: r.shareA ? r.shareV / r.shareA : 0 }));
     const max = Math.max(...rows.flatMap(r => [r.shareA, r.shareV]));
 
-    $('aud').replaceChildren(...rows.map(r => {
+    const timedAll = measured.filter(a => a.temps_s != null);
+    const tvAll = timedAll.reduce((s, a) => s + a.visites, 0);
+    const avgTime = tvAll ? timedAll.reduce((s, a) => s + a.temps_s, 0) / tvAll : null;
+    const head = el('div', { className: 'aud-row head' },
+      el('div', { textContent: 'User need' }), el('div', {}),
+      el('div', { className: 'vals', textContent: 'Articles → visites' }),
+      el('div', { textContent: 'Temps / visite' }),
+      el('div', { textContent: 'Indice' }));
+    $('aud').replaceChildren(head, ...rows.map(r => {
       const fill = (cls, share) => {
         const f = el('div', { className: `fill ${cls}` });
         f.style.width = (share / max * 100) + '%';
@@ -250,10 +270,11 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
       const small = r.n < MIN_ARTICLES;
       const cls = small ? '' : r.idx >= 1.2 ? 'up' : r.idx <= 0.8 ? 'down' : '';
       return el('div', { className: 'aud-row' + (small ? ' small' : ''),
-                         title: `${r.u} : ${nf(r.n)} articles, ${nf(r.v)} visites, ${nf(Math.round(r.v / r.n))} visites par article` },
+                         title: `${r.u} : ${nf(r.n)} articles, ${nf(r.v)} visites, ${nf(Math.round(r.v / r.n))} visites par article, ${duration(r.time)} de lecture par visite` },
         el('div', { className: 'name', textContent: r.u }),
         el('div', { className: 'tracks' }, fill('art', r.shareA), fill('vis', r.shareV)),
         el('div', { className: 'vals', textContent: `${pct1(r.shareA)} → ${pct1(r.shareV)}` }),
+        el('div', { className: 'time', textContent: duration(r.time) }),
         el('div', { className: `idx ${cls}`, textContent: ratio(r.idx),
                     title: small ? `Seulement ${r.n} article${r.n > 1 ? 's' : ''} : indice fragile` : 'Part des visites ÷ part des articles' }));
     }));
@@ -277,6 +298,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
     const fin = audience && audience.fin ? new Date(audience.fin + 'T12:00:00Z').toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'long' }) : '';
     $('aud-foot').textContent = `Visites ${audience && audience.source ? audience.source : 'Piano'} cumulées depuis la publication, jusqu'au ${fin} · `
       + `${nf(V)} visites sur ${nf(N)} articles` + (N < arts.length ? ` (${nf(arts.length - N)} sans mesure, non comptés)` : '')
+      + (avgTime != null ? `. Temps moyen par visite, tous user needs : ${duration(avgTime)} (temps passé Piano ÷ visites, approximation du temps de lecture)` : '')
       + '. Les articles récents ont mécaniquement moins de visites.';
   }
 
@@ -367,6 +389,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
           a.etape ? `décision à l'étape ${a.etape}` : null,
           a.nb_mots ? `${nf(a.nb_mots)} mots` : null,
           a.visites != null ? `${nf(a.visites)} visites` : null,
+          a.visites && a.temps_s != null ? `${duration(a.temps_s / a.visites)} de lecture par visite` : null,
           a.valide ? 'classement validé par un humain' : null].filter(Boolean).join(' · ');
         rows.push(el('tr', { className: 'detail' }, el('td', { colSpan: 4 },
           el('div', { textContent: a.justification || 'Pas de justification.' }),

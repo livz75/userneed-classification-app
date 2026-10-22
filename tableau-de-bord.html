@@ -467,6 +467,11 @@ footer { margin-top: 40px; padding-bottom: 48px; color: var(--ink-500); font-siz
 
   // Temps de lecture par visite (s), quand Piano l'a mesuré.
   const readTime = a => a.visites && a.temps_s != null ? a.temps_s / a.visites : null;
+  // Visites abrégées : 5 427 → 5,4k ; 66 036 → 66k ; 1 234 567 → 1,2M.
+  const kfmt = n => {
+    const short = (x, unit) => x.toLocaleString('fr-FR', { maximumFractionDigits: x < 10 ? 1 : 0 }) + unit;
+    return n >= 999500 ? short(n / 1e6, 'M') : n >= 1000 ? short(n / 1000, 'k') : nf(n);
+  };
 
   function renderList() {
     const list = filtered();
@@ -478,9 +483,9 @@ footer { margin-top: 40px; padding-bottom: 48px; color: var(--ink-500); font-siz
         el('td', { className: 'col-title' }, el('a', { href: a.url, target: '_blank', rel: 'noopener', textContent: a.titre })),
         el('td', { className: 'col-rub', textContent: a.rubrique }),
         el('td', { className: 'col-need' }, badge(a.user_need)),
-        el('td', { className: 'num' + (a.visites == null ? ' na' : ''), textContent: a.visites != null ? nf(a.visites) : '—' }),
+        el('td', { className: 'num' + (a.visites == null ? ' na' : ''), textContent: a.visites != null ? kfmt(a.visites) : '—', title: a.visites != null ? `${nf(a.visites)} visites` : '' }),
         el('td', { className: 'num' + (readTime(a) == null ? ' na' : ''), textContent: readTime(a) != null ? duration(readTime(a)) : '—' }),
-        el('td', { className: 'col-aud', textContent: [a.visites != null ? `${nf(a.visites)} visites` : null,
+        el('td', { className: 'col-aud', textContent: [a.visites != null ? `${kfmt(a.visites)} visites` : null,
           readTime(a) != null ? `${duration(readTime(a))} de lecture par visite` : null].filter(Boolean).join(' · ') }));
       tr.addEventListener('click', e => {
         if (e.target.closest('a')) return;

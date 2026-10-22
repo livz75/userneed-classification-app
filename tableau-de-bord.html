@@ -116,6 +116,9 @@ td { border-bottom: 1px solid var(--border); padding: 11px 8px; vertical-align: 
 tr.row { cursor: pointer; }
 tr.row:hover td { background: var(--surface-page); }
 td.date { white-space: nowrap; color: var(--ink-500); }
+th.num, td.num { text-align: right; white-space: nowrap; }
+td.col-aud { display: none; }
+td.num.na { color: var(--ink-300); }
 td a { color: var(--ink-900); text-decoration: none; font-weight: 500; }
 td a:hover { text-decoration: underline; text-decoration-color: var(--yellow-deep); text-underline-offset: 3px; }
 td a:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
@@ -142,11 +145,15 @@ footer { margin-top: 40px; padding-bottom: 48px; color: var(--ink-500); font-siz
   /* Liste en mobile : date et pastille sur une ligne, titre en dessous (pas de police réduite). */
   table, tbody { display: block; }
   thead { display: none; }
-  tr.row { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "date need" "title title"; gap: 6px 10px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  tr.row { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "date need" "title title" "aud aud"; gap: 6px 10px; padding: 12px 0; border-bottom: 1px solid var(--border); }
   tr.row td { border: 0; padding: 0; }
   tr.row td.date { grid-area: date; align-self: center; }
   tr.row td.col-title { grid-area: title; }
   tr.row td.col-need { grid-area: need; }
+  /* Audience en mobile : une ligne « 12 345 visites · 1 min 51 s » sous le titre. */
+  tr.row td.num { display: none; }
+  tr.row td.col-aud { display: block; grid-area: aud; color: var(--ink-500); font-size: var(--fs-small); }
+  tr.row td.col-aud:empty { display: none; }
   tr.detail { display: block; }
   tr.detail td { display: block; padding: 12px; }
 }
@@ -211,7 +218,7 @@ footer { margin-top: 40px; padding-bottom: 48px; color: var(--ink-500); font-siz
       </div>
       <div class="count label" id="count"></div>
       <table>
-        <thead><tr><th>Date</th><th>Titre</th><th class="col-rub">Rubrique</th><th>User need</th></tr></thead>
+        <thead><tr><th>Date</th><th>Titre</th><th class="col-rub">Rubrique</th><th>User need</th><th class="num">Visites</th><th class="num" title="Temps passé par visite">Lecture</th></tr></thead>
         <tbody id="rows"></tbody>
       </table>
       <div class="more" id="more" hidden><button type="button">Afficher plus</button></div>
@@ -458,6 +465,9 @@ footer { margin-top: 40px; padding-bottom: 48px; color: var(--ink-500); font-siz
       && (!q || a.titre.toLowerCase().includes(q)));
   }
 
+  // Temps de lecture par visite (s), quand Piano l'a mesuré.
+  const readTime = a => a.visites && a.temps_s != null ? a.temps_s / a.visites : null;
+
   function renderList() {
     const list = filtered();
     $('count').textContent = `${nf(list.length)} article${list.length > 1 ? 's' : ''}`;
@@ -467,7 +477,11 @@ footer { margin-top: 40px; padding-bottom: 48px; color: var(--ink-500); font-siz
         el('td', { className: 'date', textContent: parisDate(a.date) }),
         el('td', { className: 'col-title' }, el('a', { href: a.url, target: '_blank', rel: 'noopener', textContent: a.titre })),
         el('td', { className: 'col-rub', textContent: a.rubrique }),
-        el('td', { className: 'col-need' }, badge(a.user_need)));
+        el('td', { className: 'col-need' }, badge(a.user_need)),
+        el('td', { className: 'num' + (a.visites == null ? ' na' : ''), textContent: a.visites != null ? nf(a.visites) : '—' }),
+        el('td', { className: 'num' + (readTime(a) == null ? ' na' : ''), textContent: readTime(a) != null ? duration(readTime(a)) : '—' }),
+        el('td', { className: 'col-aud', textContent: [a.visites != null ? `${nf(a.visites)} visites` : null,
+          readTime(a) != null ? `${duration(readTime(a))} de lecture par visite` : null].filter(Boolean).join(' · ') }));
       tr.addEventListener('click', e => {
         if (e.target.closest('a')) return;
         openId = openId === a.id ? null : a.id;
@@ -481,7 +495,7 @@ footer { margin-top: 40px; padding-bottom: 48px; color: var(--ink-500); font-siz
           a.visites != null ? `${nf(a.visites)} visites` : null,
           a.visites && a.temps_s != null ? `${duration(a.temps_s / a.visites)} de lecture par visite` : null,
           a.valide ? 'classement validé par un humain' : null].filter(Boolean).join(' · ');
-        rows.push(el('tr', { className: 'detail' }, el('td', { colSpan: 4 },
+        rows.push(el('tr', { className: 'detail' }, el('td', { colSpan: 6 },
           el('div', { textContent: a.justification || 'Pas de justification.' }),
           el('div', { className: 'meta', textContent: meta }))));
       }

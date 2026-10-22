@@ -8,7 +8,7 @@ import time
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse, parse_qs, quote
 import os
 import re
@@ -230,14 +230,15 @@ def build_public_presidentielle():
         batch = _supabase_get(
             'articles?select=external_id,titre,url,date_publication,word_count,tags,'
             'human_classifications(userneed,classified_at),'
-            'ai_analyses(test_run_id,predicted_userneed,justification,predictions,icp,confidence_level,analyzed_at)'
+            'ai_analyses(test_run_id,predicted_userneed,justification,predictions,icp,confidence_level,analyzed_at),'
+            'article_audience(visites,periode_fin)'
             f'&tags=cs.{tag_filter}&order=date_publication.desc&limit={page}&offset={offset}')
         rows += batch
         if len(batch) < page:
             break
         offset += page
 
-    articles, to_classify, last_analyzed = [], 0, ''
+    articles, to_classify, last_analyzed, audience_end = [], 0, '', ''
     for a in rows:
         sonnet = sorted((r for r in a.get('ai_analyses') or [] if r['test_run_id'] in run_ids),
                         key=lambda r: r.get('analyzed_at') or '', reverse=True)
@@ -250,6 +251,8 @@ def build_public_presidentielle():
         confidence = pred.get('confidence')
         if confidence is None and s.get('icp') is not None:
             confidence = s['icp'] / 100
+        audience = a.get('article_audience') or {}
+        audience_end = max(audience_end, audience.get('periode_fin') or '')
         url = a.get('url') or ''
         section = url.split('/')[3] if url.count('/') >= 4 else ''
         articles.append({
@@ -266,6 +269,7 @@ def build_public_presidentielle():
             'justification': s.get('justification') or '',
             'tags': a.get('tags') or [],
             'valide': bool(a.get('human_classifications')),
+            'visites': audience.get('visites'),
         })
     # Dernière actualisation : dernier article classé, ou dernier clic sur « Actualiser »
     # qui n'a rien trouvé à classer (connu tant que le serveur n'a pas redémarré).
@@ -280,6 +284,8 @@ def build_public_presidentielle():
         'tag': PUBLIC_TAG,
         'model': ANTHROPIC_MODEL,
         'a_classer': to_classify,
+        'audience': {'source': 'Piano Analytics (web + applis)', 'debut': AUDIENCE_START,
+                     'fin': audience_end or None},
         'articles': articles,
     }
 
@@ -427,19 +433,103 @@ def _run_refresh(articles):
                                'estimated_cost_usd': sum(usage[k] * p for k, p in SONNET_PRICING.items()) / 1e6},
                 'completed_at': datetime.now(timezone.utc).isoformat(),
             }, prefer='return=minimal')
-        _update_job(state='done', classified=analyzed)
+        _update_job(classified=analyzed)
     except Exception as e:
         print(f'⚠️  Actualisation du tableau de bord : {type(e).__name__}: {e}')
         _update_job(state='error', last_error=str(e)[:200])
-    finally:
-        _public_cache['payload'] = None   # le tableau de bord relit la base au prochain chargement
-        _update_job(finished_at=datetime.now(timezone.utc).isoformat(timespec='seconds'))
+
+
+# ── Audience Piano des articles ──
+# Visites cumulées (web + iOS + Android) depuis AUDIENCE_START, stockées dans
+# article_audience. Piano filtre mal sur une liste d'articles : on parcourt le
+# classement des pages par visites décroissantes (10 000 lignes par appel,
+# ~15 s, 200 000 lignes au plus par requête) jusqu'à avoir trouvé tous les
+# articles ou atteint les pages à très faible audience.
+PIANO_API_URL = 'https://api.atinternet.io/v3/data/getData'
+PIANO_SITES = [636629, 636633, 636628]   # franceinfo web, iOS, Android
+AUDIENCE_START = '2026-01-01'
+AUDIENCE_PAGE_SIZE = 10000
+AUDIENCE_MAX_PAGES = 20
+AUDIENCE_MIN_VISITS = 30
+
+
+def _piano_rows(start, end, page_num):
+    access, secret = os.environ.get('PIANO_ACCESS_KEY'), os.environ.get('PIANO_SECRET_KEY')
+    if not access or not secret:
+        raise RuntimeError('PIANO_ACCESS_KEY / PIANO_SECRET_KEY non configurées sur le serveur')
+    payload = {
+        'space': {'s': PIANO_SITES},
+        'columns': ['page', 'm_visits'],
+        'period': {'p1': [{'type': 'D', 'start': start, 'end': end}]},
+        'sort': ['-m_visits'],
+        'max-results': AUDIENCE_PAGE_SIZE,
+        'page-num': page_num,
+    }
+    req = urllib.request.Request(PIANO_API_URL, data=json.dumps(payload).encode('utf-8'), method='POST',
+                                 headers={'x-api-key': f'{access}_{secret}', 'Content-Type': 'application/json'})
+    try:
+        with urllib.request.urlopen(req, timeout=300, context=_ssl_context()) as resp:
+            return json.loads(resp.read()).get('DataFeed', {}).get('Rows', [])
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f'Piano {e.code} : {e.read()[:200].decode(errors="replace")}')
+
+
+def _refresh_audience():
+    """Relève dans Piano les visites des articles tagués et les enregistre dans article_audience."""
+    rows, offset, page = [], 0, 1000
+    tag_filter = quote('{"' + PUBLIC_TAG + '"}')
+    while True:
+        batch = _supabase_get(f'articles?select=id,external_id&tags=cs.{tag_filter}&limit={page}&offset={offset}')
+        rows += batch
+        if len(batch) < page:
+            break
+        offset += page
+    by_external = {a['external_id']: a['id'] for a in rows if a.get('external_id')}
+    end = (datetime.now(timezone.utc) - timedelta(days=1)).strftime('%Y-%m-%d')   # Piano : 48 h max avec aujourd'hui
+    _update_job(state='audience', audience_total=len(by_external), audience_found=0, audience_pages=0)
+
+    visits = {}
+    for page_num in range(1, AUDIENCE_MAX_PAGES + 1):
+        result = _piano_rows(AUDIENCE_START, end, page_num)
+        for r in result:
+            m = re.search(r'_(\d{6,8})$', r.get('page') or '')
+            if m and m.group(1) in by_external:
+                visits[m.group(1)] = visits.get(m.group(1), 0) + (r.get('m_visits') or 0)
+        _update_job(audience_found=len(visits), audience_pages=page_num)
+        if (len(result) < AUDIENCE_PAGE_SIZE or len(visits) == len(by_external)
+                or (result[-1].get('m_visits') or 0) < AUDIENCE_MIN_VISITS):
+            break
+
+    now = datetime.now(timezone.utc).isoformat()
+    records = [{'article_id': by_external[ext], 'visites': v, 'source': 'piano',
+                'periode_debut': AUDIENCE_START, 'periode_fin': end, 'updated_at': now}
+               for ext, v in visits.items()]
+    for i in range(0, len(records), 500):
+        _supabase_write('article_audience?on_conflict=article_id', 'POST', records[i:i + 500],
+                        prefer='resolution=merge-duplicates,return=minimal')
+    return len(records)
+
+
+def _refresh_worker(batch):
+    """Fil d'actualisation : classement des nouveaux articles, puis audience Piano."""
+    if batch:
+        _run_refresh(batch)
+    if refresh_status().get('state') != 'error':
+        try:
+            _update_job(audience_saved=_refresh_audience())
+        except Exception as e:
+            # L'audience est un complément : son échec n'invalide pas le classement.
+            print(f'⚠️  Audience Piano : {type(e).__name__}: {e}')
+            _update_job(audience_error=str(e)[:200])
+        _update_job(state='done')
+    _public_cache['payload'] = None   # le tableau de bord relit la base au prochain chargement
+    _update_job(finished_at=datetime.now(timezone.utc).isoformat(timespec='seconds'))
 
 
 def start_refresh():
     """Lance l'actualisation si aucune n'est en cours. Retourne l'état du travail."""
     with _refresh_lock:
-        if _refresh_job.get('state') in ('searching', 'running'):
+        if _refresh_job.get('state') in ('searching', 'running', 'audience'):
             return dict(_refresh_job)
         _refresh_job.clear()
         _refresh_job.update(state='searching', started_at=datetime.now(timezone.utc).isoformat(timespec='seconds'),
@@ -449,16 +539,13 @@ def start_refresh():
     except Exception as e:
         _update_job(state='error', last_error=f'Lecture des articles : {e}'[:200])
         return refresh_status()
-    if not articles:
-        _public_cache['payload'] = None
-        _update_job(state='done', finished_at=datetime.now(timezone.utc).isoformat(timespec='seconds'))
-        return refresh_status()
-    if get_anthropic_client() is None:
+    if articles and get_anthropic_client() is None:
         _update_job(state='error', last_error='ANTHROPIC_API_KEY non configurée sur le serveur')
         return refresh_status()
     batch = articles[:REFRESH_MAX_ARTICLES]
-    _update_job(state='running', total=len(batch), remaining=len(articles) - len(batch))
-    threading.Thread(target=_run_refresh, args=(batch,), daemon=True).start()
+    _update_job(state='running' if batch else 'audience', total=len(batch),
+                remaining=len(articles) - len(batch))
+    threading.Thread(target=_refresh_worker, args=(batch,), daemon=True).start()
     return refresh_status()
 
 

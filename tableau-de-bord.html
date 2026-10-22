@@ -273,7 +273,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
     $('aud-legend').replaceChildren(
       el('span', {}, el('i', { className: 'art', style: 'background:var(--muted)' }), 'Part des articles (barre claire)'),
       el('span', {}, el('i', { style: 'background:var(--muted)' }), 'Part des visites (barre foncée)'),
-      el('span', { textContent: `Indice ×1,0 = audience conforme au volume produit ; grisé : moins de ${MIN_ARTICLES} articles` }));
+      el('span', { textContent: `Indice ×1,0 = audience conforme au volume produit` }));
     const fin = audience && audience.fin ? new Date(audience.fin + 'T12:00:00Z').toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'long' }) : '';
     $('aud-foot').textContent = `Visites ${audience && audience.source ? audience.source : 'Piano'} cumulées depuis la publication, jusqu'au ${fin} · `
       + `${nf(V)} visites sur ${nf(N)} articles` + (N < arts.length ? ` (${nf(arts.length - N)} sans mesure, non comptés)` : '')

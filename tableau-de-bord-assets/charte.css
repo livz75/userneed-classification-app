@@ -77,15 +77,15 @@
   --verdict-none: var(--ink-250);   /* écart peu significatif (moins de 5 articles) */
 
   /* User needs : attribution de l'appli de labellisation, alignée sur la palette catégorielle.
-     --un-*-ink : couleur du texte posé sur la teinte (contraste le plus élevé). */
-  --un-update-me: var(--cat-blue);             --un-update-me-ink: var(--ink-950);
+     --un-*-ink : couleur du texte posé sur la teinte (blanc partout, choix éditorial). */
+  --un-update-me: var(--cat-blue);             --un-update-me-ink: var(--white);
   --un-give-me-perspective: var(--cat-violet); --un-give-me-perspective-ink: var(--white);
-  --un-explain-me: var(--cat-green);           --un-explain-me-ink: var(--ink-950);
-  --un-verify: var(--cat-red);                 --un-verify-ink: var(--ink-950);
+  --un-explain-me: var(--cat-green);           --un-explain-me-ink: var(--white);
+  --un-verify: var(--cat-red);                 --un-verify-ink: var(--white);
   --un-feel: var(--cat-pink);                  --un-feel-ink: var(--white);
   --un-summarize: var(--cat-grey);             --un-summarize-ink: var(--white);
-  --un-divert-me: var(--cat-orange);           --un-divert-me-ink: var(--ink-950);
-  --un-inspire-me: var(--cat-yellow);          --un-inspire-me-ink: var(--ink-900);
+  --un-divert-me: var(--cat-orange);           --un-divert-me-ink: var(--white);
+  --un-inspire-me: var(--cat-yellow);          --un-inspire-me-ink: var(--white);
   --un-guide-me: var(--ink-700);               --un-guide-me-ink: var(--white);
 
   /* Typographie */

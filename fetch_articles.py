@@ -74,6 +74,24 @@ def extract_tags(html):
     return tags
 
 
+def _signature_text(html, cls, tag):
+    m = re.search(r'class="%s[^"]*"[^>]*>(.*?)</%s>' % (cls, tag), html, re.DOTALL)
+    return re.sub(r'\s+', ' ', unescape(re.sub(r'<[^>]+>', ' ', m.group(1)))).strip() if m else ''
+
+
+def extract_equipe(html):
+    """Équipe éditoriale lue dans la signature de la page (même donnée que PIC).
+    « Radio France », « France Télévisions », « France Télévisions - Rédaction Culture » → « Culture »,
+    « … - Rédaction Sport » → « Sport » ; « Édité par l'agence 6Medias » → « 6Medias ». None si absente."""
+    if '6medias' in _signature_text(html, 'signature__names', 'div').lower().replace(' ', ''):
+        return '6Medias'
+    groupe = _signature_text(html, 'signature__groups', 'span')
+    if not groupe:
+        return None
+    m = re.search(r'R[ée]daction\s+(.+)$', groupe)
+    return m.group(1).strip() if m else groupe
+
+
 def _find_key(obj, key):
     if isinstance(obj, dict):
         if key in obj:
@@ -92,10 +110,10 @@ def _find_key(obj, key):
 
 def parse_article_html(html):
     """
-    Corps, type de média et tags d'une page article franceinfo.
-    Extrait 'articleBody' et '@type' du JSON-LD embarqué, et les
-    <meta property="article:tag">.
-    Retourne un tuple (corps: str, media_type: str|None, tags: list[str]).
+    Corps, type de média, tags et équipe d'une page article franceinfo.
+    Extrait 'articleBody' et '@type' du JSON-LD embarqué, les
+    <meta property="article:tag"> et l'équipe de la signature.
+    Retourne un tuple (corps: str, media_type: str|None, tags: list[str], equipe: str|None).
     """
     jsonld_blocks = re.findall(
         r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
@@ -114,13 +132,13 @@ def parse_article_html(html):
                 media_type = normalize_media_type(_find_key(data, '@type'))
         except Exception:
             continue
-    return body, media_type, extract_tags(html)
+    return body, media_type, extract_tags(html), extract_equipe(html)
 
 
 def scrape_article_body(url):
     """
-    Récupère le corps complet d'un article, son type de média et ses tags depuis son URL.
-    Retourne un tuple (corps: str, media_type: str|None, tags: list[str]).
+    Récupère le corps complet d'un article, son type de média, ses tags et son équipe depuis son URL.
+    Retourne un tuple (corps: str, media_type: str|None, tags: list[str], equipe: str|None).
     """
     try:
         req = urllib.request.Request(url, headers=HEADERS_HTML)
@@ -128,7 +146,7 @@ def scrape_article_body(url):
             html = resp.read().decode('utf-8', errors='replace')
     except Exception as e:
         print(f'    ⚠️  Scraping échoué ({url[:60]}...): {e}')
-        return '', None, []
+        return '', None, [], None
     return parse_article_html(html)
 
 
@@ -329,7 +347,7 @@ def update_missing_media_types(config):
     failed = 0
     for i, a in enumerate(to_update):
         print(f'  [{i+1}/{len(to_update)}] ', end='', flush=True)
-        _, media_type, _ = scrape_article_body(a['url'])
+        _, media_type, _, _ = scrape_article_body(a['url'])
         if not media_type:
             media_type = 'article'  # fallback
 
@@ -444,7 +462,7 @@ def main():
         print(f'  📝 Scraping du corps ({len(to_scrape)} articles)...')
         scraped = 0
         for a in to_scrape:
-            body, media_type, tags = scrape_article_body(a['url'])
+            body, media_type, tags, equipe = scrape_article_body(a['url'])
             # Toujours présent après scraping : l'upsert groupé PostgREST veut
             # les mêmes clés sur toutes les lignes.
             a['tags'] = tags
@@ -454,6 +472,8 @@ def main():
                 scraped += 1
             if media_type:
                 a.setdefault('metadata', {})['media_type'] = media_type
+            if equipe:
+                a.setdefault('metadata', {})['equipe'] = equipe
             time.sleep(SCRAPE_DELAY)
         print(f'  ✅ Corps récupéré pour {scraped}/{len(to_scrape)} articles')
 

@@ -238,7 +238,7 @@ def build_public_presidentielle():
     tag_filter = quote('{"' + PUBLIC_TAG + '"}')
     while True:
         batch = _supabase_get(
-            'articles?select=external_id,titre,url,date_publication,word_count,tags,'
+            'articles?select=external_id,titre,url,date_publication,word_count,tags,metadata,'
             'human_classifications(userneed,classified_at),'
             'ai_analyses(test_run_id,predicted_userneed,justification,predictions,icp,confidence_level,analyzed_at),'
             'article_audience(visites,temps_passe_ms,periode_fin)'
@@ -269,6 +269,7 @@ def build_public_presidentielle():
             'id': a['external_id'],
             'date': a['date_publication'],
             'rubrique': RUBRIQUES.get(section, 'Autres rubriques'),
+            'equipe': (a.get('metadata') or {}).get('equipe') or 'Non renseignée',
             'titre': a.get('titre') or '',
             'url': url,
             'nb_mots': a.get('word_count'),
@@ -985,7 +986,7 @@ Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
 
                 # Scraper l'article
                 from fetch_articles import scrape_article_body
-                body, media_type, tags = scrape_article_body(article_url)
+                body, media_type, tags, equipe = scrape_article_body(article_url)
                 # Nettoyer les caractères de contrôle qui cassent le JSON
                 if body:
                     body = re.sub(r'[\x00-\x1f\x7f]', ' ', body)
@@ -1028,7 +1029,7 @@ Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
                     'word_count': len(body.split()) if body else 0,
                     'date_publication': date_publication,
                     'date_modification': date_modification,
-                    'metadata': {'media_type': media_type or 'article'},
+                    'metadata': {'media_type': media_type or 'article', **({'equipe': equipe} if equipe else {})},
                     'tags': tags,
                 }).encode('utf-8')
 

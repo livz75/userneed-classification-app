@@ -85,7 +85,7 @@ def fetch_article(url):
     finally:
         time.sleep(0.25)
 
-    body, media_type, tags = parse_article_html(html)
+    body, media_type, tags, equipe = parse_article_html(html)
     if not body:
         return None, 'sans texte'
     body = re.sub(r'[\x00-\x1f\x7f]', ' ', body)
@@ -101,7 +101,7 @@ def fetch_article(url):
         'word_count': len(body.split()),
         'date_publication': meta(html, 'article:published_time') or None,
         'date_modification': meta(html, 'article:modified_time') or None,
-        'metadata': {'media_type': media_type or 'article', 'source': 'backfill_sitemap'},
+        'metadata': {'media_type': media_type or 'article', 'source': 'backfill_sitemap', **({'equipe': equipe} if equipe else {})},
         'tags': tags,
     }, None
 

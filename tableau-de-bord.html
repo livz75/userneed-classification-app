@@ -371,8 +371,9 @@ footer { margin-top: 40px; padding-bottom: 48px; color: var(--ink-500); font-siz
     const tMax = Math.max(avgTime || 0, ...rows.map(r => r.time || 0)) * 1.1 || 1;
     const tpos = t => t / tMax * 100;
 
-    // Couleurs de verdict uniquement (jamais celles des user needs) ; gris : moins de 5 articles.
-    const colorIdx = r => r.small ? 'var(--verdict-none)' : r.idx >= 1 ? 'var(--verdict-good)' : 'var(--verdict-bad)';
+    // Couleurs de verdict uniquement (jamais celles des user needs) ; version pâle sous 5 articles (écart fragile).
+    const colorIdx = r => r.idx >= 1 ? (r.small ? 'var(--verdict-good-soft)' : 'var(--verdict-good)')
+      : (r.small ? 'var(--verdict-bad-soft)' : 'var(--verdict-bad)');
     const colorTime = r => r.small ? 'var(--ink-100)' : r.time != null && avgTime != null && r.time < avgTime ? 'var(--ink-300)' : 'var(--ink-900)';
     const box = (cls, props = {}, ...kids) => el('div', { className: cls, ...props }, ...kids);
     const at = (node, left) => { node.style.left = left + '%'; return node; };

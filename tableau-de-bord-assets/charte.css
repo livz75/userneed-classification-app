@@ -75,6 +75,9 @@
   --verdict-mid: #F29220;
   --verdict-bad: #E8453C;
   --verdict-none: var(--ink-250);   /* écart peu significatif (moins de 5 articles) */
+  /* Même sens, version pâle : écart calculé sur moins de 5 articles, à lire avec prudence */
+  --verdict-good-soft: color-mix(in srgb, var(--verdict-good) 40%, var(--white));
+  --verdict-bad-soft: color-mix(in srgb, var(--verdict-bad) 40%, var(--white));
 
   /* User needs : attribution de l'appli de labellisation, alignée sur la palette catégorielle.
      --un-*-ink : couleur du texte posé sur la teinte (blanc partout, choix éditorial). */

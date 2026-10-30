@@ -149,7 +149,7 @@ footer { margin-top: 40px; padding-bottom: 48px; color: var(--ink-500); font-siz
 
 @media (max-width: 760px) {
   .kpis { grid-template-columns: 1fr 1fr; }
-  .col-rub { display: none; }
+  .col-team { display: none; }
   .bar { grid-template-columns: minmax(96px, 130px) 1fr auto; gap: 8px; }
   /* Écarts en mobile : le temps par visite reste en chiffres, sans sa barre, pour laisser la place à l'échelle. */
   .aud-row { grid-template-columns: 1fr auto; column-gap: 12px; }
@@ -251,7 +251,7 @@ footer { margin-top: 40px; padding-bottom: 48px; color: var(--ink-500); font-siz
       </div>
       <div class="count label" id="count"></div>
       <table>
-        <thead><tr><th>Date</th><th>Titre</th><th class="col-rub">Rubrique</th><th>User need</th><th class="num">Visites</th><th class="num" title="Temps passé par visite">Lecture</th></tr></thead>
+        <thead><tr><th>Date</th><th>Titre</th><th class="col-team">Équipe</th><th>User need</th><th class="num">Visites</th><th class="num" title="Temps passé par visite">Lecture</th></tr></thead>
         <tbody id="rows"></tbody>
       </table>
       <div class="more" id="more" hidden><button type="button">Afficher plus</button></div>
@@ -526,7 +526,7 @@ footer { margin-top: 40px; padding-bottom: 48px; color: var(--ink-500); font-siz
       const tr = el('tr', { className: 'row' },
         el('td', { className: 'date', textContent: parisDate(a.date) }),
         el('td', { className: 'col-title' }, el('a', { href: a.url, target: '_blank', rel: 'noopener', textContent: a.titre })),
-        el('td', { className: 'col-rub', textContent: a.rubrique }),
+        el('td', { className: 'col-team' + (a.equipe === 'Non renseignée' ? ' na' : ''), textContent: a.equipe === 'Non renseignée' ? '—' : a.equipe }),
         el('td', { className: 'col-need' }, badge(a.user_need)),
         el('td', { className: 'num' + (a.visites == null ? ' na' : ''), textContent: a.visites != null ? kfmt(a.visites) : '—', title: a.visites != null ? `${nf(a.visites)} visites` : '' }),
         el('td', { className: 'num' + (readTime(a) == null ? ' na' : ''), textContent: readTime(a) != null ? duration(readTime(a)) : '—' }),
@@ -541,7 +541,7 @@ footer { margin-top: 40px; padding-bottom: 48px; color: var(--ink-500); font-siz
       if (openId === a.id) {
         const meta = [a.confiance != null ? `Confiance ${pct(a.confiance)}` : null,
           a.etape ? `décision à l’étape ${a.etape}` : null,
-          a.equipe ? `équipe ${a.equipe}` : null,
+          a.rubrique ? `rubrique ${a.rubrique}` : null,
           a.nb_mots ? `${nf(a.nb_mots)} mots` : null,
           a.visites != null ? `${nf(a.visites)} visites` : null,
           a.visites && a.temps_s != null ? `${duration(a.temps_s / a.visites)} de lecture par visite` : null,

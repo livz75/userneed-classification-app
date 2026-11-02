@@ -553,10 +553,39 @@ def _refresh_audience():
     return len(records)
 
 
+def fill_missing_equipes(limit=200):
+    """Complète metadata.equipe des articles tagués qui n'en ont pas, en relisant la signature de leur page.
+    Un autre importeur réécrit parfois ces articles avec metadata vide : on rattrape à chaque actualisation.
+    Retourne (articles relus, équipes trouvées)."""
+    from fetch_articles import scrape_article_body
+    tag_filter = quote('{"' + PUBLIC_TAG + '"}')
+    rows = _supabase_get(f'articles?select=id,url,metadata&tags=cs.{tag_filter}'
+                         f'&metadata->>equipe=is.null&order=date_publication.desc&limit={limit}')
+    found = 0
+    for a in rows:
+        if not a.get('url'):
+            continue
+        _body, media_type, _tags, equipe = scrape_article_body(a['url'])
+        if not equipe:
+            continue
+        metadata = {**(a.get('metadata') or {}), 'equipe': equipe}
+        if media_type:
+            metadata.setdefault('media_type', media_type)
+        _supabase_write(f"articles?id=eq.{a['id']}", 'PATCH', {'metadata': metadata}, prefer='return=minimal')
+        found += 1
+        time.sleep(0.3)
+    return len(rows), found
+
+
 def _refresh_worker(batch):
-    """Fil d'actualisation : classement des nouveaux articles, puis audience Piano."""
+    """Fil d'actualisation : classement des nouveaux articles, équipes manquantes, puis audience Piano."""
     if batch:
         _run_refresh(batch)
+    try:
+        _update_job(equipes_completees=fill_missing_equipes()[1])
+    except Exception as e:
+        # Complément d'affichage : son échec n'interrompt pas l'actualisation.
+        print(f'⚠️  Équipes : {type(e).__name__}: {e}')
     if refresh_status().get('state') != 'error':
         try:
             _update_job(audience_saved=_refresh_audience())

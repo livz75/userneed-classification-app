@@ -168,7 +168,7 @@ PUBLIC_TAG = 'Présidentielle 2027'
 CORRECTION_SOURCE = 'tableau-de-bord'
 PUBLIC_RUN_PREFIX = 'Présidentielle 2027'
 PUBLIC_CACHE_SECONDS = 600
-_public_cache = {'at': 0, 'payload': None}
+_public_cache = {'at': 0, 'payload': None, 'last_good': None}
 
 RUBRIQUES = {
     'elections': 'Élections', 'politique': 'Politique', 'replay-jt': 'Replay JT',
@@ -220,9 +220,10 @@ def _supabase_get(query, attempts=2):
         try:
             with urllib.request.urlopen(req, timeout=30, context=_ssl_context()) as resp:
                 return json.loads(resp.read())
-        except urllib.error.HTTPError:
-            if attempt == attempts - 1:
+        except urllib.error.HTTPError as e:
+            if attempt == attempts - 1 or e.code < 500:
                 raise
+            time.sleep(attempt + 1)   # erreurs 5xx passagères (délai dépassé) : on laisse la base souffler
 
 
 def decision_step(cheminement):
@@ -237,15 +238,21 @@ def build_public_presidentielle():
                          + '&name=like.' + quote(PUBLIC_RUN_PREFIX + '*'))
     run_ids = {r['id'] for r in runs}
 
+    # Requête allégée : seules les analyses Sonnet de la page publique sont jointes (pas celles des
+    # 40 autres runs), et des prédictions on ne lit que la confiance et le cheminement.
+    # La base a des à-coups (délai de 3 s dépassé par moments) : petites pages, réessais espacés.
+    runs_filter = f"&ai_analyses.test_run_id=in.({','.join(sorted(run_ids))})" if run_ids else '&ai_analyses.limit=0'
     rows, offset, page = [], 0, 200
     tag_filter = quote('{"' + PUBLIC_TAG + '"}')
     while True:
         batch = _supabase_get(
-            'articles?select=external_id,titre,url,date_publication,word_count,tags,metadata,'
+            'articles?select=external_id,titre,url,date_publication,word_count,metadata,'
             'human_classifications(userneed,classified_by,classified_at),'
-            'ai_analyses(test_run_id,predicted_userneed,justification,predictions,icp,confidence_level,analyzed_at),'
+            'ai_analyses(test_run_id,predicted_userneed,justification,icp,analyzed_at,'
+            'confidence:predictions->0->confidence,cheminement:predictions->0->>cheminement),'
             'article_audience(visites,temps_passe_ms,periode_fin)'
-            f'&tags=cs.{tag_filter}&order=date_publication.desc&limit={page}&offset={offset}')
+            f'&tags=cs.{tag_filter}{runs_filter}&order=date_publication.desc&limit={page}&offset={offset}',
+            attempts=4)
         rows += batch
         if len(batch) < page:
             break
@@ -260,8 +267,7 @@ def build_public_presidentielle():
             continue
         s = sonnet[0]
         last_analyzed = max(last_analyzed, s.get('analyzed_at') or '')
-        pred = (s.get('predictions') or [{}])[0] or {}
-        confidence = pred.get('confidence')
+        confidence = s.get('confidence')
         if confidence is None and s.get('icp') is not None:
             confidence = s['icp'] / 100
         correction = next((h for h in a.get('human_classifications') or []
@@ -283,10 +289,8 @@ def build_public_presidentielle():
             'user_need_ia': s['predicted_userneed'],
             'corrige_le': correction.get('classified_at') if correction else None,
             'confiance': confidence,
-            'niveau': (s.get('confidence_level') or '').capitalize(),
-            'etape': decision_step(pred.get('cheminement')),
+            'etape': decision_step(s.get('cheminement')),
             'justification': s.get('justification') or '',
-            'tags': a.get('tags') or [],
             'valide': any(h.get('classified_by') != CORRECTION_SOURCE for h in a.get('human_classifications') or []),
             'visites': audience.get('visites'),
             'temps_s': round(audience['temps_passe_ms'] / 1000) if audience.get('temps_passe_ms') is not None else None,
@@ -334,8 +338,16 @@ def save_correction(external_id, user_need):
 def public_presidentielle_payload():
     now = time.time()
     if _public_cache['payload'] is None or now - _public_cache['at'] > PUBLIC_CACHE_SECONDS:
-        _public_cache['payload'] = json.dumps(build_public_presidentielle(), ensure_ascii=False).encode('utf-8')
-        _public_cache['at'] = now
+        try:
+            payload = json.dumps(build_public_presidentielle(), ensure_ascii=False).encode('utf-8')
+        except Exception as e:
+            # Base momentanément lente : on sert la dernière version connue plutôt qu'une erreur.
+            if _public_cache['last_good'] is None:
+                raise
+            print(f'⚠️  Tableau de bord : dernière version servie ({type(e).__name__}: {e})')
+            _public_cache.update(payload=_public_cache['last_good'], at=now - PUBLIC_CACHE_SECONDS + 60)   # nouvel essai dans 1 min
+            return _public_cache['last_good']
+        _public_cache.update(payload=payload, last_good=payload, at=now)
     return _public_cache['payload']
 
 

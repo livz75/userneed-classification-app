@@ -39,7 +39,8 @@ DASHBOARD_PASSWORD = os.environ.get('DASHBOARD_PASSWORD', '')
 DASHBOARD_PAGE_PATHS = ('/tableau-de-bord', '/tableau-de-bord/')
 DASHBOARD_DATA_PATH = '/tableau-de-bord/donnees'
 DASHBOARD_REFRESH_PATH = '/tableau-de-bord/actualiser'
-DASHBOARD_PATHS = {*DASHBOARD_PAGE_PATHS, DASHBOARD_DATA_PATH, DASHBOARD_REFRESH_PATH}
+DASHBOARD_CORRECT_PATH = '/tableau-de-bord/corriger'
+DASHBOARD_PATHS = {*DASHBOARD_PAGE_PATHS, DASHBOARD_DATA_PATH, DASHBOARD_REFRESH_PATH, DASHBOARD_CORRECT_PATH}
 # Charte du tableau de bord (tokens CSS, polices) : servie avec les mêmes identifiants que la page.
 DASHBOARD_ASSETS_PREFIX = '/tableau-de-bord/assets/'
 DASHBOARD_ASSETS_DIR = 'tableau-de-bord-assets'
@@ -163,6 +164,8 @@ def classify_with_anthropic(system_prompt, titre, chapo, corps, effort='medium')
 # champs affichés, et mises en cache : la page est publique et le rôle anon
 # de Supabase a un statement_timeout de 3 s.
 PUBLIC_TAG = 'Présidentielle 2027'
+# Auteur des corrections humaines saisies dans le tableau de bord (table human_classifications).
+CORRECTION_SOURCE = 'tableau-de-bord'
 PUBLIC_RUN_PREFIX = 'Présidentielle 2027'
 PUBLIC_CACHE_SECONDS = 600
 _public_cache = {'at': 0, 'payload': None}
@@ -239,7 +242,7 @@ def build_public_presidentielle():
     while True:
         batch = _supabase_get(
             'articles?select=external_id,titre,url,date_publication,word_count,tags,metadata,'
-            'human_classifications(userneed,classified_at),'
+            'human_classifications(userneed,classified_by,classified_at),'
             'ai_analyses(test_run_id,predicted_userneed,justification,predictions,icp,confidence_level,analyzed_at),'
             'article_audience(visites,temps_passe_ms,periode_fin)'
             f'&tags=cs.{tag_filter}&order=date_publication.desc&limit={page}&offset={offset}')
@@ -261,6 +264,8 @@ def build_public_presidentielle():
         confidence = pred.get('confidence')
         if confidence is None and s.get('icp') is not None:
             confidence = s['icp'] / 100
+        correction = next((h for h in a.get('human_classifications') or []
+                           if h.get('classified_by') == CORRECTION_SOURCE), None)
         audience = a.get('article_audience') or {}
         audience_end = max(audience_end, audience.get('periode_fin') or '')
         url = a.get('url') or ''
@@ -273,13 +278,16 @@ def build_public_presidentielle():
             'titre': a.get('titre') or '',
             'url': url,
             'nb_mots': a.get('word_count'),
-            'user_need': s['predicted_userneed'],
+            # La correction humaine prime : tous les graphiques suivent le user need corrigé.
+            'user_need': correction['userneed'] if correction else s['predicted_userneed'],
+            'user_need_ia': s['predicted_userneed'],
+            'corrige_le': correction.get('classified_at') if correction else None,
             'confiance': confidence,
             'niveau': (s.get('confidence_level') or '').capitalize(),
             'etape': decision_step(pred.get('cheminement')),
             'justification': s.get('justification') or '',
             'tags': a.get('tags') or [],
-            'valide': bool(a.get('human_classifications')),
+            'valide': any(h.get('classified_by') != CORRECTION_SOURCE for h in a.get('human_classifications') or []),
             'visites': audience.get('visites'),
             'temps_s': round(audience['temps_passe_ms'] / 1000) if audience.get('temps_passe_ms') is not None else None,
         })
@@ -300,6 +308,27 @@ def build_public_presidentielle():
                      'fin': audience_end or None},
         'articles': articles,
     }
+
+
+def save_correction(external_id, user_need):
+    """Enregistre (ou annule si user_need est None) la correction humaine d'un article Présidentielle."""
+    tag_filter = quote('{"' + PUBLIC_TAG + '"}')
+    found = _supabase_get(f'articles?select=id&external_id=eq.{quote(external_id)}&tags=cs.{tag_filter}&limit=1')
+    if not found:
+        raise LookupError('article inconnu')
+    article_id = found[0]['id']
+    if user_need is None:
+        _supabase_write(f'human_classifications?article_id=eq.{article_id}&classified_by=eq.{CORRECTION_SOURCE}',
+                        'DELETE', prefer='return=minimal')
+        corrected_at = None
+    else:
+        corrected_at = datetime.now(timezone.utc).isoformat(timespec='seconds')
+        _supabase_write('human_classifications?on_conflict=article_id,classified_by', 'POST',
+                        {'article_id': article_id, 'userneed': user_need,
+                         'classified_by': CORRECTION_SOURCE, 'classified_at': corrected_at},
+                        prefer='resolution=merge-duplicates,return=minimal')
+    _public_cache['payload'] = None
+    return corrected_at
 
 
 def public_presidentielle_payload():
@@ -852,6 +881,31 @@ Règle CRITIQUE : Le total des 3 scores doit être exactement égal à 100."""
 
         if urlparse(self.path).path == DASHBOARD_REFRESH_PATH:
             self._send_json(202, start_refresh())
+            return
+
+        if urlparse(self.path).path == DASHBOARD_CORRECT_PATH:
+            # JSON obligatoire : un formulaire d'un autre site ne peut pas l'envoyer sans pré-vol CORS.
+            length = int(self.headers.get('Content-Length') or 0)
+            if not (self.headers.get('Content-Type') or '').startswith('application/json') or not 0 < length <= 2000:
+                self._send_json(400, {'error': 'requête invalide'})
+                return
+            try:
+                body = json.loads(self.rfile.read(length))
+                external_id, user_need = str(body['id']), body.get('user_need')
+            except (ValueError, KeyError, TypeError):
+                self._send_json(400, {'error': 'requête invalide'})
+                return
+            if user_need is not None and user_need not in USERNEED_LABELS:
+                self._send_json(400, {'error': 'user need inconnu'})
+                return
+            try:
+                self._send_json(200, {'id': external_id, 'user_need': user_need,
+                                      'corrige_le': save_correction(external_id, user_need)})
+            except LookupError:
+                self._send_json(404, {'error': 'article inconnu'})
+            except Exception as e:
+                print(f'⚠️  {DASHBOARD_CORRECT_PATH} : {type(e).__name__}: {e}')
+                self._send_json(502, {'error': 'enregistrement impossible'})
             return
 
         # Unified analyze endpoint - OpenRouter only

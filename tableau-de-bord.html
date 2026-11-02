@@ -138,6 +138,16 @@ td a { color: var(--ink-900); text-decoration: none; font-weight: 500; }
 td a:hover { text-decoration: underline; text-decoration-color: var(--yellow-deep); text-underline-offset: 3px; }
 td a:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 .badge { display: inline-block; font: 700 var(--fs-label)/1.5 var(--font-label); letter-spacing: var(--ls-label); text-transform: uppercase; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+/* Correction humaine : la pastille est un menu déroulant aux couleurs du user need. */
+.need-edit { position: relative; display: inline-block; }
+.need-edit select { field-sizing: content; appearance: none; -webkit-appearance: none; border: 1px solid transparent; cursor: pointer; padding-right: 24px; color: var(--ink-900); }
+.need-edit::after { content: '▾'; position: absolute; right: 9px; top: 50%; transform: translateY(-50%); font-size: var(--fs-label); color: var(--ink-700); pointer-events: none; }
+.need-edit select:hover { border-color: var(--ink-300); }
+.need-edit select:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.need-edit select:disabled { opacity: .6; cursor: wait; }
+.need-edit.corrige select { border-color: var(--ink-700); }
+.need-note { display: block; margin-top: 4px; font: 700 var(--fs-label)/1.4 var(--font-label); letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--ink-500); }
+.need-note.err { color: var(--verdict-bad); }
 tr.detail td { background: var(--surface-grey); color: var(--ink-900); }
 tr.detail .meta { color: var(--ink-500); margin-top: 6px; font-size: var(--fs-small); }
 .more { margin-top: 14px; text-align: center; }
@@ -287,7 +297,6 @@ footer { margin-top: 40px; padding-bottom: 48px; color: var(--ink-500); font-siz
   const parisDate = iso => new Date(iso).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit', year: 'numeric' });
   const parisDay = iso => new Date(iso).toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' });   // AAAA-MM-JJ
   const parisMonth = iso => new Date(iso).toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' }).slice(0, 7);
-  const badge = un => el('span', { className: 'badge', textContent: un, style: `background:var(--un-${slug(un)}-soft, var(--surface-grey));color:var(--ink-900)` });
   const guill = s => `«${NB}${s}${NB}»`;
 
   let all = [], audienceInfo = null, shown = PAGE, openId = null;
@@ -518,28 +527,63 @@ footer { margin-top: 40px; padding-bottom: 48px; color: var(--ink-500); font-siz
     return n >= 999500 ? short(n / 1e6, 'M') : n >= 1000 ? short(n / 1000, 'k') : nf(n);
   };
 
+  // Pastille modifiable : corrige le user need proposé par Sonnet (enregistré côté serveur).
+  // L'option « proposition de Sonnet » annule la correction.
+  function needEditor(a) {
+    const sel = el('select', { className: 'badge', title: a.corrige_le ? `Corrigé à la main · proposition de Sonnet${NB}: ${a.user_need_ia}` : 'Corriger le user need',
+      style: `background:var(--un-${slug(a.user_need)}-soft, var(--surface-grey))` });
+    sel.setAttribute('aria-label', `User need de l’article ${guill(a.titre)}`);
+    for (const u of NEEDS) sel.append(el('option', { value: u, textContent: u, selected: u === a.user_need }));
+    if (a.corrige_le) sel.append(el('option', { value: '', textContent: '↺ Revenir à Sonnet' }));
+    const wrap = el('span', { className: 'need-edit' + (a.corrige_le ? ' corrige' : '') }, sel);
+    const cell = el('span', {}, wrap);
+    if (a.corrige_le) cell.append(el('span', { className: 'need-note', textContent: 'Corrigé' }));
+    sel.addEventListener('change', async () => {
+      const value = sel.value === '' || sel.value === a.user_need_ia ? null : sel.value;
+      sel.disabled = true;
+      try {
+        const res = await fetch('/tableau-de-bord/corriger', { method: 'POST', cache: 'no-store',
+          headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: a.id, user_need: value }) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const saved = await res.json();
+        a.user_need = saved.user_need || a.user_need_ia;
+        a.corrige_le = saved.corrige_le;
+        renderAll();
+      } catch (err) {
+        sel.disabled = false;
+        sel.value = a.user_need;
+        cell.querySelector('.need-note')?.remove();
+        cell.append(el('span', { className: 'need-note err', textContent: 'Échec, réessayez' }));
+      }
+    });
+    return cell;
+  }
+
   function renderList() {
     const list = filtered();
-    $('count').textContent = `${nf(list.length)} article${list.length > 1 ? 's' : ''}`;
+    const fixes = scoped().filter(a => a.corrige_le).length;
+    $('count').textContent = `${nf(list.length)} article${list.length > 1 ? 's' : ''}`
+      + (fixes ? ` · ${nf(fixes)} corrigé${fixes > 1 ? 's' : ''} à la main` : '');
     const rows = [];
     for (const a of list.slice(0, shown)) {
       const tr = el('tr', { className: 'row' },
         el('td', { className: 'date', textContent: parisDate(a.date) }),
         el('td', { className: 'col-title' }, el('a', { href: a.url, target: '_blank', rel: 'noopener', textContent: a.titre })),
         el('td', { className: 'col-team' + (a.equipe === 'Non renseignée' ? ' na' : ''), textContent: a.equipe === 'Non renseignée' ? '—' : a.equipe }),
-        el('td', { className: 'col-need' }, badge(a.user_need)),
+        el('td', { className: 'col-need' }, needEditor(a)),
         el('td', { className: 'num' + (a.visites == null ? ' na' : ''), textContent: a.visites != null ? kfmt(a.visites) : '—', title: a.visites != null ? `${nf(a.visites)} visites` : '' }),
         el('td', { className: 'num' + (readTime(a) == null ? ' na' : ''), textContent: readTime(a) != null ? duration(readTime(a)) : '—' }),
         el('td', { className: 'col-aud', textContent: [a.visites != null ? `${kfmt(a.visites)} visites` : null,
           readTime(a) != null ? `${duration(readTime(a))} de lecture par visite` : null].filter(Boolean).join(' · ') }));
       tr.addEventListener('click', e => {
-        if (e.target.closest('a')) return;
+        if (e.target.closest('a, .need-edit')) return;
         openId = openId === a.id ? null : a.id;
         renderList();
       });
       rows.push(tr);
       if (openId === a.id) {
-        const meta = [a.confiance != null ? `Confiance ${pct(a.confiance)}` : null,
+        const meta = [a.corrige_le ? `corrigé à la main le ${parisDate(a.corrige_le)}, proposition de Sonnet${NB}: ${a.user_need_ia}` : null,
+          a.confiance != null ? `Confiance ${pct(a.confiance)}` : null,
           a.etape ? `décision à l’étape ${a.etape}` : null,
           a.rubrique ? `rubrique ${a.rubrique}` : null,
           a.nb_mots ? `${nf(a.nb_mots)} mots` : null,

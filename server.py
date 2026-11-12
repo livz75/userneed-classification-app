@@ -174,6 +174,16 @@ RUBRIQUES = {
     'elections': 'Élections', 'politique': 'Politique', 'replay-jt': 'Replay JT',
     'replay-magazine': 'Replay magazine', 'replay-radio': 'Replay radio',
 }
+MEDIA_TYPES = {'article': 'Article', 'video': 'Vidéo', 'autre': 'Autre'}
+
+
+def content_type(section, media_type):
+    """Type de contenu du filtre : la rubrique replay prime, puis le @type JSON-LD ; à défaut, un article."""
+    if section in ('replay-jt', 'replay-magazine'):
+        return 'Vidéo'
+    if section == 'replay-radio':
+        return 'Radio'
+    return MEDIA_TYPES.get(media_type, 'Article')
 
 
 def supabase_config():
@@ -246,7 +256,7 @@ def build_public_presidentielle():
     tag_filter = quote('{"' + PUBLIC_TAG + '"}')
     while True:
         batch = _supabase_get(
-            'articles?select=external_id,titre,url,date_publication,word_count,metadata,'
+            'articles?select=external_id,titre,url,date_publication,word_count,metadata,tags,'
             'human_classifications(userneed,classified_by,classified_at),'
             'ai_analyses(test_run_id,predicted_userneed,justification,icp,analyzed_at,'
             'confidence:predictions->0->confidence,cheminement:predictions->0->>cheminement),'
@@ -281,6 +291,9 @@ def build_public_presidentielle():
             'date': a['date_publication'],
             'rubrique': RUBRIQUES.get(section, 'Autres rubriques'),
             'equipe': (a.get('metadata') or {}).get('equipe') or 'Non renseignée',
+            # Filtres « Tag » et « Type de contenu » du tableau de bord (le tag de la page est implicite).
+            'tags': [t for t in a.get('tags') or [] if t != PUBLIC_TAG],
+            'type': content_type(section, (a.get('metadata') or {}).get('media_type')),
             'titre': a.get('titre') or '',
             'url': url,
             'nb_mots': a.get('word_count'),

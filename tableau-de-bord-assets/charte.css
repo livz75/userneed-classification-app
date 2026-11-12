@@ -1,4 +1,4 @@
-/* Charte franceinfo du tableau de bord Présidentielle 2027 : polices et design tokens.
+/* Charte Prisme du tableau de bord Présidentielle 2027 : polices et design tokens.
    Seul fichier où figurent des couleurs et des polices ; tableau-de-bord.html n'emploie que ces variables.
    Polices auto-hébergées sous licence SIL OFL 1.1 (voir fonts/OFL-*.txt). */
 
@@ -37,89 +37,76 @@
 }
 
 :root {
-  /* Encre */
-  --ink-950: #1B1C1E;
-  --ink-900: #252628;
-  --ink-800: #33363C;
-  --ink-700: #44474D;
-  --ink-500: #62666F;
-  --ink-300: #AFB2B8;
-  --ink-250: #C9CBD0;
-  --ink-100: #E2E3E6;
+  /* Encre (bleu nuit Prisme) */
+  --ink-900: #141A33;
+  --ink-700: #3A4160;
+  --ink-500: #6B7189;
+  --ink-300: #A9AEC0;
+  --ink-100: #E6E9F0;
 
   /* Surfaces */
-  --surface-page: #F4F5F9;
+  --surface-page: #E3E9FB;
   --surface-card: #FFFFFF;
-  --surface-grey: #EEF0F6;
-  --border: #D9DCE4;
+  --surface-chart: #F7F8FB;
+  --surface-head: #E1E6F4;
+  --track: #ECEEF3;
+  --border: #D5DBEA;
+  --border-accent: #C6D2F6;
+  --rule-strong: #1B2A6B;   /* séparateurs du tableau des contenus */
   --white: #FFFFFF;
 
-  /* Signature : avec parcimonie, jamais en texte sur fond blanc (utiliser --yellow-deep en gras) */
-  --yellow: #FFC72C;
-  --yellow-hover: #FFD459;
-  --yellow-soft: #FFF7E0;
-  --yellow-deep: #B98A00;
+  /* Accent et états */
+  --accent: #2A47D9;
+  --accent-soft: #DCE5FB;
+  --ok: #3FA45B;
+  --warn: #E08A1E;
+  --bad: #CC2C4E;
+  --time: #C8752E;          /* courbe du temps de lecture */
+  --time-avg: #8E3B16;      /* moyenne globale (pointillés) */
+  --tip-bg: #141A33;
 
-  /* Palette catégorielle */
-  --cat-blue: #1AA6E8;
-  --cat-violet: #8E44E8;
-  --cat-pink: #E0218A;
-  --cat-red: #E8453C;
-  --cat-orange: #F29220;
-  --cat-green: #7CB342;
-  --cat-yellow: #FFC72C;
-  --cat-grey: #62666F;
+  /* Logo (facettes du prisme) */
+  --logo-top: #D6247F;
+  --logo-left: #3D5AFE;
+  --logo-right: #F29220;
 
-  /* Verdict : indices d'audience uniquement */
-  --verdict-good: #7CB342;
-  --verdict-mid: #F29220;
-  --verdict-bad: #E8453C;
-  --verdict-none: var(--ink-250);   /* écart peu significatif (moins de 5 articles) */
-  /* Même sens, version pâle : écart calculé sur moins de 5 articles, à lire avec prudence */
-  --verdict-good-soft: color-mix(in srgb, var(--verdict-good) 40%, var(--white));
-  --verdict-bad-soft: color-mix(in srgb, var(--verdict-bad) 40%, var(--white));
+  /* User needs (palette Prisme). Taxonomie du POC : VERIFY porte la teinte « Why »,
+     DIVERT ME celle d'« Entertain me ». */
+  --un-give-me-perspective: #4A5FE3;
+  --un-explain-me: #5B90E6;
+  --un-guide-me: #A32A98;
+  --un-feel: #6516B0;
+  --un-summarize: #3D37BF;
+  --un-inspire-me: #CC2C4E;
+  --un-update-me: #6EC5EC;
+  --un-verify: #360F9B;
+  --un-divert-me: #C95A26;
 
-  /* User needs : attribution de l'appli de labellisation, alignée sur la palette catégorielle.
-     --un-*-ink : couleur du texte posé sur la teinte (blanc partout, choix éditorial). */
-  --un-update-me: var(--cat-blue);             --un-update-me-ink: var(--white);
-  --un-give-me-perspective: var(--cat-violet); --un-give-me-perspective-ink: var(--white);
-  --un-explain-me: var(--cat-green);           --un-explain-me-ink: var(--white);
-  --un-verify: var(--cat-red);                 --un-verify-ink: var(--white);
-  --un-feel: var(--cat-pink);                  --un-feel-ink: var(--white);
-  --un-summarize: var(--cat-grey);             --un-summarize-ink: var(--white);
-  --un-divert-me: var(--cat-orange);           --un-divert-me-ink: var(--white);
-  --un-inspire-me: var(--cat-yellow);          --un-inspire-me-ink: var(--white);
-  --un-guide-me: var(--ink-700);               --un-guide-me-ink: var(--white);
-
-  /* Fonds pastel des pastilles (texte --ink-900) : teinte du user need éclaircie, dérivée de la palette. */
-  --un-update-me-soft: color-mix(in srgb, var(--un-update-me) 22%, var(--white));
-  --un-give-me-perspective-soft: color-mix(in srgb, var(--un-give-me-perspective) 22%, var(--white));
-  --un-explain-me-soft: color-mix(in srgb, var(--un-explain-me) 22%, var(--white));
-  --un-verify-soft: color-mix(in srgb, var(--un-verify) 22%, var(--white));
-  --un-feel-soft: color-mix(in srgb, var(--un-feel) 22%, var(--white));
-  --un-summarize-soft: color-mix(in srgb, var(--un-summarize) 22%, var(--white));
-  --un-divert-me-soft: color-mix(in srgb, var(--un-divert-me) 22%, var(--white));
-  --un-inspire-me-soft: color-mix(in srgb, var(--un-inspire-me) 35%, var(--white));
-  --un-guide-me-soft: color-mix(in srgb, var(--un-guide-me) 22%, var(--white));
+  /* Version claire (barres « Audience ») */
+  --un-give-me-perspective-soft: color-mix(in srgb, var(--un-give-me-perspective) 45%, var(--white));
+  --un-explain-me-soft: color-mix(in srgb, var(--un-explain-me) 45%, var(--white));
+  --un-guide-me-soft: color-mix(in srgb, var(--un-guide-me) 45%, var(--white));
+  --un-feel-soft: color-mix(in srgb, var(--un-feel) 45%, var(--white));
+  --un-summarize-soft: color-mix(in srgb, var(--un-summarize) 45%, var(--white));
+  --un-inspire-me-soft: color-mix(in srgb, var(--un-inspire-me) 45%, var(--white));
+  --un-update-me-soft: color-mix(in srgb, var(--un-update-me) 45%, var(--white));
+  --un-verify-soft: color-mix(in srgb, var(--un-verify) 45%, var(--white));
+  --un-divert-me-soft: color-mix(in srgb, var(--un-divert-me) 45%, var(--white));
 
   /* Typographie */
   --font-text: 'Archivo', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-label: 'Space Mono', ui-monospace, Menlo, Consolas, monospace;
-  --fs-h1: 38px;
-  --lh-h1: 1.15;
-  --fs-h2: 22px;
+  --fs-h1: 40px;
+  --fs-h2: 26px;
+  --fs-h3: 20px;
   --fs-body: 15px;
   --lh-body: 1.5;
   --fs-small: 13px;
-  --fs-label: 11px;
-  --fs-label-lg: 12px;
-  --ls-label: 0.08em;
-  --fs-kpi: 34px;
 
   /* Formes */
-  --radius-card: 14px;
+  --radius-card: 16px;
   --radius-control: 10px;
-  --radius-bar: 3px;
-  --pad-card: 24px;
-  --focus-ring: 2px solid var(--yellow-deep);
+  --radius-bar: 999px;
+  --pad-card: 32px;
+  --focus-ring: 2px solid var(--accent);
+  --shadow-pop: 0 10px 30px rgba(20, 26, 51, .14);
 }

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Présidentielle 2027 · Prisme</title>
+<title>User needs · Présidentielle 2027 · Prisme</title>
 <!-- Tableau de bord servi par server.py sur /tableau-de-bord, avec ses propres identifiants
      (DASHBOARD_USER / DASHBOARD_PASSWORD ; ceux de l’appli marchent aussi).
      Autonome : pas de style.css ni de script.js. Charte Prisme (tokens, polices) : tableau-de-bord-assets/charte.css,
@@ -44,6 +44,13 @@ main { padding: 32px 0 48px; display: grid; grid-template-columns: minmax(0, 1fr
 .hero > div:first-child { flex: 1 1 320px; }
 .updated { display: flex; align-items: center; gap: 10px; color: var(--ink-700); }
 .updated strong { font-weight: 500; }
+/* Titre « USER NEEDS » : capitales espacées en dégradé de la palette, filet des 9 teintes dessous. */
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 600; font-size: var(--fs-small); letter-spacing: .02em; }
+.card h1.title { margin: 14px 0 0; font-size: 64px; line-height: 1; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  background: linear-gradient(90deg, var(--un-give-me-perspective), var(--un-summarize) 30%, var(--un-feel) 55%, var(--un-guide-me) 78%, var(--un-inspire-me));
+  -webkit-background-clip: text; background-clip: text; color: transparent; width: fit-content; }
+.spectrum { display: flex; gap: 4px; margin: 14px 0 18px; }
+.spectrum i { width: 22px; height: 5px; border-radius: 999px; }
 .hero-note { margin: 6px 0 0 30px; color: var(--ink-500); font-size: var(--fs-small); }
 .refresh-box { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; max-width: 100%; }
 .btn { display: inline-flex; align-items: center; gap: 10px; padding: 11px 18px; border-radius: var(--radius-control); border: 1px solid var(--border); background: var(--white); font-weight: 600; cursor: pointer; white-space: nowrap; }
@@ -165,7 +172,7 @@ footer { color: var(--ink-500); font-size: var(--fs-small); padding-bottom: 40px
 @media (max-width: 640px) {
   .nav { display: none; }
   .topbar .wrap { justify-content: space-between; }
-  .card h1 { font-size: 30px; }
+  .card h1.title { font-size: 44px; }
   .pf { grid-template-columns: 1fr; }
   .refresh-box { align-items: stretch; width: 100%; }
   .refresh-status { text-align: left; }
@@ -215,7 +222,9 @@ footer { color: var(--ink-500); font-size: var(--fs-small); padding-bottom: 40px
   <main id="content" hidden>
     <section class="card hero">
       <div>
-        <h1>Dashboard Présidentielle 2027</h1>
+        <span class="chip"><span aria-hidden="true">🗳️</span> Présidentielle 2027</span>
+        <h1 class="title">User needs</h1>
+        <div class="spectrum" id="spectrum" aria-hidden="true"></div>
         <div class="updated">
           <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 2h4"/><path d="M12 14l3-3"/><circle cx="12" cy="14" r="8"/></svg>
           <span id="refresh-last">—</span>
@@ -756,6 +765,7 @@ footer { color: var(--ink-500); font-size: var(--fs-small); padding-bottom: 40px
   function renderAll() { for (const c of CARDS) { renderSync(c); RENDER[c](pick(c)); } }
 
   function setupStatic() {
+    $('spectrum').replaceChildren(...NEEDS.map(u => { const i = el('i', { title: label(u) }); i.style.background = COLOR(u); return i; }));
     $('f-need').append(...NEEDS.map(u => el('option', { value: u, textContent: label(u) })));
     $('f-need').addEventListener('change', () => { shown = PAGE; renderContenus(pick('contenus')); });
     $('f-q').addEventListener('input', () => { shown = PAGE; renderContenus(pick('contenus')); });

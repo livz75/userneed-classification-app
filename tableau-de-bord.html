@@ -56,7 +56,7 @@ main { padding: 32px 0 48px; display: grid; grid-template-columns: minmax(0, 1fr
 .refresh-status.bad { color: var(--bad); }
 
 /* Filtres de la page */
-.pf { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; gap: 16px; align-items: end; margin-top: 24px; }
+.pf { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 16px; align-items: end; margin-top: 24px; }
 .field { display: grid; gap: 8px; min-width: 0; }
 .field > span { font-weight: 600; }
 .select { position: relative; display: block; }
@@ -215,7 +215,7 @@ footer { color: var(--ink-500); font-size: var(--fs-small); padding-bottom: 40px
   <main id="content" hidden>
     <section class="card hero">
       <div>
-        <h1>Dashboard</h1>
+        <h1>Dashboard Présidentielle 2027</h1>
         <div class="updated">
           <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 2h4"/><path d="M12 14l3-3"/><circle cx="12" cy="14" r="8"/></svg>
           <span id="refresh-last">—</span>
@@ -326,12 +326,13 @@ footer { color: var(--ink-500); font-size: var(--fs-small); padding-bottom: 40px
   let sort = { key: 'date', dir: -1 };
 
   // ── Filtres : ceux de la page, et ceux propres à une carte (null = synchronisée avec la page) ──
-  const KEYS = ['tag', 'periode', 'equipe', 'type'];
-  const LABELS = { tag: 'Tag', periode: 'Période', equipe: 'Équipe', type: 'Type de contenu' };
-  const ALL_LABEL = { tag: 'Tous les tags', periode: 'Toute la période', equipe: 'Toutes les équipes', type: 'Tous les contenus' };
+  // Pas de filtre par tag : la page ne couvre que le tag Présidentielle 2027 (sélection côté serveur).
+  const KEYS = ['periode', 'equipe', 'type'];
+  const LABELS = { periode: 'Période', equipe: 'Équipe', type: 'Type de contenu' };
+  const ALL_LABEL = { periode: 'Toute la période', equipe: 'Toutes les équipes', type: 'Tous les contenus' };
   const PERIODS = [['mois', 'Mois en cours'], ['mois-1', 'Mois précédent'], ['30j', '30 derniers jours'], ['3m', '3 derniers mois'], ['annee', 'Année en cours']];
   const CARDS = ['repartition', 'performance', 'temporalite', 'contenus'];
-  const blank = () => ({ tag: '', periode: '', equipe: '', type: '' });
+  const blank = () => ({ periode: '', equipe: '', type: '' });
   let page = blank();
   const custom = Object.fromEntries(CARDS.map(c => [c, null]));
   const eff = card => custom[card] || page;
@@ -352,7 +353,6 @@ footer { color: var(--ink-500); font-size: var(--fs-small); padding-bottom: 40px
   }
 
   function matches(a, f) {
-    if (f.tag && !a.tags.includes(f.tag)) return false;
     if (f.equipe && a.equipe !== f.equipe) return false;
     if (f.type && a.type !== f.type) return false;
     if (f.periode) { const [from, to] = periodRange(f.periode); if (a.jour < from || a.jour > to) return false; }
@@ -363,9 +363,7 @@ footer { color: var(--ink-500); font-size: var(--fs-small); padding-bottom: 40px
   function buildOptions() {
     const count = get => { const c = {}; for (const a of all) for (const v of [].concat(get(a))) c[v] = (c[v] || 0) + 1; return c; };
     const byCount = (c, last) => Object.keys(c).sort((x, y) => (x === last) - (y === last) || c[y] - c[x] || x.localeCompare(y, 'fr'));
-    const tags = count(a => a.tags);
     options = {
-      tag: byCount(tags).filter(t => tags[t] >= 2).slice(0, 80).map(t => [t, t]),
       periode: PERIODS,
       equipe: byCount(count(a => a.equipe), 'Non renseignée').map(t => [t, t]),
       type: byCount(count(a => a.type), 'Non renseigné').map(t => [t, t]),
@@ -783,7 +781,7 @@ footer { color: var(--ink-500); font-size: var(--fs-small); padding-bottom: 40px
       const res = await fetch('/tableau-de-bord/donnees', fresh ? { cache: 'no-store' } : {});
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      all = data.articles.map(a => ({ ...a, tags: a.tags || [], type: a.type || 'Non renseigné', jour: parisDay(a.date), mois: parisDay(a.date).slice(0, 7) }));
+      all = data.articles.map(a => ({ ...a, type: a.type || 'Non renseigné', jour: parisDay(a.date), mois: parisDay(a.date).slice(0, 7) }));
       if (!all.length) throw new Error('aucun article');
       tag = data.tag;
 
